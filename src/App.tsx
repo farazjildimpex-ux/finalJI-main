@@ -10,10 +10,12 @@ import SampleBookPage from './components/SampleBook/SampleBookPage';
 import SettingsPage from './components/Settings/SettingsPage';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
+import NotificationInitializer from './components/Auth/NotificationInitializer';
 
 function App() {
   return (
     <Router>
+      <NotificationInitializer />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/app" element={<ProtectedRoute><Layout /></ProtectedRoute>}>

@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useCallback } from 'react';
 import { requestNotificationPermission, onForegroundMessage } from '../lib/firebase';
 import { supabase } from '../lib/supabaseClient';
@@ -17,15 +19,19 @@ export function useNotifications() {
       return;
     }
     setPermission(Notification.permission as NotificationPermissionStatus);
+    
+    // Auto-initialize if permission was already granted
+    if (Notification.permission === 'granted') {
+      enableNotifications();
+    }
   }, []);
 
-  // Listen for foreground messages and show a toast/notification
+  // Listen for foreground messages
   useEffect(() => {
     const unsub = onForegroundMessage((payload) => {
       console.log('Foreground message received:', payload);
       const title = payload.notification?.title || 'JILD IMPEX';
       const body = payload.notification?.body || '';
-      // Show browser notification even when app is open
       if (Notification.permission === 'granted') {
         new Notification(title, { body, icon: '/icon-192.png' });
       }
@@ -40,7 +46,9 @@ export function useNotifications() {
       if (token) {
         setFcmToken(token);
         setPermission('granted');
-        // Save FCM token to Supabase for this user
+        
+        // Save FCM token to Supabase if user is logged in
+        // If not logged in, the token is still active in the browser for broadcast messages
         if (user) {
           await supabase.from('user_fcm_tokens').upsert(
             { user_id: user.id, token, updated_at: new Date().toISOString() },
