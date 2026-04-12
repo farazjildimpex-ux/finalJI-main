@@ -3,38 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { isSupabaseConfigured, supabase, supabaseConfigError } from '../../lib/supabaseClient';
 import { AlertTriangle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
-const JildLogo = () => (
-  <div className="flex flex-col items-center gap-4">
-    {/* Logo mark */}
-    <div className="relative">
-      {/* Outer glow ring */}
-      <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 blur-xl opacity-30 scale-110" />
-      {/* Main mark */}
-      <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center shadow-2xl">
-        {/* Inner accent */}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent" />
-        {/* Monogram — equal height */}
-        <div className="flex items-center gap-0.5">
-          <span className="text-2xl font-black tracking-tighter text-white leading-none">J</span>
-          <span className="text-2xl font-black tracking-tighter text-blue-400 leading-none">I</span>
-        </div>
-        {/* Bottom accent bar */}
-        <div className="absolute bottom-1.5 left-3 right-3 h-0.5 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full opacity-70" />
-      </div>
-    </div>
-
-    {/* Wordmark */}
-    <div className="text-center">
-      <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
-        JILD <span className="text-blue-600">IMPEX</span>
-      </h1>
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.2em] mt-1.5">
-        Management Portal
-      </p>
-    </div>
-  </div>
-);
-
 const LoginPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -45,16 +13,10 @@ const LoginPage = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!isSupabaseConfigured) {
-      setError(supabaseConfigError);
-      return;
-    }
-
+    if (!isSupabaseConfigured) { setError(supabaseConfigError); return; }
     try {
       setLoading(true);
       setError(null);
-
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       navigate('/app');
@@ -71,29 +33,27 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex bg-slate-50">
-      {/* Left decorative panel — hidden on small screens */}
+
+      {/* ── Left panel (desktop only) ─────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 items-center justify-center relative overflow-hidden">
-        {/* Background pattern */}
-        <div className="absolute inset-0 opacity-10"
+        <div
+          className="absolute inset-0 opacity-10"
           style={{
             backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)',
             backgroundSize: '32px 32px',
           }}
         />
-        {/* Accent blobs */}
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl" />
 
         <div className="relative z-10 text-center px-12">
+          {/* Big JI mark */}
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-slate-700 to-slate-800 border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-2xl">
-            <div className="flex items-center gap-0.5">
-              <span className="text-3xl font-black text-white leading-none">J</span>
-              <span className="text-3xl font-black text-blue-400 leading-none">I</span>
-            </div>
+            <span className="text-3xl font-black leading-none tracking-tight">
+              <span className="text-white">J</span><span className="text-blue-400">I</span>
+            </span>
           </div>
-          <h2 className="text-3xl font-black text-white tracking-tight mb-3">
-            JILD IMPEX
-          </h2>
+          <h2 className="text-3xl font-black text-white tracking-tight mb-3">JILD IMPEX</h2>
           <p className="text-slate-400 text-sm leading-relaxed max-w-xs mx-auto">
             Leather trade management — contracts, samples, payments and more, all in one place.
           </p>
@@ -110,45 +70,53 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Right — login form */}
-      <div className="flex-1 flex items-center justify-center px-6 py-12">
+      {/* ── Right panel / full-screen on mobile ──────── */}
+      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10">
         <div className="w-full max-w-sm">
-          {/* Logo — visible on all sizes */}
-          <div className="flex justify-center mb-10">
-            <JildLogo />
+
+          {/* Logo mark */}
+          <div className="flex flex-col items-center mb-8">
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-2xl"
+              style={{ background: 'linear-gradient(135deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              <span className="text-2xl font-black leading-none tracking-tight">
+                <span className="text-white">J</span><span className="text-blue-400">I</span>
+              </span>
+            </div>
+            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
+              JILD <span className="text-blue-600">IMPEX</span>
+            </h1>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.2em] mt-1.5">
+              Management Portal
+            </p>
           </div>
 
           {/* Card */}
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-7">
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Welcome back</h2>
-            <p className="text-sm text-slate-500 mb-6">Sign in to your account to continue</p>
+          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-6">
+            <h2 className="text-base font-bold text-slate-900 mb-0.5">Welcome back</h2>
+            <p className="text-sm text-slate-500 mb-5">Sign in to your account to continue</p>
 
-            {/* Supabase not configured warning */}
             {!isSupabaseConfigured && (
-              <div className="mb-5 flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+              <div className="mb-4 flex gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
                 <div>
-                  <p className="font-semibold">Setup required</p>
-                  <p className="mt-0.5 text-amber-700 text-xs">
-                    Add <code className="bg-amber-100 px-1 rounded">VITE_SUPABASE_URL</code> and{' '}
-                    <code className="bg-amber-100 px-1 rounded">VITE_SUPABASE_ANON_KEY</code> to Replit Secrets.
-                  </p>
+                  <p className="font-semibold text-xs">Setup required</p>
+                  <p className="mt-0.5 text-amber-700 text-xs">Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to Replit Secrets.</p>
                 </div>
               </div>
             )}
 
-            {/* Error */}
             {error && (
-              <div className="mb-5 flex gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+              <div className="mb-4 flex gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                <span>{error}</span>
+                <span className="text-xs">{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleSignIn} className="space-y-4">
-              {/* Email */}
+            <form onSubmit={handleSignIn} className="space-y-3">
               <div>
-                <label htmlFor="email" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="email" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
                   Email
                 </label>
                 <input
@@ -160,13 +128,12 @@ const LoginPage = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={!isSupabaseConfigured}
                   placeholder="you@example.com"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder-slate-400"
+                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all placeholder-slate-400 text-slate-900"
                 />
               </div>
 
-              {/* Password */}
               <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-slate-600 mb-1.5 uppercase tracking-wide">
+                <label htmlFor="password" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
                   Password
                 </label>
                 <div className="relative">
@@ -179,7 +146,7 @@ const LoginPage = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={!isSupabaseConfigured}
                     placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 pr-11 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder-slate-400"
+                    className="w-full px-3.5 py-2.5 pr-11 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all placeholder-slate-400 text-slate-900"
                   />
                   <button
                     type="button"
@@ -192,11 +159,11 @@ const LoginPage = () => {
                 </div>
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading || !isSupabaseConfigured}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 mt-2 text-sm font-bold text-white bg-gradient-to-r from-slate-800 to-slate-900 rounded-xl hover:from-slate-700 hover:to-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-[0.98] shadow-lg shadow-slate-900/20"
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 mt-1 text-sm font-bold text-white rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: loading ? '#334155' : 'linear-gradient(135deg,#1e293b,#0f172a)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
               >
                 {loading ? (
                   <>
@@ -213,7 +180,7 @@ const LoginPage = () => {
             </form>
           </div>
 
-          <p className="text-center text-[11px] text-slate-400 mt-6">
+          <p className="text-center text-[11px] text-slate-400 mt-5">
             JILD IMPEX © {new Date().getFullYear()} · Leather Trade Management
           </p>
         </div>
