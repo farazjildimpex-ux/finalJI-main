@@ -32,11 +32,11 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center px-4" style={{ backgroundColor: '#020617' }}>
+    <div className="fixed inset-0 flex items-center justify-center px-4" style={{ backgroundColor: '#f1f5f9' }}>
       {/* Ambient glow */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-1/3 -left-1/4 w-[700px] h-[700px] rounded-full opacity-20 blur-[140px]" style={{ backgroundColor: '#1d4ed8' }} />
-        <div className="absolute -bottom-1/3 -right-1/4 w-[600px] h-[600px] rounded-full opacity-15 blur-[120px]" style={{ backgroundColor: '#4f46e5' }} />
+        <div className="absolute -top-1/3 -left-1/4 w-[700px] h-[700px] rounded-full opacity-20 blur-[140px]" style={{ backgroundColor: '#bfdbfe' }} />
+        <div className="absolute -bottom-1/3 -right-1/4 w-[600px] h-[600px] rounded-full opacity-20 blur-[120px]" style={{ backgroundColor: '#c7d2fe' }} />
       </div>
 
       <div className="relative w-full max-w-[390px]">
@@ -72,10 +72,10 @@ const LoginPage = () => {
               />
             </div>
           </div>
-          <h1 className="font-black tracking-tight" style={{ color: '#f8fafc', fontSize: 20 }}>
-            JILD <span style={{ color: '#60a5fa' }}>IMPEX</span>
+          <h1 className="font-black tracking-tight" style={{ color: '#0f172a', fontSize: 20 }}>
+            JILD <span style={{ color: '#2563eb' }}>IMPEX</span>
           </h1>
-          <p className="mt-1 font-medium uppercase" style={{ color: '#475569', fontSize: 10, letterSpacing: '0.15em' }}>
+          <p className="mt-1 font-medium uppercase" style={{ color: '#64748b', fontSize: 10, letterSpacing: '0.15em' }}>
             Management Portal
           </p>
         </div>
@@ -201,7 +201,7 @@ const LoginPage = () => {
           </form>
         </div>
 
-        <p className="text-center mt-6" style={{ color: '#1e293b', fontSize: 11 }}>
+        <p className="text-center mt-6" style={{ color: '#94a3b8', fontSize: 11 }}>
           JILD IMPEX © {new Date().getFullYear()} · Leather Trade Management
         </p>
       </div>
