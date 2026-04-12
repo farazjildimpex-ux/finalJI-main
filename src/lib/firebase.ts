@@ -1,4 +1,4 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
 
 const firebaseConfig = {
@@ -10,20 +10,48 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-export const firebaseApp = initializeApp(firebaseConfig);
+// Check if all required Firebase config values are present
+export const isFirebaseConfigured = Boolean(
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.appId &&
+  firebaseConfig.messagingSenderId
+);
+
+let app: FirebaseApp | null = null;
+
+if (isFirebaseConfigured) {
+  try {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+  } catch (error) {
+    console.error('Firebase initialization error:', error);
+  }
+} else {
+  console.warn('Firebase is not configured. Push notifications will be disabled. Please add VITE_FIREBASE_PROJECT_ID and other Firebase variables to your .env file.');
+}
+
+export const firebaseApp = app;
 
 let messaging: Messaging | null = null;
 
 export function getFirebaseMessaging(): Messaging | null {
-  if (typeof window === 'undefined') return null;
+  if (!isFirebaseConfigured || typeof window === 'undefined') return null;
   if (!('serviceWorker' in navigator)) return null;
-  if (!messaging) {
-    messaging = getMessaging(firebaseApp);
+  
+  try {
+    if (!messaging && firebaseApp) {
+      messaging = getMessaging(firebaseApp);
+    }
+  } catch (error) {
+    console.error('Error getting Firebase Messaging:', error);
+    return null;
   }
   return messaging;
 }
 
 export async function requestNotificationPermission(): Promise<string | null> {
+  if (!isFirebaseConfigured) return null;
+
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
@@ -35,8 +63,12 @@ export async function requestNotificationPermission(): Promise<string | null> {
     if (!msg) return null;
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+    if (!vapidKey) {
+      console.warn('VITE_FIREBASE_VAPID_KEY is missing');
+      return null;
+    }
+
     const token = await getToken(msg, { vapidKey });
-    console.log('FCM Token:', token);
     return token;
   } catch (error) {
     console.error('Error getting notification permission:', error);
