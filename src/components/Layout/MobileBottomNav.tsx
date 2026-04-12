@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Book, FileText, Bookmark, Receipt, Menu } from 'lucide-react';
+import { Home, Book, FileText, Bookmark, Receipt } from 'lucide-react';
 
 interface MobileBottomNavProps {
-  onOpenMenu: () => void;
+  // onOpenMenu is no longer needed since we removed the menu button
 }
 
-const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenMenu }) => {
+const MobileBottomNav: React.FC<MobileBottomNavProps> = () => {
   const location = useLocation();
   
   const navItems = [
@@ -48,15 +48,6 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ onOpenMenu }) => {
             </Link>
           );
         })}
-        
-        {/* Menu Trigger for Sidebar Actions */}
-        <button
-          onClick={onOpenMenu}
-          className="flex flex-col items-center justify-center flex-1 min-w-0 h-full text-gray-500 hover:text-gray-700"
-        >
-          <Menu className="h-5 w-5 mb-1" />
-          <span className="text-[10px] font-bold uppercase tracking-tighter">Menu</span>
-        </button>
       </div>
     </nav>
   );
