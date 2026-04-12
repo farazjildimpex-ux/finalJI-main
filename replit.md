@@ -1,47 +1,78 @@
-# JILD IMPEX Office App
+# JILD IMPEX Management Portal
 
-## Project Overview
-A leather trade management system for JILD IMPEX. Built as a pure frontend React SPA using Vite + TypeScript + Tailwind CSS. Authentication and database are handled entirely through Supabase (no Node.js backend).
+A leather import/export business management system for JILD IMPEX, Chennai.
 
-## Architecture
-- **Frontend**: Vite + React 18 + TypeScript + Tailwind CSS
-- **Auth & Database**: Supabase (direct from frontend)
-- **Routing**: React Router v6
-- **PDF Generation**: jsPDF + jsPDF-AutoTable
-- **Icons**: Lucide React
+## Tech Stack
 
-## Key Modules
-- **Contracts** — Create and manage leather trade contracts with file attachments
-- **Sample Book** — Track fabric/leather samples with status (Issued/Completed)
-- **Debit Notes** — Generate and manage debit notes with commission calculations
-- **Contact Book** — Manage suppliers, buyers and contacts
-- **Journal** — Private journal with reminders and file attachments
-- **Home** — Dashboard with recent orders, todos, and search
+- **Frontend**: React 18 + TypeScript + Vite
+- **Styling**: Tailwind CSS
+- **Backend/Auth/Database**: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
+- **Push Notifications**: Firebase Cloud Messaging (optional)
+- **PDF Generation**: jsPDF + jsPDF AutoTable
+- **Routing**: React Router DOM v6
 
-## Environment Variables (Secrets)
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — Supabase anon/public key
+## Features
+
+- **Contracts**: Create and manage leather supply contracts with PDF export
+- **Sample Book**: Track leather samples with shipment references
+- **Debit Notes**: Commission calculations with currency conversion and PDF export
+- **Contact Book**: Centralized business contact directory
+- **Journal & Reminders**: Time-based reminder system with FCM push notifications
+- **Dashboard**: Recent activity overview across all modules
+
+## Environment Variables (Replit Secrets)
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `VITE_SUPABASE_URL` | Yes | Supabase project URL (Settings → API) |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Supabase anon/public key (Settings → API) |
+| `VITE_FIREBASE_API_KEY` | No | Firebase API key (for push notifications) |
+| `VITE_FIREBASE_AUTH_DOMAIN` | No | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | No | Firebase project ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | No | Firebase storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | No | Firebase messaging sender ID |
+| `VITE_FIREBASE_APP_ID` | No | Firebase app ID |
+| `VITE_FIREBASE_VAPID_KEY` | No | Firebase VAPID key for web push |
 
 ## Running the App
-- **Dev**: `npm run dev` (runs on port 5000)
-- **Build**: `npm run build`
 
-## Replit Configuration
-- Vite dev server configured for `host: 0.0.0.0`, `port: 5000`, `allowedHosts: true`
-- Workflow: "Start application" runs `npm run dev`, webview on port 5000
-- Deployment: static site, output in `dist/`
+```
+npm run dev
+```
 
-## Supabase Schema (key tables)
-- `contracts` — trade contracts with multi-value array fields
-- `samples` — sample records with status tracking
-- `debit_notes` — debit notes with commission calculations
-- `contract_files` — file attachments linked to contracts
-- `companies` — supplier/buyer company records
-- `contact_book` — contact directory
-- `todos` — user-specific task list
-- `journal_entries` — private journal with reminders
+Runs on port 5000. The workflow "Start application" is configured to auto-start.
+
+## Project Structure
+
+```
+src/
+  App.tsx               # Root router
+  components/
+    Auth/               # Login page, protected routes, notification init
+    Contracts/          # Contract management
+    DebitNote/          # Debit note / payment management
+    SampleBook/         # Leather sample tracking
+    ContactBook/        # Contact directory
+    Home/               # Dashboard
+    Journal/            # Journal entries & reminders
+    Layout/             # Sidebar, navigation
+    Settings/           # App settings
+  hooks/
+    useAuth.ts          # Supabase auth state
+    useNotifications.ts # FCM push notification setup
+    useReminderChecker.ts # Reminder polling
+  lib/
+    supabaseClient.ts   # Supabase client init
+    firebase.ts         # Firebase/FCM init
+  types/
+    index.ts            # Shared TypeScript interfaces
+supabase/
+  migrations/           # PostgreSQL schema migrations
+  functions/            # Deno edge functions (check-reminders, onesignal-proxy)
+```
 
 ## Notes
-- All Supabase tables use Row Level Security (RLS)
-- The app uses Supabase Auth — users must be created in the Supabase dashboard
-- Supabase Edge Functions (check-reminders, onesignal-proxy) remain deployed on Supabase separately
+
+- Firebase/push notifications are optional — the app works fully without them
+- Supabase Edge Functions (`check-reminders`, `onesignal-proxy`) are deployed separately to Supabase
+- The Replit-provisioned PostgreSQL database is present but not actively used — Supabase is the data layer
