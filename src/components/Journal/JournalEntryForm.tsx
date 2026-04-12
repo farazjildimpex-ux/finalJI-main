@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
@@ -29,6 +29,7 @@ const JournalEntryForm: React.FC<{
   const [reminderDate, setReminderDate] = useState('');
   const [reminderTime, setReminderTime] = useState('09:00');
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (initialEntry) {
@@ -154,10 +155,9 @@ const JournalEntryForm: React.FC<{
               </div>
 
               {reminderEnabled && (
-                <div className="mt-2">
+                <div className="mt-2 flex flex-col gap-2">
                   <label className="block text-sm font-bold text-gray-700 mb-1">Date</label>
-                  <DatePicker
-                    label="Reminder Date"
+                  <DatePicker                    label="Reminder Date"
                     value={reminderDate}
                     onChange={(val) => setReminderDate(val)}
                     className="w-full px-4 py-2 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -174,7 +174,7 @@ const JournalEntryForm: React.FC<{
 
               <div className="mt-2 flex items-center">
                 <span className="text-sm text-blue-600">
-                  Reminder will trigger on {reminderDate} at {reminderTime}
+                  Reminder will be set for {reminderDate} at {reminderTime}
                 </span>
               </div>
             </div>
@@ -198,7 +198,7 @@ const JournalEntryForm: React.FC<{
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Write your thoughts..."
-                rows={6}
+                rows={8}
                 className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -212,8 +212,7 @@ const JournalEntryForm: React.FC<{
             className="px-6 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel          </button>
-          <button
-            type="submit"
+          <button            type="submit"
             disabled={saving}
             className="px-8 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg"
           >
