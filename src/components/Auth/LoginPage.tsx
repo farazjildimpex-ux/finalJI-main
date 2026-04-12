@@ -67,7 +67,7 @@ const LoginPage = () => {
                 <div>
                   <p className="font-medium">Supabase is not configured.</p>
                   <p className="mt-1 text-sm">
-                    If you've already added the variables to Netlify, you must <strong>trigger a new deploy</strong> (Clear cache and deploy) for the changes to take effect.
+                    Please add the required environment variables to your Replit project's Secrets tab and restart the application.
                   </p>
                   <p className="mt-2 text-xs opacity-75">
                     Required: <code className="rounded bg-amber-100 px-1 py-0.5">VITE_SUPABASE_URL</code> and <code className="rounded bg-amber-100 px-1 py-0.5">VITE_SUPABASE_ANON_KEY</code>
