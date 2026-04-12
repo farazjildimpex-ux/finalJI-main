@@ -32,158 +32,119 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
-
-      {/* ── Left panel (desktop only) ─────────────────── */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 items-center justify-center relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)',
-            backgroundSize: '32px 32px',
-          }}
-        />
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl" />
-
-        <div className="relative z-10 text-center px-12">
-          {/* Big JI mark */}
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-slate-700 to-slate-800 border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md">
+        {/* Logo mark */}
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4 shadow-2xl"
+            style={{ background: 'linear-gradient(135deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)' }}
+          >
             <span className="text-3xl font-black leading-none tracking-tight">
               <span className="text-white">J</span><span className="text-blue-400">I</span>
             </span>
           </div>
-          <h2 className="text-3xl font-black text-white tracking-tight mb-3">JILD IMPEX</h2>
-          <p className="text-slate-400 text-sm leading-relaxed max-w-xs mx-auto">
-            Leather trade management — contracts, samples, payments and more, all in one place.
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
+            JILD <span className="text-blue-600">IMPEX</span>
+          </h1>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-[0.2em] mt-2">
+            Management Portal
           </p>
-          <div className="mt-10 flex justify-center gap-6">
-            {['Contracts', 'Samples', 'Payments'].map((label) => (
-              <div key={label} className="text-center">
-                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-1.5">
-                  <div className="w-4 h-4 rounded-sm bg-blue-400/60" />
-                </div>
-                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
-              </div>
-            ))}
-          </div>
         </div>
-      </div>
 
-      {/* ── Right panel / full-screen on mobile ──────── */}
-      <div className="flex-1 flex flex-col items-center justify-center px-5 py-10">
-        <div className="w-full max-w-sm">
+        {/* Card */}
+        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 p-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-bold text-slate-900">Welcome back</h2>
+            <p className="text-sm text-slate-500 mt-1">Sign in to your account to continue</p>
+          </div>
 
-          {/* Logo mark */}
-          <div className="flex flex-col items-center mb-8">
-            <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-2xl"
-              style={{ background: 'linear-gradient(135deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)' }}
-            >
-              <span className="text-2xl font-black leading-none tracking-tight">
-                <span className="text-white">J</span><span className="text-blue-400">I</span>
-              </span>
+          {!isSupabaseConfigured && (
+            <div className="mb-6 flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-800">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-500" />
+              <div>
+                <p className="font-bold">Setup required</p>
+                <p className="mt-1 text-amber-700">Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to continue.</p>
+              </div>
             </div>
-            <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
-              JILD <span className="text-blue-600">IMPEX</span>
-            </h1>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.2em] mt-1.5">
-              Management Portal
-            </p>
-          </div>
+          )}
 
-          {/* Card */}
-          <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 p-6">
-            <h2 className="text-base font-bold text-slate-900 mb-0.5">Welcome back</h2>
-            <p className="text-sm text-slate-500 mb-5">Sign in to your account to continue</p>
+          {error && (
+            <div className="mb-6 flex gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl text-sm text-red-700">
+              <AlertTriangle className="h-5 w-5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-            {!isSupabaseConfigured && (
-              <div className="mb-4 flex gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
-                <div>
-                  <p className="font-semibold text-xs">Setup required</p>
-                  <p className="mt-0.5 text-amber-700 text-xs">Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to Replit Secrets.</p>
-                </div>
-              </div>
-            )}
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={!isSupabaseConfigured}
+                placeholder="you@example.com"
+                className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all placeholder-slate-400 text-slate-900"
+              />
+            </div>
 
-            {error && (
-              <div className="mb-4 flex gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                <span className="text-xs">{error}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSignIn} className="space-y-3">
-              <div>
-                <label htmlFor="email" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                  Email
-                </label>
+            <div>
+              <label htmlFor="password" className="block text-xs font-bold text-slate-500 mb-1.5 uppercase tracking-wider">
+                Password
+              </label>
+              <div className="relative">
                 <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   disabled={!isSupabaseConfigured}
-                  placeholder="you@example.com"
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all placeholder-slate-400 text-slate-900"
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 pr-12 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all placeholder-slate-400 text-slate-900"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={!isSupabaseConfigured}
-                    placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 pr-11 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 transition-all placeholder-slate-400 text-slate-900"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !isSupabaseConfigured}
-                className="w-full flex items-center justify-center gap-2 py-3 px-4 mt-1 text-sm font-bold text-white rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ background: loading ? '#334155' : 'linear-gradient(135deg,#1e293b,#0f172a)', boxShadow: '0 4px 14px rgba(0,0,0,0.2)' }}
-              >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Signing in…</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Sign in</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          <p className="text-center text-[11px] text-slate-400 mt-5">
-            JILD IMPEX © {new Date().getFullYear()} · Leather Trade Management
-          </p>
+            <button
+              type="submit"
+              disabled={loading || !isSupabaseConfigured}
+              className="w-full flex items-center justify-center gap-2 py-4 px-6 mt-2 text-sm font-bold text-white rounded-2xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-200"
+              style={{ background: loading ? '#334155' : 'linear-gradient(135deg,#1e293b,#0f172a)' }}
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Signing in…</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign in</span>
+                  <ArrowRight className="h-5 w-5" />
+                </>
+              )}
+            </button>
+          </form>
         </div>
+
+        <p className="text-center text-xs text-slate-400 mt-8">
+          JILD IMPEX © {new Date().getFullYear()} · Leather Trade Management
+        </p>
       </div>
     </div>
   );
