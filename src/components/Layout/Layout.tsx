@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import MobileHeader from './MobileHeader';
+import MobileBottomNav from './MobileBottomNav';
 import ChangePasswordModal from './ChangePasswordModal';
 import CompanyManagementModal from '../Companies/CompanyManagementModal';
 import { useReminderChecker } from '../../hooks/useReminderChecker';
@@ -38,13 +38,13 @@ const Layout: React.FC = () => {
       {/* Mobile Sidebar Overlay */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
 
       {/* Mobile Sidebar Drawer */}
-      <aside className={`fixed inset-y-0 left-0 w-64 bg-white z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-white z-[70] transform transition-transform duration-300 ease-in-out md:hidden ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <div className="flex flex-col h-full">
@@ -73,16 +73,19 @@ const Layout: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <MobileHeader onOpenMenu={() => setIsMobileMenuOpen(true)} />
+        {/* Top Header Removed as requested */}
         
         <main 
           ref={scrollContainerRef}
           className="flex-1 h-full overflow-y-auto overflow-x-hidden scroll-smooth"
         >
-          <div className="min-h-full pb-20 md:pb-0">
+          <div className="min-h-full pb-24 md:pb-0">
             <Outlet />
           </div>
         </main>
+
+        {/* Bottom Navigation for Mobile */}
+        <MobileBottomNav onOpenMenu={() => setIsMobileMenuOpen(true)} />
       </div>
 
       <ChangePasswordModal
