@@ -191,7 +191,7 @@ const SettingsPage: React.FC = () => {
             </div>
             <div>
               <p className="text-sm font-bold text-gray-900">Push Notifications</p>
-              <p className="text-[10px] text-gray-500 font-medium">
+              <p className="text-xs text-gray-500">
                 {permission === 'granted'
                   ? 'Enabled — you will receive journal reminders and alerts'
                   : permission === 'denied'
@@ -220,12 +220,12 @@ const SettingsPage: React.FC = () => {
                   });
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-[10px] font-black uppercase rounded-xl tracking-widest hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl hover:bg-blue-100 transition-colors"
             >
               <CheckCircle2 className="h-3 w-3" /> On · Test
             </button>
           ) : permission === 'denied' ? (
-            <span className="px-2.5 py-1 bg-red-50 text-red-600 text-[10px] font-black uppercase rounded-full tracking-widest">
+            <span className="px-2.5 py-1 bg-red-50 text-red-600 text-xs font-semibold rounded-full">
               Blocked
             </span>
           ) : permission !== 'unsupported' && (
@@ -293,7 +293,7 @@ const SettingsPage: React.FC = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-end">
               <div className="space-y-0.5">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Database Usage</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Database Usage</p>
                 <p className="text-2xl font-black text-gray-900">{usagePercent}%</p>
               </div>
               <p className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-lg">
@@ -344,7 +344,7 @@ const SettingsPage: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-gray-900">{item.label}</p>
-                    <p className="text-[10px] text-gray-500 font-medium">{stats[item.key as keyof typeof stats]} total entries</p>
+                    <p className="text-xs text-gray-500">{stats[item.key as keyof typeof stats]} total entries</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -418,7 +418,7 @@ const SettingsPage: React.FC = () => {
           <AlertCircle className="h-4 w-4 text-amber-600" />
         </div>
         <div className="text-xs text-amber-900">
-          <p className="font-black uppercase tracking-widest text-[9px] mb-0.5">Safety Warning</p>
+          <p className="font-bold text-xs mb-1">Safety Warning</p>
           <p className="font-medium leading-relaxed opacity-80">
             Deleting records here is permanent. This tool is designed for system maintenance and clearing old data. 
             Please ensure you have backups if the data is still needed.

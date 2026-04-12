@@ -68,7 +68,23 @@ export async function requestNotificationPermission(): Promise<string | null> {
       return null;
     }
 
-    const token = await getToken(msg, { vapidKey });
+    // Register firebase messaging SW and send it the config
+    let swReg: ServiceWorkerRegistration | undefined;
+    try {
+      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' });
+      await navigator.serviceWorker.ready;
+      const sw = swReg.active || swReg.waiting || swReg.installing;
+      if (sw) {
+        sw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+      }
+    } catch (swErr) {
+      console.warn('Firebase SW registration warning:', swErr);
+    }
+
+    const token = await getToken(msg, {
+      vapidKey,
+      serviceWorkerRegistration: swReg,
+    });
     return token;
   } catch (error) {
     console.error('Error getting notification permission:', error);

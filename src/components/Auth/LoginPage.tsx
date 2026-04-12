@@ -14,9 +14,9 @@ const JildLogo = () => (
         {/* Inner accent */}
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent" />
         {/* Monogram */}
-        <div className="flex items-end gap-0.5">
+        <div className="flex items-center gap-0.5">
           <span className="text-2xl font-black tracking-tighter text-white leading-none">J</span>
-          <span className="text-lg font-black tracking-tighter text-blue-400 leading-none mb-0.5">I</span>
+          <span className="text-2xl font-black tracking-tighter text-blue-400 leading-none">I</span>
         </div>
         {/* Bottom accent bar */}
         <div className="absolute bottom-1.5 left-3 right-3 h-0.5 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full opacity-70" />
@@ -86,9 +86,9 @@ const LoginPage = () => {
 
         <div className="relative z-10 text-center px-12">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-slate-700 to-slate-800 border border-white/10 flex items-center justify-center mx-auto mb-8 shadow-2xl">
-            <div className="flex items-end gap-0.5">
+            <div className="flex items-center gap-0.5">
               <span className="text-3xl font-black text-white leading-none">J</span>
-              <span className="text-xl font-black text-blue-400 leading-none mb-0.5">I</span>
+              <span className="text-3xl font-black text-blue-400 leading-none">I</span>
             </div>
           </div>
           <h2 className="text-3xl font-black text-white tracking-tight mb-3">
