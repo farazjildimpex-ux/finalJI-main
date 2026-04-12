@@ -2,26 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Bell, BellOff } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { JournalEntry } from '../../types';
 import DatePicker from '../UI/DatePicker';
 
-interface JournalEntryFormProps {
+const JournalEntryForm: React.FC<{
   initialDate: Date;
   onClose: () => void;
   onSave: () => void;
   parentId?: string | null;
   initialEntry?: JournalEntry | null;
-}
-
-const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
+}> = ({ 
   initialDate,
   onClose,
   onSave,
   parentId = null,
-  initialEntry = null,
+  initialEntry = null
 }) => {
   const { user } = useAuth();
   const [title, setTitle] = useState('');
@@ -36,7 +34,7 @@ const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     if (initialEntry) {
       setTitle(initialEntry.title);
       setContent(initialEntry.content || '');
-      setEntryDate(initialEntry.entry_date);
+      setEntryDate(format(new Date(initialEntry.entry_date), 'yyyy-MM-dd'));
       setReminderEnabled(initialEntry.reminder_enabled || false);
       setReminderDate(initialEntry.reminder_date || '');
       setReminderTime(initialEntry.reminder_time || '09:00');
@@ -47,7 +45,12 @@ const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     try {
       const reminders = JSON.parse(localStorage.getItem('jild-reminders') || '[]');
       const existing = reminders.findIndex((r: any) => r.title === entryTitle);
-      const reminder = { title: entryTitle, date, time, timestamp: new Date(`${date}T${time}`).getTime() };
+      const reminder = { 
+        title: entryTitle, 
+        date, 
+        time, 
+        timestamp: new Date(`${date}T${time}`).getTime() 
+      };
       if (existing >= 0) reminders[existing] = reminder;
       else reminders.push(reminder);
       localStorage.setItem('jild-reminders', JSON.stringify(reminders));
@@ -79,10 +82,9 @@ const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
         if (error) throw error;
       } else {
         const { error } = await supabase.from('journal_entries').insert({
-          user_id: user.id,
-          file_urls: [],
-          parent_id: parentId,
           ...payload,
+          user_id: user.id,
+          parent_id: parentId,
         });
         if (error) throw error;
       }
@@ -100,125 +102,124 @@ const JournalEntryForm: React.FC<JournalEntryFormProps> = ({
     }
   };
 
-  const today = format(new Date(), 'yyyy-MM-dd');
+  const handleToggleReminder = () => {
+    setReminderEnabled(!reminderEnabled);
+    if (!reminderEnabled) {
+      setReminderDate('');
+      setReminderTime('09:00');
+    }
+  };
+
+  const inputClass = "mt-1 block w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const labelClass = "block text-xs font-medium text-gray-700";
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[150] p-4">
-      <div className="bg-white rounded-3xl shadow-xl w-full max-w-xl overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
-          <h2 className="text-xl font-black text-gray-900 uppercase tracking-widest text-sm">
-            {initialEntry ? 'Edit Entry' : (parentId ? 'Add to Thread' : 'New Journal Entry')}
+      <div className="bg-white rounded-3xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900 uppercase tracking-widest">
+            {initialEntry ? 'Edit Entry' : parentId ? 'Add to Thread' : 'New Journal Entry'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
-            <X className="h-6 w-6 text-gray-400" />
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+            <X className="h-6 w-6" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto flex-1">
+        <form onSubmit={handleSubmit} className="p-6 space-y-6 overflow-y-auto">
           <div className="grid grid-cols-1 gap-6">
-          <DatePicker
-            label="Entry Date"
-            value={entryDate}
-            onChange={(val) => setEntryDate(val)}
-          />
-
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-widest text-[10px]">Title *</label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="What's on your mind?"
-              required
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-900"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-widest text-[10px]">Content</label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your thoughts..."
-              rows={6}
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-gray-700"
-            />
-          </div>
-          </div>
-
-          {/* Reminder Section */}
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {reminderEnabled
-                  ? <Bell className="h-4 w-4 text-blue-600" />
-                  : <BellOff className="h-4 w-4 text-gray-400" />
-                }
-                <span className="text-sm font-bold text-gray-700">Set Reminder</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setReminderEnabled(!reminderEnabled)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  reminderEnabled ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              >
-                <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                  reminderEnabled ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-widest">Entry Date</label>
+              <DatePicker                label="Date"
+                value={entryDate}
+                onChange={(val) => setEntryDate(val)}
+                className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
-            {reminderEnabled && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-widest">Date</label>
-                    <input
-                      type="date"
-                      value={reminderDate}
-                      min={today}
-                      onChange={(e) => setReminderDate(e.target.value)}
-                      required={reminderEnabled}
-                      className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 font-medium"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-gray-500 mb-1.5 uppercase tracking-widest">Time</label>
-                    <input
-                      type="time"
-                      value={reminderTime}
-                      onChange={(e) => setReminderTime(e.target.value)}
-                      required={reminderEnabled}
-                      className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm text-gray-900 font-medium"
-                    />
-                  </div>
-                </div>
-                <p className="text-[11px] text-blue-600 font-medium flex items-center gap-1">
-                  <Bell className="h-3 w-3" />
-                  Push notification will be sent on {reminderDate ? new Date(reminderDate + 'T' + reminderTime).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'the selected date & time'}.
-                </p>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-widest">
+                {reminderEnabled ? 'Reminder Date' : 'Reminder'}
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="reminder-toggle"
+                  checked={reminderEnabled}
+                  onChange={handleToggleReminder}
+                  className="rounded border border-blue-200"
+                />
+                <label htmlFor="reminder-toggle" className="ml-2 text-sm text-gray-700">
+                  Set Reminder
+                </label>
               </div>
-            )}
+
+              {reminderEnabled && (
+                <div className="mt-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Date</label>
+                  <DatePicker
+                    label="Reminder Date"
+                    value={reminderDate}
+                    onChange={(val) => setReminderDate(val)}
+                    className="w-full px-4 py-2 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <label className="block text-sm font-bold text-gray-700 mb-1">Time</label>
+                  <input
+                    type="time"
+                    value={reminderTime}
+                    onChange={(e) => setReminderTime(e.target.value)}
+                    className="w-full px-4 py-2 border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              )}
+
+              <div className="mt-2 flex items-center">
+                <span className="text-sm text-blue-600">
+                  Reminder will trigger on {reminderDate} at {reminderTime}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-3 text-sm font-bold text-gray-500 bg-gray-100 rounded-2xl hover:bg-gray-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving || !title.trim()}
-              className="px-8 py-3 text-sm font-bold text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-100 transition-all active:scale-95"
-            >
-              {saving ? 'Saving...' : 'Save Entry'}
-            </button>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-widest">Title</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Enter title"
+                className={inputClass}
+                required              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-1 uppercase tracking-widest">Content</label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Write your thoughts..."
+                rows={8}
+                className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </form>
+
+        <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-xl hover:bg-gray-50"
+          >
+            Cancel          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-8 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg"
+          >
+            {saving ? 'Saving...' : 'Save Entry'}
+          </button>
+        </div>
       </div>
     </div>
   );
