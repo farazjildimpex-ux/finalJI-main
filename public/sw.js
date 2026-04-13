@@ -1,5 +1,5 @@
-const CACHE_NAME = 'jild-impex-v6';
-const RUNTIME_CACHE = 'jild-impex-runtime-v6';
+const CACHE_NAME = 'jild-impex-v7';
+const RUNTIME_CACHE = 'jild-impex-runtime-v7';
 
 const ASSETS_TO_CACHE = [
   '/',
@@ -96,17 +96,15 @@ self.addEventListener('push', (event) => {
   try { data = event.data.json(); } catch (e) { data = { notification: { title: 'JILD IMPEX', body: event.data.text() } }; }
 
   const title = data.notification?.title || 'JILD IMPEX';
+  const targetUrl = data.data?.url || data.fcmOptions?.link || '/app/journal';
   const options = {
     body: data.notification?.body || '',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     tag: data.data?.tag || 'jild-notification',
-    data: data.data || {},
+    data: { url: targetUrl, ...data.data },
     requireInteraction: false,
-    actions: [
-      { action: 'open', title: 'Open' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
+    // No actions — keeps notification clean and avoids Chrome's "Unsubscribe" row
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -114,17 +112,17 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if (event.action === 'dismiss') return;
-  const url = event.notification.data?.url || '/app/home';
+  const targetUrl = event.notification.data?.url || '/app/journal';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Navigate any existing window (PWA standalone or browser tab)
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
+        if ('navigate' in client && 'focus' in client) {
+          return client.navigate(targetUrl).then((c) => c ? c.focus() : client.focus());
         }
       }
-      return clients.openWindow(url);
+      return clients.openWindow(targetUrl);
     })
   );
 });

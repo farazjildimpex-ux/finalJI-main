@@ -1,8 +1,6 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-// Firebase config will be passed via the service worker registration message
-// but we need to initialise it here for background message handling
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'FIREBASE_CONFIG') {
     if (!self.firebaseInitialised) {
@@ -11,19 +9,17 @@ self.addEventListener('message', (event) => {
       messaging.onBackgroundMessage((payload) => {
         const title = payload.notification?.title || 'JILD IMPEX';
         const body = payload.notification?.body || '';
-        const icon = '/icon-192.png';
-        const badge = '/icon-192.png';
+        // Store the target URL in data so notificationclick can use it
+        const targetUrl = payload.data?.url || payload.fcmOptions?.link || '/app/journal';
+
         self.registration.showNotification(title, {
           body,
-          icon,
-          badge,
+          icon: '/icon-192.png',
+          badge: '/icon-192.png',
           tag: payload.data?.tag || 'jild-notification',
-          data: payload.data || {},
+          data: { url: targetUrl, ...payload.data },
           requireInteraction: false,
-          actions: [
-            { action: 'open', title: 'Open App' },
-            { action: 'dismiss', title: 'Dismiss' }
-          ]
+          // No actions — avoids Chrome showing the native "Unsubscribe" row
         });
       });
       self.firebaseInitialised = true;
@@ -33,17 +29,18 @@ self.addEventListener('message', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  if (event.action === 'dismiss') return;
-  const url = event.notification.data?.url || '/app/home';
+  const targetUrl = event.notification.data?.url || '/app/journal';
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If PWA / browser window is already open, navigate it to the target
       for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.navigate(url);
-          return client.focus();
+        if ('navigate' in client && 'focus' in client) {
+          return client.navigate(targetUrl).then((c) => c ? c.focus() : client.focus());
         }
       }
-      return clients.openWindow(url);
+      // Otherwise open a fresh window
+      return clients.openWindow(targetUrl);
     })
   );
 });
