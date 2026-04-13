@@ -68,14 +68,31 @@ export async function requestNotificationPermission(): Promise<string | null> {
       return null;
     }
 
-    // Register firebase messaging SW and send it the config
+    // Register firebase messaging SW and wait for it to become active
     let swReg: ServiceWorkerRegistration | undefined;
     try {
       swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' });
-      await navigator.serviceWorker.ready;
-      const sw = swReg.active || swReg.waiting || swReg.installing;
-      if (sw) {
-        sw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+
+      // Wait for THIS specific SW to be active (not the main sw.js)
+      if (!swReg.active) {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 6000);
+          const sw = swReg!.installing || swReg!.waiting;
+          if (!sw) { clearTimeout(timeout); resolve(); return; }
+          sw.addEventListener('statechange', function handler() {
+            if (sw.state === 'activated' || sw.state === 'redundant') {
+              clearTimeout(timeout);
+              sw.removeEventListener('statechange', handler);
+              resolve();
+            }
+          });
+        });
+      }
+
+      const activeSw = swReg.active;
+      if (activeSw) {
+        activeSw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
+        await new Promise(r => setTimeout(r, 300));
       }
     } catch (swErr) {
       console.warn('Firebase SW registration warning:', swErr);

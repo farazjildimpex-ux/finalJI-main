@@ -40,7 +40,7 @@ const LoginPage = () => {
             className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4 shadow-2xl"
             style={{ background: 'linear-gradient(135deg,#1e293b,#0f172a)', border: '1px solid rgba(255,255,255,0.1)' }}
           >
-            <span className="text-3xl font-black leading-none tracking-tight">
+            <span className="text-3xl font-black leading-none" style={{ letterSpacing: '-0.06em' }}>
               <span className="text-white">J</span><span className="text-blue-400">I</span>
             </span>
           </div>
