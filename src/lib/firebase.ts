@@ -10,7 +10,6 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Check if all required Firebase config values are present
 export const isFirebaseConfigured = Boolean(
   firebaseConfig.apiKey &&
   firebaseConfig.projectId &&
@@ -27,7 +26,7 @@ if (isFirebaseConfigured) {
     console.error('Firebase initialization error:', error);
   }
 } else {
-  console.warn('Firebase is not configured. Push notifications will be disabled. Please add VITE_FIREBASE_PROJECT_ID and other Firebase variables to your .env file.');
+  console.warn('Firebase not fully configured — FCM tokens disabled, local notifications still work.');
 }
 
 export const firebaseApp = app;
@@ -37,7 +36,6 @@ let messaging: Messaging | null = null;
 export function getFirebaseMessaging(): Messaging | null {
   if (!isFirebaseConfigured || typeof window === 'undefined') return null;
   if (!('serviceWorker' in navigator)) return null;
-  
   try {
     if (!messaging && firebaseApp) {
       messaging = getMessaging(firebaseApp);
@@ -49,34 +47,54 @@ export function getFirebaseMessaging(): Messaging | null {
   return messaging;
 }
 
+/**
+ * Request notification permission (always) then attempt to get an FCM token.
+ * Returns:
+ *   null  — permission denied or unsupported browser
+ *   ''    — permission granted but FCM token unavailable (Firebase not configured / SW error)
+ *   token — fully working FCM token
+ */
 export async function requestNotificationPermission(): Promise<string | null> {
-  if (!isFirebaseConfigured) return null;
+  if (!('Notification' in window)) return null;
+
+  // Step 1: Ask the user for permission — this must happen first and is
+  // independent of Firebase.  If this check is guarded by isFirebaseConfigured
+  // the browser prompt never appears when Firebase vars are missing.
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    console.log('Notification permission not granted:', permission);
+    return null;
+  }
+
+  // Step 2: Try to get an FCM token.  Failure here is non-fatal — the user
+  // has already granted permission so local notifications still work.
+  if (!isFirebaseConfigured) {
+    console.warn('Firebase not configured — skipping FCM token, local notifications active.');
+    return '';
+  }
 
   try {
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') {
-      console.log('Notification permission denied');
-      return null;
-    }
-
     const msg = getFirebaseMessaging();
-    if (!msg) return null;
+    if (!msg) return '';
 
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
     if (!vapidKey) {
-      console.warn('VITE_FIREBASE_VAPID_KEY is missing');
-      return null;
+      console.warn('VITE_FIREBASE_VAPID_KEY missing — skipping FCM token.');
+      return '';
     }
 
-    // Register firebase messaging SW and wait for it to become active
+    // Register the Firebase messaging SW and wait for it to become active.
+    // navigator.serviceWorker.ready only tracks the page-controlling SW (sw.js),
+    // NOT this scoped SW, so we must wait on its own state.
     let swReg: ServiceWorkerRegistration | undefined;
     try {
-      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' });
+      swReg = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/firebase-cloud-messaging-push-scope',
+      });
 
-      // Wait for THIS specific SW to be active (not the main sw.js)
       if (!swReg.active) {
         await new Promise<void>((resolve) => {
-          const timeout = setTimeout(resolve, 6000);
+          const timeout = setTimeout(resolve, 8000);
           const sw = swReg!.installing || swReg!.waiting;
           if (!sw) { clearTimeout(timeout); resolve(); return; }
           sw.addEventListener('statechange', function handler() {
@@ -92,20 +110,22 @@ export async function requestNotificationPermission(): Promise<string | null> {
       const activeSw = swReg.active;
       if (activeSw) {
         activeSw.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 400));
       }
     } catch (swErr) {
-      console.warn('Firebase SW registration warning:', swErr);
+      console.warn('Firebase SW registration warning (continuing):', swErr);
     }
 
     const token = await getToken(msg, {
       vapidKey,
       serviceWorkerRegistration: swReg,
     });
-    return token;
+
+    if (!token) console.warn('getToken returned empty — check VAPID key and Firebase project.');
+    return token || '';
   } catch (error) {
-    console.error('Error getting notification permission:', error);
-    return null;
+    console.error('Error getting FCM token:', error);
+    return '';
   }
 }
 

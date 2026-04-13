@@ -42,24 +42,28 @@ export function useNotifications() {
   const enableNotifications = useCallback(async () => {
     setLoading(true);
     try {
+      // null  = denied/unsupported; '' = granted but no FCM token; string = full FCM token
       const token = await requestNotificationPermission();
+
+      if (token === null) {
+        // Permission denied or browser unsupported
+        setPermission(Notification.permission as NotificationPermissionStatus);
+        return false;
+      }
+
+      // Permission granted (with or without FCM token)
+      setPermission('granted');
+
       if (token) {
         setFcmToken(token);
-        setPermission('granted');
-        
-        // Save FCM token to Supabase if user is logged in
-        // If not logged in, the token is still active in the browser for broadcast messages
         if (user) {
           await supabase.from('user_fcm_tokens').upsert(
             { user_id: user.id, token, updated_at: new Date().toISOString() },
             { onConflict: 'user_id' }
           );
         }
-        return true;
-      } else {
-        setPermission(Notification.permission as NotificationPermissionStatus);
-        return false;
       }
+      return true;
     } catch (err) {
       console.error('Error enabling notifications:', err);
       return false;
