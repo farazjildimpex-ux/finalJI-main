@@ -54,6 +54,26 @@ export function getFirebaseMessaging(): Messaging | null {
  *   ''    — permission granted but FCM token unavailable (Firebase not configured / SW error)
  *   token — fully working FCM token
  */
+// Persist Firebase config to IndexedDB so firebase-messaging-sw.js can
+// self-initialise on future SW activations (e.g. when a push arrives and
+// the app is closed).
+function persistConfigToIDB(config: object): Promise<void> {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('jild-fcm', 1);
+    req.onupgradeneeded = (e) => (e.target as IDBOpenDBRequest).result.createObjectStore('config');
+    req.onsuccess = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      try {
+        const tx = db.transaction('config', 'readwrite');
+        tx.objectStore('config').put(config, 'firebaseConfig');
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); resolve(); };
+      } catch (_) { db.close(); resolve(); }
+    };
+    req.onerror = () => resolve();
+  });
+}
+
 export async function requestNotificationPermission(): Promise<string | null> {
   if (!('Notification' in window)) return null;
 
@@ -122,6 +142,10 @@ export async function requestNotificationPermission(): Promise<string | null> {
     });
 
     if (!token) console.warn('getToken returned empty — check VAPID key and Firebase project.');
+
+    // Persist config so the SW can self-init on future activations
+    await persistConfigToIDB(firebaseConfig);
+
     return token || '';
   } catch (error) {
     console.error('Error getting FCM token:', error);

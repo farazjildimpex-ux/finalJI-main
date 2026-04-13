@@ -36,12 +36,12 @@ const LoginPage = () => {
       <div className="w-full max-w-md">
         {/* Logo mark */}
         <div className="flex flex-col items-center mb-8">
-          <img
-            src="/icon.svg"
-            alt="JILD IMPEX"
-            className="w-20 h-20 rounded-3xl shadow-2xl mb-4"
-            style={{ display: 'block' }}
-          />
+          <div
+            className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4 shadow-2xl"
+            style={{ background: 'linear-gradient(135deg,#1e293b,#0f172a)' }}
+          >
+            <span className="text-5xl font-black text-white leading-none select-none">J</span>
+          </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
             JILD <span className="text-blue-600">IMPEX</span>
           </h1>
