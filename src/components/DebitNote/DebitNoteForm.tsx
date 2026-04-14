@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Save, FileDown, Trash2, ChevronDown, X, Search, Plus, Minus, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { DebitNote, Contact, Contract, Company } from '../../types';
 import { generateDebitNotePDF } from '../../utils/debitNotePdfGenerator';
+import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
+import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
 
@@ -108,6 +110,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [includeSignature, setIncludeSignature] = useState(false);
+  const [generatingWord, setGeneratingWord] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
+  const exportMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [formData, setFormData] = useState<DebitNote>({
     debit_note_no: '',
@@ -167,6 +173,13 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       setSelectedContracts(reconstructedContracts);
     }
   }, [initialData, location.state]);
+
+  useEffect(() => {
+    if (initialData?.company && companies.length > 0) {
+      const co = companies.find(c => c.name === initialData.company);
+      setCompanyLetterheadUrl(co?.letterhead_url || null);
+    }
+  }, [initialData, companies]);
 
   useEffect(() => {
     const invoiceValue = parseFloat(formData.invoice_value) || 0;
@@ -431,8 +444,32 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     }
   };
 
-  const handleExportPDF = () => {
-    generateDebitNotePDF(formData, showCompanyInPdf, includeSignature);
+  const handleExportPDF = async () => {
+    setShowExportMenu(false);
+    try {
+      let letterheadImages: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string } | undefined;
+      if (companyLetterheadUrl) {
+        const imgs = await extractLetterheadImages(companyLetterheadUrl);
+        if (imgs.headerBase64) letterheadImages = imgs;
+      }
+      generateDebitNotePDF(formData, showCompanyInPdf, includeSignature, letterheadImages);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  const handleExportWord = async () => {
+    setShowExportMenu(false);
+    setGeneratingWord(true);
+    try {
+      await generateDebitNoteWord(formData, companyLetterheadUrl);
+    } catch (err) {
+      console.error('Error generating Word document:', err);
+      alert('Failed to generate Word document. Please try again.');
+    } finally {
+      setGeneratingWord(false);
+    }
   };
   
   const filteredContacts = contacts.filter(contact =>
@@ -450,8 +487,8 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     });
   };
 
-  const inputClassName = "mt-1 block w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
-  const labelClassName = "block text-xs font-medium text-gray-700";
+  const inputClassName = "mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
+  const labelClassName = "block text-sm font-medium text-gray-700";
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-2 md:p-3">
@@ -518,7 +555,11 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
               </button>
             </div>
         </div>
-        <select id="company" name="company" value={formData.company} onChange={handleChange} className={inputClassName}>
+        <select id="company" name="company" value={formData.company} onChange={(e) => {
+            const selected = companies.find(c => c.name === e.target.value);
+            handleChange(e);
+            setCompanyLetterheadUrl(selected?.letterhead_url || null);
+          }} className={inputClassName}>
             <option value="">Select a company</option>
             {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
         </select>
@@ -720,10 +761,48 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             Delete
           </button>
         )}
-        <button type="button" onClick={handleExportPDF} className="px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 shadow-sm">
-          <FileDown className="h-3.5 w-3.5 inline mr-1" />
-          Export PDF
-        </button>
+        <div
+          className="relative w-full sm:w-auto"
+          onMouseEnter={() => {
+            if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current);
+            setShowExportMenu(true);
+          }}
+          onMouseLeave={() => {
+            exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200);
+          }}
+        >
+          <button
+            type="button"
+            disabled={loading || generatingWord}
+            className="inline-flex items-center justify-center w-full px-3 py-2 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 shadow-sm disabled:opacity-50"
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+            {generatingWord ? 'Generating Word...' : 'Export'}
+            <ChevronDown className="h-3 w-3 ml-1.5" />
+          </button>
+          {showExportMenu && (
+            <div className="absolute bottom-full mb-1 right-0 z-30 min-w-[140px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                disabled={loading || generatingWord}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+              >
+                <FileDown className="h-4 w-4 shrink-0" />
+                Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={handleExportWord}
+                disabled={loading || generatingWord}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 border-t border-gray-100"
+              >
+                <FileDown className="h-4 w-4 shrink-0" />
+                Export Word
+              </button>
+            </div>
+          )}
+        </div>
 
         <button type="submit" disabled={loading} className="px-3 py-2 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-sm">
           <Save className="h-3.5 w-3.5 inline mr-1" />

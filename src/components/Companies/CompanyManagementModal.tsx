@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, Minus, Save, Trash2, Building2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Download, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company } from '../../types';
 
@@ -18,11 +18,16 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [uploadingLetterhead, setUploadingLetterhead] = useState(false);
+  const [letterheadFile, setLetterheadFile] = useState<File | null>(null);
+  const letterheadInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     address: [''],
     phone: '',
-    email: ''
+    email: '',
+    letterhead_url: '',
+    letterhead_name: '',
   });
 
   useEffect(() => {
@@ -55,19 +60,18 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       name: company.name,
       address: company.address,
       phone: company.phone || '',
-      email: company.email || ''
+      email: company.email || '',
+      letterhead_url: company.letterhead_url || '',
+      letterhead_name: company.letterhead_name || '',
     });
+    setLetterheadFile(null);
     setEditMode(false);
   };
 
   const handleNewCompany = () => {
     setSelectedCompany(null);
-    setFormData({
-      name: '',
-      address: [''],
-      phone: '',
-      email: ''
-    });
+    setFormData({ name: '', address: [''], phone: '', email: '', letterhead_url: '', letterhead_name: '' });
+    setLetterheadFile(null);
     setEditMode(true);
   };
 
@@ -81,17 +85,32 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
         name: selectedCompany.name,
         address: selectedCompany.address,
         phone: selectedCompany.phone || '',
-        email: selectedCompany.email || ''
+        email: selectedCompany.email || '',
+        letterhead_url: selectedCompany.letterhead_url || '',
+        letterhead_name: selectedCompany.letterhead_name || '',
       });
     } else {
-      setFormData({
-        name: '',
-        address: [''],
-        phone: '',
-        email: ''
-      });
+      setFormData({ name: '', address: [''], phone: '', email: '', letterhead_url: '', letterhead_name: '' });
     }
+    setLetterheadFile(null);
     setEditMode(false);
+  };
+
+  const uploadLetterheadFile = async (file: File, companyId: string): Promise<{ url: string; name: string } | null> => {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const storagePath = `letterheads/${companyId}/${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('contract-files')
+      .upload(storagePath, file, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('contract-files')
+      .getPublicUrl(storagePath);
+
+    return { url: publicUrl, name: file.name };
   };
 
   const handleSave = async () => {
@@ -103,29 +122,76 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     try {
       setLoading(true);
 
-      const companyData = {
+      const baseData = {
         name: formData.name.trim(),
         address: formData.address.filter(addr => addr.trim() !== ''),
         phone: formData.phone.trim() || null,
-        email: formData.email.trim() || null
+        email: formData.email.trim() || null,
       };
 
       if (selectedCompany) {
-        // Update existing company
+        let letterheadUpdate: { letterhead_url?: string | null; letterhead_name?: string | null } = {};
+
+        if (letterheadFile) {
+          setUploadingLetterhead(true);
+          try {
+            const result = await uploadLetterheadFile(letterheadFile, selectedCompany.id);
+            if (result) {
+              letterheadUpdate = { letterhead_url: result.url, letterhead_name: result.name };
+            }
+          } finally {
+            setUploadingLetterhead(false);
+          }
+        } else if (!formData.letterhead_url && selectedCompany.letterhead_url) {
+          letterheadUpdate = { letterhead_url: null, letterhead_name: null };
+        }
+
         const { error } = await supabase
           .from('companies')
-          .update(companyData)
+          .update({ ...baseData, ...letterheadUpdate })
           .eq('id', selectedCompany.id);
 
         if (error) throw error;
+
+        const updated = {
+          ...selectedCompany,
+          ...baseData,
+          letterhead_url: letterheadUpdate.letterhead_url !== undefined ? letterheadUpdate.letterhead_url || '' : (selectedCompany.letterhead_url || ''),
+          letterhead_name: letterheadUpdate.letterhead_name !== undefined ? letterheadUpdate.letterhead_name || '' : (selectedCompany.letterhead_name || ''),
+        };
+        setSelectedCompany(updated as Company);
+        setFormData(prev => ({
+          ...prev,
+          letterhead_url: updated.letterhead_url || '',
+          letterhead_name: updated.letterhead_name || '',
+        }));
+        setLetterheadFile(null);
         alert('Company updated successfully!');
       } else {
-        // Create new company
-        const { error } = await supabase
+        const { data: newData, error } = await supabase
           .from('companies')
-          .insert([companyData]);
+          .insert([baseData])
+          .select()
+          .single();
 
         if (error) throw error;
+
+        if (letterheadFile && newData) {
+          setUploadingLetterhead(true);
+          try {
+            const result = await uploadLetterheadFile(letterheadFile, newData.id);
+            if (result) {
+              await supabase
+                .from('companies')
+                .update({ letterhead_url: result.url, letterhead_name: result.name })
+                .eq('id', newData.id);
+            }
+          } finally {
+            setUploadingLetterhead(false);
+          }
+        }
+
+        setLetterheadFile(null);
         alert('Company created successfully!');
       }
 
@@ -136,8 +202,10 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       console.error('Error saving company:', error);
       if (error instanceof Error && error.message.includes('duplicate key')) {
         alert('A company with this name already exists');
+      } else if (error instanceof Error && error.message.includes('letterhead')) {
+        alert('Company saved, but letterhead upload failed. Please apply the database migration first.');
       } else {
-        alert('Failed to save company');
+        alert('Failed to save company. If you just added letterhead support, please apply the SQL migration in supabase/migrations/.');
       }
     } finally {
       setLoading(false);
@@ -162,17 +230,11 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
       alert('Company deleted successfully!');
       setSelectedCompany(null);
-      setFormData({
-        name: '',
-        address: [''],
-        phone: '',
-        email: ''
-      });
+      setFormData({ name: '', address: [''], phone: '', email: '', letterhead_url: '', letterhead_name: '' });
       setEditMode(false);
       await fetchCompanies();
       onCompanyUpdated();
       
-      // Close modal and navigate to home
       setTimeout(() => {
         onClose();
         window.location.href = '/app/home';
@@ -183,6 +245,21 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRemoveLetterhead = () => {
+    setFormData(prev => ({ ...prev, letterhead_url: '', letterhead_name: '' }));
+    setLetterheadFile(null);
+  };
+
+  const handleLetterheadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.name.endsWith('.docx')) {
+      alert('Please select a .docx Word document file');
+      return;
+    }
+    setLetterheadFile(file);
   };
 
   const handleArrayFieldChange = (index: number, value: string) => {
@@ -203,6 +280,9 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const currentLetterheadName = letterheadFile ? letterheadFile.name : formData.letterhead_name;
+  const hasLetterhead = !!(letterheadFile || formData.letterhead_url);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -239,11 +319,17 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                       }`}
                     >
                       <div className="flex items-center">
-                        <Building2 className="h-5 w-5 text-gray-400 mr-3" />
-                        <div>
-                          <p className="font-medium text-gray-900">{company.name}</p>
+                        <Building2 className="h-5 w-5 text-gray-400 mr-3 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{company.name}</p>
                           {company.address[0] && (
-                            <p className="text-sm text-gray-500">{company.address[0]}</p>
+                            <p className="text-sm text-gray-500 truncate">{company.address[0]}</p>
+                          )}
+                          {company.letterhead_url && (
+                            <p className="text-xs text-green-600 mt-0.5 flex items-center gap-1">
+                              <FileText className="h-3 w-3" />
+                              Letterhead set
+                            </p>
                           )}
                         </div>
                       </div>
@@ -261,10 +347,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                 <h2 className="text-xl font-semibold text-gray-900">
                   {editMode ? (selectedCompany ? 'Edit Company' : 'New Company') : 'Company Details'}
                 </h2>
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-500"
-                >
+                <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
                   <X className="h-6 w-6" />
                 </button>
               </div>
@@ -274,12 +357,9 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
               {selectedCompany || editMode ? (
                 <div className="space-y-6">
                   {editMode ? (
-                    // Edit Form
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Company Name *
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Company Name *</label>
                         <input
                           type="text"
                           value={formData.name}
@@ -290,9 +370,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Address
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
                         {formData.address.map((addr, index) => (
                           <div key={index} className="flex gap-2 mb-2">
                             <input
@@ -324,9 +402,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Phone
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
                         <input
                           type="tel"
                           value={formData.phone}
@@ -337,9 +413,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Email
-                        </label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
                           type="email"
                           value={formData.email}
@@ -348,9 +422,63 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                           placeholder="Enter email address"
                         />
                       </div>
+
+                      {/* Letterhead Template Upload */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Letterhead Template (.docx)
+                        </label>
+                        {hasLetterhead ? (
+                          <div className="flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <FileText className="h-5 w-5 text-green-600 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-green-800 truncate">
+                                {currentLetterheadName || 'Template uploaded'}
+                              </p>
+                              <p className="text-xs text-green-600">
+                                {letterheadFile ? 'Ready to upload on save' : 'Template active'}
+                              </p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => letterheadInputRef.current?.click()}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                              >
+                                Replace
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleRemoveLetterhead}
+                                className="text-xs text-red-600 hover:text-red-800 font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => letterheadInputRef.current?.click()}
+                            className="flex items-center justify-center w-full gap-2 px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                          >
+                            <Upload className="h-4 w-4" />
+                            Click to upload a .docx letterhead template
+                          </button>
+                        )}
+                        <input
+                          ref={letterheadInputRef}
+                          type="file"
+                          accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={handleLetterheadFileChange}
+                          className="hidden"
+                        />
+                        <p className="mt-1.5 text-xs text-gray-400">
+                          Upload a Word (.docx) document with your company letterhead. It will be used as the header/footer when exporting contracts and debit notes.
+                        </p>
+                      </div>
                     </div>
                   ) : (
-                    // View Mode
                     <div className="space-y-6">
                       <div>
                         <h3 className="text-sm font-medium text-gray-500">Company Name</h3>
@@ -379,6 +507,34 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                           <p className="mt-1 text-gray-900">{selectedCompany.email}</p>
                         </div>
                       )}
+
+                      {/* Letterhead Template - View Mode */}
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-500">Letterhead Template</h3>
+                        {selectedCompany?.letterhead_url ? (
+                          <div className="mt-2 flex items-center gap-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <FileText className="h-5 w-5 text-green-600 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-green-800 truncate">
+                                {selectedCompany.letterhead_name || 'Letterhead template'}
+                              </p>
+                              <p className="text-xs text-green-600">Active — used for PDF and Word exports</p>
+                            </div>
+                            <a
+                              href={selectedCompany.letterhead_url}
+                              download={selectedCompany.letterhead_name || 'letterhead.docx'}
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium shrink-0"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-sm text-gray-400 italic">
+                            No letterhead template — click Edit to upload one
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -395,11 +551,15 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                         </button>
                         <button
                           onClick={handleSave}
-                          disabled={loading}
-                          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                          disabled={loading || uploadingLetterhead}
+                          className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
                         >
-                          <Save className="h-4 w-4 inline mr-1" />
-                          {loading ? 'Saving...' : 'Save Company'}
+                          {(loading || uploadingLetterhead) ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <Save className="h-4 w-4 mr-1" />
+                          )}
+                          {uploadingLetterhead ? 'Uploading...' : loading ? 'Saving...' : 'Save Company'}
                         </button>
                       </>
                     ) : (

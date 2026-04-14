@@ -1,15 +1,35 @@
 import jsPDF from 'jspdf';
 import type { Contract } from '../types';
 
-export const generateContractPDF = async (contract: Contract, showCompanyInPdf: boolean = true, includeSignature: boolean = false) => {
+export const generateContractPDF = async (
+  contract: Contract,
+  showCompanyInPdf: boolean = true,
+  includeSignature: boolean = false,
+  letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string }
+) => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
   const contentWidth = pageWidth - 2 * margin;
   let yPosition = margin;
 
-  // 1. Professional Letterhead Header
-  if (showCompanyInPdf) {
+  const headerImageHeight = 30;
+  const footerImageHeight = 22;
+
+  // 1. Letterhead Header
+  if (letterheadImages?.headerBase64) {
+    const ext = (letterheadImages.headerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
+    const dataUrl = `data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`;
+    doc.addImage(dataUrl, ext, 0, 0, pageWidth, headerImageHeight);
+    yPosition = headerImageHeight + 5;
+
+    if (letterheadImages.footerBase64) {
+      const fExt = (letterheadImages.footerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
+      const fDataUrl = `data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`;
+      doc.addImage(fDataUrl, fExt, 0, pageHeight - footerImageHeight, pageWidth, footerImageHeight);
+    }
+  } else if (showCompanyInPdf) {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.text(contract.company_name.toUpperCase(), pageWidth / 2, yPosition, { align: 'center' });

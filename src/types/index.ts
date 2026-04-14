@@ -48,6 +48,8 @@ export interface Company {
   address: string[];
   phone?: string;
   email?: string;
+  letterhead_url?: string;
+  letterhead_name?: string;
   created_at: string;
   updated_at: string;
 }

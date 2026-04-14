@@ -9,13 +9,15 @@ A leather import/export business management system for JILD IMPEX, Chennai.
 - **Backend/Auth/Database**: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
 - **Push Notifications**: Firebase Cloud Messaging (optional)
 - **PDF Generation**: jsPDF + jsPDF AutoTable
+- **Word/DOCX Generation**: pizzip (OOXML manipulation for .docx export with custom letterhead)
 - **Routing**: React Router DOM v6
 
 ## Features
 
-- **Contracts**: Create and manage leather supply contracts with PDF export
+- **Contracts**: Create and manage leather supply contracts with PDF and Word export (with letterhead)
 - **Sample Book**: Track leather samples with shipment references
-- **Debit Notes**: Commission calculations with currency conversion and PDF export
+- **Debit Notes**: Commission calculations with currency conversion and PDF/Word export (with letterhead)
+- **Company Letterhead**: Per-company .docx template upload; applied to PDF and Word exports automatically
 - **Contact Book**: Centralized business contact directory
 - **Journal & Reminders**: Time-based reminder system with FCM push notifications
 - **Dashboard**: Recent activity overview across all modules

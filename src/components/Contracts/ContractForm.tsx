@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, FileDown, Copy, ChevronDown, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
+import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useNavigate } from 'react-router-dom';
 
 const STATUS_OPTIONS = ['Issued', 'Inspected', 'Completed'] as const;
@@ -24,8 +25,12 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const [showSupplierDropdown, setShowSupplierDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingWord, setGeneratingWord] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [includeSignature, setIncludeSignature] = useState(false);
+  const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
+  const exportMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [formData, setFormData] = useState<Partial<Contract>>({
     company_name: '',
     contract_no: '',
@@ -70,6 +75,13 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       setSupplierSearch(initialContract.supplier_name || '');
     }
   }, [initialContract]);
+
+  useEffect(() => {
+    if (initialContract?.company_name && companies.length > 0) {
+      const co = companies.find(c => c.name === initialContract.company_name);
+      setCompanyLetterheadUrl(co?.letterhead_url || null);
+    }
+  }, [initialContract, companies]);
 
   const fetchContacts = async () => {
     try {
@@ -287,15 +299,37 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       alert('Please save the contract first before generating PDF');
       return;
     }
-
+    setShowExportMenu(false);
     setGeneratingPdf(true);
     try {
-      await generateContractPDF(formData as Contract, showCompanyInPdf, includeSignature);
+      let letterheadImages: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string } | undefined;
+      if (companyLetterheadUrl) {
+        const imgs = await extractLetterheadImages(companyLetterheadUrl);
+        if (imgs.headerBase64) letterheadImages = imgs;
+      }
+      await generateContractPDF(formData as Contract, showCompanyInPdf, includeSignature, letterheadImages);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');
     } finally {
       setGeneratingPdf(false);
+    }
+  };
+
+  const handleExportWord = async () => {
+    if (!formData.contract_no) {
+      alert('Please save the contract first before exporting Word document');
+      return;
+    }
+    setShowExportMenu(false);
+    setGeneratingWord(true);
+    try {
+      await generateContractWord(formData as Contract, companyLetterheadUrl);
+    } catch (error) {
+      console.error('Error generating Word document:', error);
+      alert('Failed to generate Word document. Please try again.');
+    } finally {
+      setGeneratingWord(false);
     }
   };
 
@@ -307,9 +341,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     contact.name.toLowerCase().includes(supplierSearch.toLowerCase())
   );
 
-  const inputClassName = "mt-1 block w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
-  const labelClassName = "block text-xs font-medium text-gray-700";
-  const dropdownClassName = "absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-blue-200 bg-white shadow-lg shadow-blue-100";
+  const inputClassName = "mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
+  const labelClassName = "block text-sm font-medium text-gray-700";
+  const dropdownClassName = "absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border border-gray-300 bg-white shadow-lg shadow-gray-100";
   const dropdownItemClassName = "cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-blue-50";
 
   return (
@@ -339,7 +373,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
           <select
             id="company_name"
             value={formData.company_name}
-            onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+            onChange={(e) => {
+              const selected = companies.find(c => c.name === e.target.value);
+              setFormData({ ...formData, company_name: e.target.value });
+              setCompanyLetterheadUrl(selected?.letterhead_url || null);
+            }}
             className={inputClassName}
           >
             <option value="">Select Company</option>
@@ -937,15 +975,48 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             Delete
           </button>
         )}
-        <button
-          type="button"
-          onClick={handleExportPDF}
-          disabled={saving || generatingPdf}
-          className="inline-flex items-center justify-center px-3 py-2 border border-blue-200 shadow-sm text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 w-full sm:w-auto"
+        <div
+          className="relative w-full sm:w-auto"
+          onMouseEnter={() => {
+            if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current);
+            setShowExportMenu(true);
+          }}
+          onMouseLeave={() => {
+            exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200);
+          }}
         >
-          <FileDown className="h-3.5 w-3.5 mr-1.5" />
-          {generatingPdf ? 'Generating...' : 'Export PDF'}
-        </button>
+          <button
+            type="button"
+            disabled={saving || generatingPdf || generatingWord}
+            className="inline-flex items-center justify-center w-full px-3 py-2 border border-blue-200 shadow-sm text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 rounded-md"
+          >
+            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+            {generatingPdf ? 'Generating PDF...' : generatingWord ? 'Generating Word...' : 'Export'}
+            <ChevronDown className="h-3 w-3 ml-1.5" />
+          </button>
+          {showExportMenu && (
+            <div className="absolute bottom-full mb-1 right-0 z-30 min-w-[140px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <button
+                type="button"
+                onClick={handleExportPDF}
+                disabled={generatingPdf || generatingWord}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
+              >
+                <FileDown className="h-4 w-4 shrink-0" />
+                Export PDF
+              </button>
+              <button
+                type="button"
+                onClick={handleExportWord}
+                disabled={generatingPdf || generatingWord}
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 border-t border-gray-100"
+              >
+                <FileDown className="h-4 w-4 shrink-0" />
+                Export Word
+              </button>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={handleSaveAsNew}

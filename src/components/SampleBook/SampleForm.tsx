@@ -349,8 +349,8 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
   };
 
   const inputClassName =
-    'mt-1 block w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
-  const labelClassName = 'block text-xs font-medium text-gray-700';
+    'mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
+  const labelClassName = 'block text-sm font-medium text-gray-700';
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
