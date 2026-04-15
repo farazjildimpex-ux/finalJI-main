@@ -94,6 +94,26 @@ function noTbl(rows: string[]): string {
 </w:tbl>`;
 }
 
+function tcParagraph(
+  runs: Array<{ text: string; bold?: boolean; sz?: number }>,
+  opts: { align?: string; spAfter?: number; spBefore?: number } = {}
+): string {
+  const { align = '', spAfter = 60, spBefore = 0 } = opts;
+  const alignXml = align ? `<w:jc w:val="${align}"/>` : '';
+  const runsXml = runs
+    .map((r) => {
+      const rPr = [
+        r.bold ? '<w:b/><w:bCs/>' : '',
+        `<w:sz w:val="${r.sz || 22}"/><w:szCs w:val="${r.sz || 22}"/>`,
+      ]
+        .filter(Boolean)
+        .join('');
+      return `<w:r><w:rPr>${rPr}</w:rPr><w:t xml:space="preserve">${escXml(r.text)}</w:t></w:r>`;
+    })
+    .join('');
+  return `<w:p><w:pPr>${alignXml}<w:spacing w:before="${spBefore}" w:after="${spAfter}"/></w:pPr>${runsXml}</w:p>`;
+}
+
 function buildDebitNoteBody(dn: DebitNote): string {
   const dateStr = dn.debit_note_date
     ? new Date(dn.debit_note_date).toLocaleDateString('en-GB')
@@ -108,50 +128,49 @@ function buildDebitNoteBody(dn: DebitNote): string {
 
   const parts: string[] = [];
 
-  const supplierCellInner = [
-    dn.supplier_name,
-    ...((dn.supplier_address || []).filter(Boolean)),
-  ]
-    .map((line, i) => {
-      const bold = i === 0;
-      return `<w:r><w:rPr>${bold ? '<w:b/><w:bCs/>' : ''}<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve">${escXml(line)}</w:t></w:r><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:br/></w:r>`;
-    })
-    .join('');
+  // ── 1. DEBIT NOTE title (centered, bold, underlined) ─────────────────────
+  parts.push(
+    p('DEBIT NOTE', { bold: true, sz: 28, align: 'center', spBefore: 120, spAfter: 240, underline: true })
+  );
+
+  // ── 2. Messrs (left) | Debit Note No + Date (right) ──────────────────────
+  const supplierParas = [
+    tcParagraph([{ text: 'Messrs:' }], { spAfter: 30 }),
+    tcParagraph([{ text: dn.supplier_name || '', bold: true }], { spAfter: 30 }),
+    ...((dn.supplier_address || []).filter(Boolean).map((line) =>
+      tcParagraph([{ text: line }], { spAfter: 30 })
+    )),
+  ].join('');
+
+  const rightParas = [
+    tcParagraph(
+      [{ text: 'Debit Note No: ', bold: true }, { text: dn.debit_note_no || '' }],
+      { align: 'right', spAfter: 60 }
+    ),
+    tcParagraph(
+      [{ text: 'Date: ', bold: true }, { text: dateStr }],
+      { align: 'right', spAfter: 60 }
+    ),
+  ].join('');
 
   parts.push(
     noTbl([
       `<w:tr>
-        <w:tc>
-          <w:tcPr><w:tcW w:w="5000" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">Messrs:  </w:t></w:r>
-            ${supplierCellInner}
-          </w:p>
-        </w:tc>
-        <w:tc>
-          <w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Debit Note No: </w:t></w:r>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(dn.debit_note_no)}</w:t></w:r>
-            <w:r><w:br/></w:r>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Date: </w:t></w:r>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(dateStr)}</w:t></w:r>
-          </w:p>
-        </w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5000" w:type="dxa"/></w:tcPr>${supplierParas}</w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr>${rightParas}</w:tc>
       </w:tr>`,
     ])
   );
 
-  parts.push(blank(2));
-  parts.push(p('DEBIT NOTE', { bold: true, sz: 28, align: 'center', spAfter: 40, underline: true }));
+  // ── 3. Content lines ──────────────────────────────────────────────────────
   parts.push(blank(2));
 
   parts.push(
     mp(
       [
         { text: 'For our Contract No : ' },
-        { text: `${dn.contract_no} dated ${contractDateStr} `, bold: true },
-        { text: ' towards Buyer ' },
+        { text: `${dn.contract_no} dated ${contractDateStr}`, bold: true },
+        { text: '  towards Buyer  ' },
         { text: dn.buyer_name, bold: true },
       ],
       { spAfter: 140 }
@@ -163,9 +182,9 @@ function buildDebitNoteBody(dn: DebitNote): string {
       [
         { text: 'Against Your Invoice No : ' },
         { text: `${dn.invoice_no} dated ${invoiceDateStr}`, bold: true },
-        { text: ' with Quantity : ' },
+        { text: '  with Quantity : ' },
         { text: dn.quantity, bold: true },
-        { text: ' - Pieces : ' },
+        { text: '  -  Pieces : ' },
         { text: dn.pieces, bold: true },
       ],
       { spAfter: 140 }
@@ -183,21 +202,18 @@ function buildDebitNoteBody(dn: DebitNote): string {
   );
 
   parts.push(
-    p(
-      'We wish to debit your account towards Pre - Shipment Inspection and Export Service Charges',
-      { spAfter: 160 }
-    )
+    p('We wish to debit your account towards Pre - Shipment Inspection and Export Service Charges', { spAfter: 160 })
   );
 
   parts.push(
     mp(
       [
-        { text: `${commissionPercentage}`, bold: true },
-        { text: ` on ${dn.currency} ` },
+        { text: commissionPercentage, bold: true },
+        { text: `  on ${dn.currency} ` },
         { text: dn.invoice_value, bold: true },
         { text: ' = ' },
         { text: `${dn.currency} ${Number(dn.commissioning || 0).toFixed(2)}`, bold: true },
-        { text: ' with Exchange Rate : ' },
+        { text: '  with Exchange Rate : ' },
         { text: String(dn.exchange_rate), bold: true },
       ],
       { spAfter: 120 }
@@ -225,26 +241,11 @@ function buildDebitNoteBody(dn: DebitNote): string {
     )
   );
 
-  parts.push(
-    noTbl([
-      `<w:tr>
-        <w:tc>
-          <w:tcPr><w:tcW w:w="4250" w:type="dxa"/></w:tcPr>
-          <w:p><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t></w:t></w:r></w:p>
-        </w:tc>
-        <w:tc>
-          <w:tcPr><w:tcW w:w="4250" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Yours Faithfully,</w:t></w:r></w:p>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>For ${escXml(
-              (dn.company || '').toUpperCase()
-            )}</w:t></w:r></w:p>
-        </w:tc>
-      </w:tr>`,
-    ])
-  );
+  // ── 4. Closing: Yours Faithfully / For COMPANY (right-aligned) ───────────
+  parts.push(p('Yours Faithfully,', { align: 'right', spAfter: 60 }));
+  parts.push(p(`For ${(dn.company || '').toUpperCase()}`, { bold: true, align: 'right', spAfter: 40 }));
 
+  // ── 5. Signature: Partner / Manager (right) ───────────────────────────────
   parts.push(blank(3));
   parts.push(p('Partner / Manager', { bold: true, align: 'right', spAfter: 40 }));
 

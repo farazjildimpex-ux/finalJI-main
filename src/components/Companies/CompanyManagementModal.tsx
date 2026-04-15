@@ -130,44 +130,56 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       };
 
       if (selectedCompany) {
-        let letterheadUpdate: { letterhead_url?: string | null; letterhead_name?: string | null } = {};
+        // Step 1: Save company data first (always succeeds independently of letterhead)
+        const { error } = await supabase
+          .from('companies')
+          .update(baseData)
+          .eq('id', selectedCompany.id);
+
+        if (error) throw error;
+
+        // Step 2: Upload letterhead separately (non-blocking)
+        let finalLetterheadUrl = selectedCompany.letterhead_url || '';
+        let finalLetterheadName = selectedCompany.letterhead_name || '';
 
         if (letterheadFile) {
           setUploadingLetterhead(true);
           try {
             const result = await uploadLetterheadFile(letterheadFile, selectedCompany.id);
             if (result) {
-              letterheadUpdate = { letterhead_url: result.url, letterhead_name: result.name };
+              const { error: lhError } = await supabase
+                .from('companies')
+                .update({ letterhead_url: result.url, letterhead_name: result.name })
+                .eq('id', selectedCompany.id);
+              if (!lhError) {
+                finalLetterheadUrl = result.url;
+                finalLetterheadName = result.name;
+              } else {
+                alert(`Company saved. However, letterhead upload failed: ${lhError.message}`);
+              }
             }
+          } catch (lhErr) {
+            const msg = lhErr instanceof Error ? lhErr.message : String(lhErr);
+            alert(`Company saved. However, letterhead upload failed: ${msg}`);
           } finally {
             setUploadingLetterhead(false);
           }
         } else if (!formData.letterhead_url && selectedCompany.letterhead_url) {
-          letterheadUpdate = { letterhead_url: null, letterhead_name: null };
+          await supabase
+            .from('companies')
+            .update({ letterhead_url: null, letterhead_name: null })
+            .eq('id', selectedCompany.id);
+          finalLetterheadUrl = '';
+          finalLetterheadName = '';
         }
 
-        const { error } = await supabase
-          .from('companies')
-          .update({ ...baseData, ...letterheadUpdate })
-          .eq('id', selectedCompany.id);
-
-        if (error) throw error;
-
-        const updated = {
-          ...selectedCompany,
-          ...baseData,
-          letterhead_url: letterheadUpdate.letterhead_url !== undefined ? letterheadUpdate.letterhead_url || '' : (selectedCompany.letterhead_url || ''),
-          letterhead_name: letterheadUpdate.letterhead_name !== undefined ? letterheadUpdate.letterhead_name || '' : (selectedCompany.letterhead_name || ''),
-        };
+        const updated = { ...selectedCompany, ...baseData, letterhead_url: finalLetterheadUrl, letterhead_name: finalLetterheadName };
         setSelectedCompany(updated as Company);
-        setFormData(prev => ({
-          ...prev,
-          letterhead_url: updated.letterhead_url || '',
-          letterhead_name: updated.letterhead_name || '',
-        }));
+        setFormData(prev => ({ ...prev, letterhead_url: finalLetterheadUrl, letterhead_name: finalLetterheadName }));
         setLetterheadFile(null);
         alert('Company updated successfully!');
       } else {
+        // Step 1: Insert company (no letterhead yet)
         const { data: newData, error } = await supabase
           .from('companies')
           .insert([baseData])
@@ -176,16 +188,23 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
         if (error) throw error;
 
+        // Step 2: Upload letterhead separately
         if (letterheadFile && newData) {
           setUploadingLetterhead(true);
           try {
             const result = await uploadLetterheadFile(letterheadFile, newData.id);
             if (result) {
-              await supabase
+              const { error: lhError } = await supabase
                 .from('companies')
                 .update({ letterhead_url: result.url, letterhead_name: result.name })
                 .eq('id', newData.id);
+              if (lhError) {
+                alert(`Company created. However, letterhead upload failed: ${lhError.message}`);
+              }
             }
+          } catch (lhErr) {
+            const msg = lhErr instanceof Error ? lhErr.message : String(lhErr);
+            alert(`Company created. However, letterhead upload failed: ${msg}`);
           } finally {
             setUploadingLetterhead(false);
           }
@@ -200,12 +219,11 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       onCompanyUpdated();
     } catch (error) {
       console.error('Error saving company:', error);
-      if (error instanceof Error && error.message.includes('duplicate key')) {
-        alert('A company with this name already exists');
-      } else if (error instanceof Error && error.message.includes('letterhead')) {
-        alert('Company saved, but letterhead upload failed. Please apply the database migration first.');
+      const msg = error instanceof Error ? error.message : String(error);
+      if (msg.includes('duplicate key')) {
+        alert('A company with this name already exists.');
       } else {
-        alert('Failed to save company. If you just added letterhead support, please apply the SQL migration in supabase/migrations/.');
+        alert(`Failed to save company: ${msg}`);
       }
     } finally {
       setLoading(false);

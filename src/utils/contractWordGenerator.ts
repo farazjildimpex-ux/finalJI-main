@@ -140,27 +140,48 @@ function noTbl(rows: string[]): string {
 </w:tbl>`;
 }
 
+function tcParagraph(
+  runs: Array<{ text: string; bold?: boolean; sz?: number }>,
+  opts: { align?: string; spAfter?: number; spBefore?: number } = {}
+): string {
+  const { align = '', spAfter = 60, spBefore = 0 } = opts;
+  const alignXml = align ? `<w:jc w:val="${align}"/>` : '';
+  const runsXml = runs
+    .map((r) => {
+      const rPr = [
+        r.bold ? '<w:b/><w:bCs/>' : '',
+        `<w:sz w:val="${r.sz || 22}"/><w:szCs w:val="${r.sz || 22}"/>`,
+      ]
+        .filter(Boolean)
+        .join('');
+      return `<w:r><w:rPr>${rPr}</w:rPr><w:t xml:space="preserve">${escXml(r.text)}</w:t></w:r>`;
+    })
+    .join('');
+  return `<w:p><w:pPr>${alignXml}<w:spacing w:before="${spBefore}" w:after="${spAfter}"/></w:pPr>${runsXml}</w:p>`;
+}
+
 function buildContractBody(contract: Contract): string {
   const dateStr = contract.contract_date
     ? new Date(contract.contract_date).toLocaleDateString('en-GB')
     : '';
   const parts: string[] = [];
 
-  const supplierCellInner = [
+  // ── Row 1: Messrs (left) | Date / Contract No / Buyer's Ref (right) ──────
+  const supplierLines = [
     contract.supplier_name,
     ...((contract.supplier_address || []).filter(Boolean)),
-  ]
-    .map((line, i) => {
-      const bold = i === 0;
-      return `<w:r><w:rPr>${bold ? '<w:b/><w:bCs/>' : ''}<w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr><w:t xml:space="preserve">${escXml(line)}</w:t></w:r><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:br/></w:r>`;
-    })
+  ];
+  const supplierParas = supplierLines
+    .map((line, i) =>
+      tcParagraph([{ text: i === 0 ? `Messrs:   ${line}` : line, bold: i === 0 }], { spAfter: 30 })
+    )
     .join('');
 
-  const rightLines = [
-    `<w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Date: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(dateStr)}</w:t></w:r>`,
-    `<w:r><w:br/></w:r><w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Contract No: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(contract.contract_no)}</w:t></w:r>`,
+  const rightParas = [
+    tcParagraph([{ text: 'Date: ', bold: true }, { text: dateStr }], { align: 'right', spAfter: 60 }),
+    tcParagraph([{ text: 'Contract No: ', bold: true }, { text: contract.contract_no }], { align: 'right', spAfter: 60 }),
     contract.buyers_reference
-      ? `<w:r><w:br/></w:r><w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Buyer's Ref: </w:t></w:r><w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>${escXml(contract.buyers_reference)}</w:t></w:r>`
+      ? tcParagraph([{ text: "Buyer's Ref: ", bold: true }, { text: contract.buyers_reference }], { align: 'right', spAfter: 60 })
       : '',
   ]
     .filter(Boolean)
@@ -169,60 +190,66 @@ function buildContractBody(contract: Contract): string {
   parts.push(
     noTbl([
       `<w:tr>
-        <w:tc>
-          <w:tcPr><w:tcW w:w="5000" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t xml:space="preserve">Messrs:  </w:t></w:r>
-            ${supplierCellInner}
-          </w:p>
-        </w:tc>
-        <w:tc>
-          <w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            ${rightLines}
-          </w:p>
-        </w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="5000" w:type="dxa"/></w:tcPr>${supplierParas}</w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="3500" w:type="dxa"/></w:tcPr>${rightParas}</w:tc>
       </w:tr>`,
     ])
   );
 
+  // ── Dear Sirs ─────────────────────────────────────────────────────────────
   parts.push(blank());
   parts.push(p('Dear Sirs,', { spAfter: 100 }));
   parts.push(
-    p(
-      'We confirm having sold on your behalf the following goods, as per terms and conditions stated below.',
-      { spAfter: 200 }
-    )
+    p('We confirm having sold on your behalf the following goods, as per terms and conditions stated below.', { spAfter: 160 })
   );
 
-  const buyerAddr = (contract.buyer_address || []).filter(Boolean).join(', ');
+  // ── Row 2: Buyer block (left) | VERY IMPORTANT (right) ───────────────────
+  const buyerLines = (contract.buyer_address || []).filter(Boolean);
+  const buyerParas = [
+    tcParagraph([{ text: 'Buyer:   ', bold: true }, { text: contract.buyer_name || '' }], { spAfter: 40 }),
+    ...buyerLines.map((addr) =>
+      tcParagraph([{ text: addr }], { spAfter: 30 })
+    ),
+  ].join('');
+
+  const importantNotes = (contract.important_notes || []).filter(Boolean);
+  const importantParas = importantNotes.length
+    ? [
+        tcParagraph([{ text: 'VERY IMPORTANT', bold: true, sz: 20 }], { spAfter: 80 }),
+        ...importantNotes.map((note) =>
+          tcParagraph([{ text: `\u2022  ${note}` }], { spAfter: 40, spBefore: 0 })
+        ),
+      ].join('')
+    : tcParagraph([{ text: '' }], { spAfter: 0 });
+
   parts.push(
-    mp(
-      [
-        { text: 'Buyer: ', bold: true },
-        { text: [contract.buyer_name, buyerAddr].filter(Boolean).join(' — ') },
-      ],
-      { spAfter: 100 }
-    )
+    noTbl([
+      `<w:tr>
+        <w:tc><w:tcPr><w:tcW w:w="5200" w:type="dxa"/></w:tcPr>${buyerParas}</w:tc>
+        <w:tc><w:tcPr><w:tcW w:w="3300" w:type="dxa"/></w:tcPr>${importantParas}</w:tc>
+      </w:tr>`,
+    ])
   );
 
+  // ── Description / Article / Size / Substance / Measurement ───────────────
+  parts.push(blank());
   if (contract.description)
-    parts.push(mp([{ text: 'Description: ', bold: true }, { text: contract.description }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Description:    ', bold: true }, { text: contract.description }], { spAfter: 60 }));
   if (contract.article)
-    parts.push(mp([{ text: 'Article: ', bold: true }, { text: contract.article }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Article:    ', bold: true }, { text: contract.article }], { spAfter: 60 }));
   if (contract.size || contract.average) {
     const sizeText = [contract.size, contract.average ? `Avg: ${contract.average}` : '']
       .filter(Boolean)
       .join('   ');
-    parts.push(mp([{ text: 'Size: ', bold: true }, { text: sizeText }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Size:    ', bold: true }, { text: sizeText }], { spAfter: 60 }));
   }
   if (contract.substance)
-    parts.push(mp([{ text: 'Substance: ', bold: true }, { text: contract.substance }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Substance:    ', bold: true }, { text: contract.substance }], { spAfter: 60 }));
   if (contract.measurement)
-    parts.push(mp([{ text: 'Measurement: ', bold: true }, { text: contract.measurement }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Measurement:    ', bold: true }, { text: contract.measurement }], { spAfter: 60 }));
 
+  // ── Selection table ───────────────────────────────────────────────────────
   parts.push(blank());
-
   if (contract.selection && contract.selection.some((s) => s)) {
     const colWidths = [1500, 1500, 2600, 1400, 1500];
     const headerRow = tblRow(
@@ -251,56 +278,29 @@ function buildContractBody(contract: Contract): string {
     parts.push(blank());
   }
 
+  // ── Delivery / Destination / Payment / Commission / Notify / Bank Docs ────
   if (contract.delivery_schedule?.some(Boolean))
-    parts.push(
-      mp(
-        [
-          { text: 'Delivery: ', bold: true },
-          { text: contract.delivery_schedule.filter(Boolean).join(', ') },
-        ],
-        { spAfter: 60 }
-      )
-    );
+    parts.push(mp([{ text: 'Delivery:    ', bold: true }, { text: contract.delivery_schedule.filter(Boolean).join(', ') }], { spAfter: 60 }));
   if (contract.destination?.some(Boolean))
-    parts.push(
-      mp(
-        [
-          { text: 'Destination: ', bold: true },
-          { text: contract.destination.filter(Boolean).join(', ') },
-        ],
-        { spAfter: 60 }
-      )
-    );
+    parts.push(mp([{ text: 'Destination:    ', bold: true }, { text: contract.destination.filter(Boolean).join(', ') }], { spAfter: 60 }));
   if (contract.payment_terms)
-    parts.push(mp([{ text: 'Payment: ', bold: true }, { text: contract.payment_terms }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Payment:    ', bold: true }, { text: contract.payment_terms }], { spAfter: 60 }));
 
   const commission = [contract.local_commission, contract.foreign_commission].filter(Boolean).join(', ');
   if (commission)
-    parts.push(mp([{ text: 'Commission: ', bold: true }, { text: commission }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Commission:    ', bold: true }, { text: commission }], { spAfter: 60 }));
   if (contract.notify_party)
-    parts.push(mp([{ text: 'Notify: ', bold: true }, { text: contract.notify_party }], { spAfter: 60 }));
+    parts.push(mp([{ text: 'Notify:    ', bold: true }, { text: contract.notify_party }], { spAfter: 60 }));
   if (contract.bank_documents)
-    parts.push(
-      mp([{ text: 'Bank Documents: ', bold: true }, { text: contract.bank_documents }], { spAfter: 60 })
-    );
+    parts.push(mp([{ text: 'Bank Documents:    ', bold: true }, { text: contract.bank_documents }], { spAfter: 60 }));
 
-  if (contract.important_notes?.some(Boolean)) {
-    parts.push(blank());
-    parts.push(p('VERY IMPORTANT', { bold: true, sz: 20, spAfter: 80 }));
-    contract.important_notes.filter(Boolean).forEach((note) => {
-      parts.push(p(`\u2022  ${note}`, { sz: 20, spAfter: 40 }));
-    });
-  }
-
+  // ── Terms + Inspection ────────────────────────────────────────────────────
   parts.push(blank());
-
   parts.push(
     mp(
       [
-        { text: 'Terms: ', bold: true },
-        {
-          text: 'This contract is subjected to all terms and conditions of the international finished leather contract No.7.',
-        },
+        { text: 'Terms:    ', bold: true },
+        { text: 'This contract is subjected to all terms and conditions of the international finished leather contract No.7.' },
       ],
       { spAfter: 80 }
     )
@@ -308,55 +308,46 @@ function buildContractBody(contract: Contract): string {
   parts.push(
     mp(
       [
-        { text: 'Inspection: ', bold: true },
-        {
-          text: 'Notwithstanding anything to the contrary in contract No.7, the place of inspection of the goods shall be within 15 days after delivery of the goods in the warehouse of the buyer.',
-        },
+        { text: 'Inspection:    ', bold: true },
+        { text: 'Notwithstanding anything to the contrary in contract No.7, the place of inspection of the goods shall be within 15 days after delivery of the goods in the warehouse of the buyer.' },
       ],
       { spAfter: 240 }
     )
   );
 
+  // ── Closing: "We Confirm" (left) | "Yours Faithfully / For COMPANY" (right)
   parts.push(
     noTbl([
       `<w:tr>
         <w:tc>
           <w:tcPr><w:tcW w:w="4250" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>We Confirm the above sale</w:t></w:r></w:p>
+          ${tcParagraph([{ text: 'We Confirm the above sale' }], { spAfter: 40 })}
         </w:tc>
         <w:tc>
           <w:tcPr><w:tcW w:w="4250" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>Yours Faithfully,</w:t></w:r></w:p>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>For ${escXml(
-              contract.company_name?.toUpperCase()
-            )}</w:t></w:r></w:p>
+          ${tcParagraph([{ text: 'Yours Faithfully,' }], { align: 'right', spAfter: 40 })}
+          ${tcParagraph([{ text: `For ${(contract.company_name || '').toUpperCase()}`, bold: true }], { align: 'right', spAfter: 40 })}
         </w:tc>
       </w:tr>`,
     ])
   );
 
+  // ── Signature row: Seller | Buyer | Partner / Manager ────────────────────
   parts.push(blank(3));
-
   parts.push(
     noTbl([
       `<w:tr>
         <w:tc>
           <w:tcPr><w:tcW w:w="2833" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Seller</w:t></w:r></w:p>
+          ${tcParagraph([{ text: 'Seller', bold: true }], { spAfter: 40 })}
         </w:tc>
         <w:tc>
           <w:tcPr><w:tcW w:w="2833" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="center"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Buyer</w:t></w:r></w:p>
+          ${tcParagraph([{ text: 'Buyer', bold: true }], { align: 'center', spAfter: 40 })}
         </w:tc>
         <w:tc>
           <w:tcPr><w:tcW w:w="2834" w:type="dxa"/></w:tcPr>
-          <w:p><w:pPr><w:jc w:val="right"/><w:spacing w:after="40"/></w:pPr>
-            <w:r><w:rPr><w:b/><w:bCs/><w:sz w:val="22"/></w:rPr><w:t>Partner / Manager</w:t></w:r></w:p>
+          ${tcParagraph([{ text: 'Partner / Manager', bold: true }], { align: 'right', spAfter: 40 })}
         </w:tc>
       </w:tr>`,
     ])
