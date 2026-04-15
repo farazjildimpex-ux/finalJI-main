@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Download, Loader2 } from 'lucide-react';
+import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Download, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company } from '../../types';
 
@@ -20,6 +20,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [uploadingLetterhead, setUploadingLetterhead] = useState(false);
   const [letterheadFile, setLetterheadFile] = useState<File | null>(null);
+  const [showPlaceholders, setShowPlaceholders] = useState(false);
   const letterheadInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -507,9 +508,103 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                           onChange={handleLetterheadFileChange}
                           className="hidden"
                         />
-                        <p className="mt-1.5 text-xs text-gray-400">
-                          Upload a Word (.docx) document with your company letterhead. It will be used as the header/footer when exporting contracts and debit notes.
+                        <p className="mt-1.5 text-xs text-gray-500">
+                          Design your .docx template in Word exactly as you want the final document. Place <span className="font-mono bg-gray-100 px-1 rounded">{'{{Placeholder}}'}</span> tags where data should appear.
                         </p>
+
+                        {/* Placeholder Reference */}
+                        <div className="mt-3 border border-gray-200 rounded-lg overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setShowPlaceholders(!showPlaceholders)}
+                            className="w-full flex items-center justify-between px-3 py-2 bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-700"
+                          >
+                            <span>View available template placeholders</span>
+                            {showPlaceholders ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </button>
+                          {showPlaceholders && (
+                            <div className="p-3 text-xs space-y-3 bg-white">
+                              <div>
+                                <p className="font-semibold text-gray-700 mb-1">Contract Template</p>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-gray-600">
+                                  {[
+                                    ['{{SupplierName}}', 'Supplier / seller name'],
+                                    ['{{SupplierAddress}}', 'Full address (multi-line)'],
+                                    ['{{SupplierAddress1}}–{{SupplierAddress5}}', 'Individual address lines'],
+                                    ['{{Date}}', 'Contract date (DD/MM/YYYY)'],
+                                    ['{{ContractNo}}', 'Contract number'],
+                                    ['{{BuyersRef}}', "Buyer's reference"],
+                                    ['{{BuyerName}}', 'Buyer name'],
+                                    ['{{BuyerAddress}}', 'Buyer address (multi-line)'],
+                                    ['{{BuyerAddress1}}–{{BuyerAddress5}}', 'Individual buyer addr lines'],
+                                    ['{{Description}}', 'Goods description'],
+                                    ['{{Article}}', 'Article'],
+                                    ['{{Size}}', 'Size'],
+                                    ['{{Average}}', 'Average'],
+                                    ['{{Substance}}', 'Substance'],
+                                    ['{{Measurement}}', 'Measurement'],
+                                    ['{{ImportantNotes}}', 'All VERY IMPORTANT notes'],
+                                    ['{{ImportantNote1}}–{{ImportantNote5}}', 'Individual notes'],
+                                    ['{{Delivery}}', 'Delivery schedule'],
+                                    ['{{Destination}}', 'Destination'],
+                                    ['{{Payment}}', 'Payment terms'],
+                                    ['{{Commission}}', 'Commission (local + foreign)'],
+                                    ['{{Notify}}', 'Notify party'],
+                                    ['{{BankDocuments}}', 'Bank documents'],
+                                    ['{{CompanyName}}', 'Your company name (CAPS)'],
+                                    ['{{Selection1}}–{{Selection10}}', 'Selection rows'],
+                                    ['{{Color1}}–{{Color10}}', 'Color rows'],
+                                    ['{{Swatch1}}–{{Swatch10}}', 'Swatch/Reference rows'],
+                                    ['{{Quantity1}}–{{Quantity10}}', 'Quantity rows'],
+                                    ['{{Price1}}–{{Price10}}', 'Price rows'],
+                                  ].map(([tag, desc]) => (
+                                    <React.Fragment key={tag}>
+                                      <span className="font-mono text-blue-700 truncate">{tag}</span>
+                                      <span className="text-gray-500">{desc}</span>
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                                <p className="mt-2 text-gray-500">
+                                  <span className="font-medium">Selection table loop:</span> In a table row, use <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{#Selections}"'}</span> and <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{/Selections}"'}</span> with <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{Selection}"'}</span>, <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{Color}"'}</span>, <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{Swatch}"'}</span>, <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{Quantity}"'}</span>, <span className="font-mono bg-gray-100 px-0.5 rounded">{'"{Price}"'}</span> — docxtemplater will repeat the row for each item.
+                                </p>
+                              </div>
+                              <hr />
+                              <div>
+                                <p className="font-semibold text-gray-700 mb-1">Debit Note Template</p>
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-gray-600">
+                                  {[
+                                    ['{{SupplierName}}', 'Supplier name'],
+                                    ['{{SupplierAddress}}', 'Full address (multi-line)'],
+                                    ['{{SupplierAddress1}}–{{SupplierAddress5}}', 'Individual address lines'],
+                                    ['{{DebitNoteNo}}', 'Debit note number'],
+                                    ['{{Date}}', 'Debit note date'],
+                                    ['{{ContractNo}}', 'Contract number'],
+                                    ['{{ContractDate}}', 'Contract date'],
+                                    ['{{BuyerName}}', 'Buyer name'],
+                                    ['{{InvoiceNo}}', 'Invoice number'],
+                                    ['{{InvoiceDate}}', 'Invoice date'],
+                                    ['{{Quantity}}', 'Quantity'],
+                                    ['{{Pieces}}', 'Number of pieces'],
+                                    ['{{Destination}}', 'Destination'],
+                                    ['{{CommissionPercent}}', 'Commission %'],
+                                    ['{{Currency}}', 'Currency (USD/EUR etc)'],
+                                    ['{{InvoiceValue}}', 'Invoice value'],
+                                    ['{{CommissionAmount}}', 'Commission amount'],
+                                    ['{{ExchangeRate}}', 'Exchange rate'],
+                                    ['{{CommissionInRupees}}', 'Commission in ₹'],
+                                    ['{{CommissionInWords}}', 'Amount in words'],
+                                    ['{{CompanyName}}', 'Your company name (CAPS)'],
+                                  ].map(([tag, desc]) => (
+                                    <React.Fragment key={tag}>
+                                      <span className="font-mono text-blue-700 truncate">{tag}</span>
+                                      <span className="text-gray-500">{desc}</span>
+                                    </React.Fragment>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ) : (
