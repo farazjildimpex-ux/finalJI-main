@@ -96,6 +96,18 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     setEditMode(false);
   };
 
+  const errMsg = (err: unknown): string => {
+    if (!err) return 'Unknown error';
+    if (err instanceof Error) return err.message;
+    if (typeof err === 'object') {
+      const o = err as Record<string, unknown>;
+      if (typeof o.message === 'string' && o.message) return o.message;
+      if (typeof o.error_description === 'string') return o.error_description;
+      try { return JSON.stringify(o); } catch { /* fall through */ }
+    }
+    return String(err);
+  };
+
   const uploadLetterheadFile = async (file: File, companyId: string): Promise<{ url: string; name: string } | null> => {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
     const storagePath = `letterheads/${companyId}/${safeName}`;
@@ -104,7 +116,10 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       .from('contract-files')
       .upload(storagePath, file, { upsert: true });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      const msg = errMsg(uploadError);
+      throw new Error(`Storage upload failed: ${msg}`);
+    }
 
     const { data: { publicUrl } } = supabase.storage
       .from('contract-files')
@@ -119,9 +134,10 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       return;
     }
 
-    try {
-      setLoading(true);
+    setLoading(true);
+    let savedOk = false;
 
+    try {
       const baseData = {
         name: formData.name.trim(),
         address: formData.address.filter(addr => addr.trim() !== ''),
@@ -130,15 +146,15 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       };
 
       if (selectedCompany) {
-        // Step 1: Save company data first (always succeeds independently of letterhead)
+        // Step 1: Save core company data
         const { error } = await supabase
           .from('companies')
           .update(baseData)
           .eq('id', selectedCompany.id);
 
-        if (error) throw error;
+        if (error) throw new Error(errMsg(error));
 
-        // Step 2: Upload letterhead separately (non-blocking)
+        // Step 2: Upload letterhead (non-blocking — company is already saved above)
         let finalLetterheadUrl = selectedCompany.letterhead_url || '';
         let finalLetterheadName = selectedCompany.letterhead_name || '';
 
@@ -155,40 +171,38 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                 finalLetterheadUrl = result.url;
                 finalLetterheadName = result.name;
               } else {
-                alert(`Company saved. However, letterhead upload failed: ${lhError.message}`);
+                alert(`Company saved. However, letterhead link failed: ${errMsg(lhError)}`);
               }
             }
           } catch (lhErr) {
-            const msg = lhErr instanceof Error ? lhErr.message : String(lhErr);
-            alert(`Company saved. However, letterhead upload failed: ${msg}`);
+            alert(`Company saved. However, letterhead upload failed: ${errMsg(lhErr)}`);
           } finally {
             setUploadingLetterhead(false);
           }
         } else if (!formData.letterhead_url && selectedCompany.letterhead_url) {
-          await supabase
+          const { error: clrErr } = await supabase
             .from('companies')
             .update({ letterhead_url: null, letterhead_name: null })
             .eq('id', selectedCompany.id);
-          finalLetterheadUrl = '';
-          finalLetterheadName = '';
+          if (!clrErr) { finalLetterheadUrl = ''; finalLetterheadName = ''; }
         }
 
         const updated = { ...selectedCompany, ...baseData, letterhead_url: finalLetterheadUrl, letterhead_name: finalLetterheadName };
         setSelectedCompany(updated as Company);
         setFormData(prev => ({ ...prev, letterhead_url: finalLetterheadUrl, letterhead_name: finalLetterheadName }));
         setLetterheadFile(null);
+        savedOk = true;
         alert('Company updated successfully!');
       } else {
-        // Step 1: Insert company (no letterhead yet)
+        // New company — insert first, then upload letterhead
         const { data: newData, error } = await supabase
           .from('companies')
           .insert([baseData])
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) throw new Error(errMsg(error));
 
-        // Step 2: Upload letterhead separately
         if (letterheadFile && newData) {
           setUploadingLetterhead(true);
           try {
@@ -199,34 +213,36 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                 .update({ letterhead_url: result.url, letterhead_name: result.name })
                 .eq('id', newData.id);
               if (lhError) {
-                alert(`Company created. However, letterhead upload failed: ${lhError.message}`);
+                alert(`Company created. However, letterhead upload failed: ${errMsg(lhError)}`);
               }
             }
           } catch (lhErr) {
-            const msg = lhErr instanceof Error ? lhErr.message : String(lhErr);
-            alert(`Company created. However, letterhead upload failed: ${msg}`);
+            alert(`Company created. However, letterhead upload failed: ${errMsg(lhErr)}`);
           } finally {
             setUploadingLetterhead(false);
           }
         }
 
         setLetterheadFile(null);
+        savedOk = true;
         alert('Company created successfully!');
       }
-
-      await fetchCompanies();
-      setEditMode(false);
-      onCompanyUpdated();
     } catch (error) {
-      console.error('Error saving company:', error);
-      const msg = error instanceof Error ? error.message : String(error);
-      if (msg.includes('duplicate key')) {
+      console.error('Company save error (full object):', JSON.stringify(error));
+      const msg = errMsg(error);
+      if (msg.includes('duplicate key') || msg.includes('unique')) {
         alert('A company with this name already exists.');
       } else {
         alert(`Failed to save company: ${msg}`);
       }
     } finally {
       setLoading(false);
+    }
+
+    if (savedOk) {
+      await fetchCompanies();
+      setEditMode(false);
+      onCompanyUpdated();
     }
   };
 
