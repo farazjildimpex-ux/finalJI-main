@@ -48,7 +48,7 @@ function buildTemplateData(dn: DebitNote): Record<string, unknown> {
   };
 
   // Add indexed lines for fixed positioning
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     data[`SupplierAddress${i + 1}`] = supplierAddr[i] || '';
   }
 
@@ -60,9 +60,7 @@ export async function generateDebitNoteWord(
   templateUrl: string | null | undefined
 ): Promise<void> {
   if (!templateUrl) {
-    alert(
-      'No Word template found for this company.\n\nPlease upload a .docx template in Company Management → Edit Company → Letterhead Template.'
-    );
+    alert('No Word template found for this company. Please upload a .docx template in Company Management.');
     return;
   }
 
@@ -78,7 +76,17 @@ export async function generateDebitNoteWord(
       nullGetter: () => '',
     });
 
-    doc.render(buildTemplateData(debitNote));
+    try {
+      doc.render(buildTemplateData(debitNote));
+    } catch (error: any) {
+      if (error.properties && error.properties.errors instanceof Array) {
+        const errorMessages = error.properties.errors
+          .map((e: any) => `• ${e.message} (Tag: ${e.properties.explanation || e.properties.id})`)
+          .join('\n');
+        throw new Error(`Template Error:\n${errorMessages}`);
+      }
+      throw error;
+    }
 
     const output = doc.getZip().generate({ type: 'arraybuffer' });
     const blob = new Blob([output], {
@@ -91,9 +99,8 @@ export async function generateDebitNoteWord(
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    alert(`Word export failed: ${msg}\n\nMake sure your template uses valid {{Placeholder}} syntax.`);
+  } catch (err: any) {
     console.error('Word export error:', err);
+    alert(err.message || 'Word export failed. Check your template for typos in tags like {{Tag}}.');
   }
 }

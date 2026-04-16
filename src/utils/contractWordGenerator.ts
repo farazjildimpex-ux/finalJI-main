@@ -60,7 +60,7 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
   };
 
   // Add indexed lines for fixed positioning (e.g. {{SupplierAddress1}})
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 15; i++) {
     data[`SupplierAddress${i + 1}`] = supplierAddr[i] || '';
     data[`BuyerAddress${i + 1}`] = buyerAddr[i] || '';
     data[`ImportantNote${i + 1}`] = importantNotes[i] || '';
@@ -80,9 +80,7 @@ export async function generateContractWord(
   templateUrl: string | null | undefined
 ): Promise<void> {
   if (!templateUrl) {
-    alert(
-      'No Word template found for this company.\n\nPlease upload a .docx template in Company Management → Edit Company → Letterhead Template.'
-    );
+    alert('No Word template found for this company. Please upload a .docx template in Company Management.');
     return;
   }
 
@@ -98,7 +96,18 @@ export async function generateContractWord(
       nullGetter: () => '',
     });
 
-    doc.render(buildTemplateData(contract));
+    try {
+      doc.render(buildTemplateData(contract));
+    } catch (error: any) {
+      // Detailed error reporting for template tags
+      if (error.properties && error.properties.errors instanceof Array) {
+        const errorMessages = error.properties.errors
+          .map((e: any) => `• ${e.message} (Tag: ${e.properties.explanation || e.properties.id})`)
+          .join('\n');
+        throw new Error(`Template Error:\n${errorMessages}`);
+      }
+      throw error;
+    }
 
     const output = doc.getZip().generate({ type: 'arraybuffer' });
     const blob = new Blob([output], {
@@ -111,9 +120,9 @@ export async function generateContractWord(
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
-  } catch (err) {
+  } catch (err: any) {
     console.error('Word export error:', err);
-    alert('Word export failed. This usually happens if the template has invalid tags or formatting. Try using the sample template as a base.');
+    alert(err.message || 'Word export failed. Check your template for typos in tags like {{Tag}}.');
   }
 }
 
