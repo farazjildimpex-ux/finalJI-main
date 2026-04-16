@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Download, Loader2, ChevronDown, ChevronRight, Info, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Copy, Loader2, ChevronDown, ChevronRight, Info, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company } from '../../types';
 
@@ -20,7 +20,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [uploadingLetterhead, setUploadingLetterhead] = useState(false);
   const [letterheadFile, setLetterheadFile] = useState<File | null>(null);
-  const [showPlaceholders, setShowPlaceholders] = useState(false);
+  const [showPlaceholders, setShowPlaceholders] = useState(true);
   const letterheadInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
@@ -214,6 +214,15 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     setLetterheadFile(file);
   };
 
+  const copyTagsToClipboard = (type: 'contract' | 'debit') => {
+    const tags = type === 'contract' 
+      ? `{{SupplierName}}\n{{SupplierAddress}}\n{{Date}}\n{{ContractNo}}\n{{BuyersRef}}\n{{BuyerName}}\n{{BuyerAddress}}\n{{Description}}\n{{Article}}\n{{Size}}\n{{Average}}\n{{Substance}}\n{{Measurement}}\n{{Delivery}}\n{{Destination}}\n{{Payment}}\n{{Commission}}\n{{Notify}}\n{{BankDocuments}}`
+      : `{{SupplierName}}\n{{SupplierAddress}}\n{{DebitNoteNo}}\n{{Date}}\n{{ContractNo}}\n{{ContractDate}}\n{{BuyerName}}\n{{InvoiceNo}}\n{{InvoiceDate}}\n{{Quantity}}\n{{Pieces}}\n{{Destination}}\n{{CommissionPercent}}\n{{Currency}}\n{{InvoiceValue}}\n{{CommissionAmount}}\n{{ExchangeRate}}\n{{CommissionInRupees}}\n{{CommissionInWords}}`;
+    
+    navigator.clipboard.writeText(tags);
+    alert('Tags copied to clipboard! You can now paste them into your Word document.');
+  };
+
   if (!isOpen) return null;
 
   const inputClassName = "w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all";
@@ -349,19 +358,9 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
                     {/* Template Section */}
                     <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-6 w-6 text-blue-600" />
-                          <h4 className="font-black text-blue-900 uppercase tracking-tight">Word Export Template (.docx)</h4>
-                        </div>
-                        <a 
-                          href="https://docs.google.com/document/d/1-X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X/export?format=docx" 
-                          target="_blank" 
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-tighter hover:bg-blue-50 transition-all"
-                        >
-                          <Download className="h-3 w-3" /> Download Sample
-                        </a>
+                      <div className="flex items-center gap-2 mb-4">
+                        <FileText className="h-6 w-6 text-blue-600" />
+                        <h4 className="font-black text-blue-900 uppercase tracking-tight">Word Export Template (.docx)</h4>
                       </div>
                       
                       {editMode ? (
@@ -389,14 +388,31 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
                           {/* Placeholder Reference */}
                           <div className="mt-4">
-                            <button
-                              type="button"
-                              onClick={() => setShowPlaceholders(!showPlaceholders)}
-                              className="flex items-center gap-1 text-xs font-black text-blue-600 uppercase tracking-widest hover:underline"
-                            >
-                              {showPlaceholders ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                              Placeholder Guide
-                            </button>
+                            <div className="flex items-center justify-between mb-3">
+                              <button
+                                type="button"
+                                onClick={() => setShowPlaceholders(!showPlaceholders)}
+                                className="flex items-center gap-1 text-xs font-black text-blue-600 uppercase tracking-widest hover:underline"
+                              >
+                                {showPlaceholders ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                                Placeholder Guide
+                              </button>
+                              <div className="flex gap-2">
+                                <button 
+                                  onClick={() => copyTagsToClipboard('contract')}
+                                  className="px-2 py-1 bg-white border border-blue-200 rounded text-[10px] font-bold text-blue-600 hover:bg-blue-50"
+                                >
+                                  Copy Contract Tags
+                                </button>
+                                <button 
+                                  onClick={() => copyTagsToClipboard('debit')}
+                                  className="px-2 py-1 bg-white border border-blue-200 rounded text-[10px] font-bold text-blue-600 hover:bg-blue-50"
+                                >
+                                  Copy Debit Note Tags
+                                </button>
+                              </div>
+                            </div>
+                            
                             {showPlaceholders && (
                               <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white rounded-xl border border-blue-100 text-[11px] font-medium text-slate-600 shadow-inner">
                                 <div>
