@@ -18,14 +18,10 @@ function buildTemplateData(dn: DebitNote): Record<string, unknown> {
 
   const supplierAddr = (dn.supplier_address || []).filter(Boolean);
 
-  return {
+  const data: Record<string, unknown> = {
     SupplierName: dn.supplier_name || '',
     SupplierAddress: supplierAddr.join('\n'),
-    SupplierAddress1: supplierAddr[0] || '',
-    SupplierAddress2: supplierAddr[1] || '',
-    SupplierAddress3: supplierAddr[2] || '',
-    SupplierAddress4: supplierAddr[3] || '',
-    SupplierAddress5: supplierAddr[4] || '',
+    SupplierAddressLines: supplierAddr.map(line => ({ line })),
 
     DebitNoteNo: dn.debit_note_no || '',
     Date: dateStr,
@@ -50,6 +46,13 @@ function buildTemplateData(dn: DebitNote): Record<string, unknown> {
 
     CompanyName: (dn.company || '').toUpperCase(),
   };
+
+  // Add indexed lines for fixed positioning
+  for (let i = 0; i < 10; i++) {
+    data[`SupplierAddress${i + 1}`] = supplierAddr[i] || '';
+  }
+
+  return data;
 }
 
 export async function generateDebitNoteWord(
@@ -58,7 +61,7 @@ export async function generateDebitNoteWord(
 ): Promise<void> {
   if (!templateUrl) {
     alert(
-      'No Word template found for this company.\n\nPlease upload a .docx template in Company Management → Edit Company → Letterhead Template.\n\nUse {{DebitNoteNo}}, {{SupplierName}}, etc. as placeholders in your template.'
+      'No Word template found for this company.\n\nPlease upload a .docx template in Company Management → Edit Company → Letterhead Template.'
     );
     return;
   }

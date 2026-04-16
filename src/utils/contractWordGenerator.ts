@@ -27,23 +27,15 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
   const data: Record<string, unknown> = {
     SupplierName: contract.supplier_name || '',
     SupplierAddress: supplierAddr.join('\n'),
-    SupplierAddress1: supplierAddr[0] || '',
-    SupplierAddress2: supplierAddr[1] || '',
-    SupplierAddress3: supplierAddr[2] || '',
-    SupplierAddress4: supplierAddr[3] || '',
-    SupplierAddress5: supplierAddr[4] || '',
-
+    SupplierAddressLines: supplierAddr.map(line => ({ line })),
+    
     Date: dateStr,
     ContractNo: contract.contract_no || '',
     BuyersRef: contract.buyers_reference || '',
 
     BuyerName: contract.buyer_name || '',
     BuyerAddress: buyerAddr.join('\n'),
-    BuyerAddress1: buyerAddr[0] || '',
-    BuyerAddress2: buyerAddr[1] || '',
-    BuyerAddress3: buyerAddr[2] || '',
-    BuyerAddress4: buyerAddr[3] || '',
-    BuyerAddress5: buyerAddr[4] || '',
+    BuyerAddressLines: buyerAddr.map(line => ({ line })),
 
     Description: contract.description || '',
     Article: contract.article || '',
@@ -53,11 +45,7 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
     Measurement: contract.measurement || '',
 
     ImportantNotes: importantNotes.join('\n'),
-    ImportantNote1: importantNotes[0] || '',
-    ImportantNote2: importantNotes[1] || '',
-    ImportantNote3: importantNotes[2] || '',
-    ImportantNote4: importantNotes[3] || '',
-    ImportantNote5: importantNotes[4] || '',
+    ImportantNoteLines: importantNotes.map(line => ({ line })),
 
     Delivery: (contract.delivery_schedule || []).filter(Boolean).join(', '),
     Destination: (contract.destination || []).filter(Boolean).join(', '),
@@ -71,12 +59,17 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
     Selections: selectionRows,
   };
 
+  // Add indexed lines for fixed positioning (e.g. {{SupplierAddress1}})
   for (let i = 0; i < 10; i++) {
-    data[`Selection${i + 1}`] = contract.selection?.[i] || '';
-    data[`Color${i + 1}`] = contract.color?.[i] || '';
-    data[`Swatch${i + 1}`] = contract.swatch?.[i] || '';
-    data[`Quantity${i + 1}`] = contract.quantity?.[i] || '';
-    data[`Price${i + 1}`] = contract.price?.[i] || '';
+    data[`SupplierAddress${i + 1}`] = supplierAddr[i] || '';
+    data[`BuyerAddress${i + 1}`] = buyerAddr[i] || '';
+    data[`ImportantNote${i + 1}`] = importantNotes[i] || '';
+    
+    data[`Selection${i + 1}`] = contract.selection?.[idx] || '';
+    data[`Color${i + 1}`] = contract.color?.[idx] || '';
+    data[`Swatch${i + 1}`] = contract.swatch?.[idx] || '';
+    data[`Quantity${i + 1}`] = contract.quantity?.[idx] || '';
+    data[`Price${i + 1}`] = contract.price?.[idx] || '';
   }
 
   return data;
@@ -88,7 +81,7 @@ export async function generateContractWord(
 ): Promise<void> {
   if (!templateUrl) {
     alert(
-      'No Word template found for this company.\n\nPlease upload a .docx template in Company Management → Edit Company → Letterhead Template.\n\nUse {{SupplierName}}, {{ContractNo}}, etc. as placeholders in your template.'
+      'No Word template found for this company.\n\nPlease upload a .docx template in Company Management → Edit Company → Letterhead Template.'
     );
     return;
   }
