@@ -1,16 +1,17 @@
-<svg xmlns='http://www.w3.org/2000/svg' width='192' height='192' viewBox='0 0 192 192'>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
   <defs>
-    <linearGradient id='bg' x1='0' y1='0' x2='1' y2='1'>
-      <stop offset='0%' stop-color='#1e293b'/>
-      <stop offset='100%' stop-color='#0f172a'/>
+    <linearGradient id="underline" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#818cf8"/>
     </linearGradient>
-    <linearGradient id='accent' x1='0' y1='0' x2='1' y2='0'>
-      <stop offset='0%' stop-color='#60a5fa'/>
-      <stop offset='100%' stop-color='#818cf8'/>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f0f4ff"/>
     </linearGradient>
   </defs>
-  <rect width='192' height='192' rx='35' fill='url(#bg)'/>
-  <text x='69.12' y='130.56' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='81' fill='white' text-anchor='middle' dominant-baseline='auto'>J</text>
-  <text x='122.88' y='130.56' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='81' fill='#60a5fa' text-anchor='middle' dominant-baseline='auto'>I</text>
-  <rect x='34.56' y='157.44' width='122.88' height='6.720000000000001' rx='2.88' fill='url(#accent)' opacity='0.8'/>
+  <rect width="192" height="192" fill="url(#bg)"/>
+  <text x="59" y="129" font-family="Georgia, 'Times New Roman', serif" font-weight="900" font-size="109" fill="#1e3a8a" text-anchor="middle">J</text>
+  <text x="133" y="129" font-family="Georgia, 'Times New Roman', serif" font-weight="900" font-size="109" fill="#3b82f6" text-anchor="middle">I</text>
+  <rect x="29" y="140" width="135" height="8" rx="4" fill="url(#underline)" opacity="0.9"/>
 </svg>

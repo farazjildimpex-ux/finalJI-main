@@ -1,5 +1,5 @@
-const CACHE_NAME = 'jild-impex-v7';
-const RUNTIME_CACHE = 'jild-impex-runtime-v7';
+const CACHE_NAME = 'jild-impex-v8';
+const RUNTIME_CACHE = 'jild-impex-runtime-v8';
 
 const ASSETS_TO_CACHE = [
   '/',
