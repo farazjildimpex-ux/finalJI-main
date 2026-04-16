@@ -11,8 +11,16 @@ import SettingsPage from './components/Settings/SettingsPage';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import NotificationInitializer from './components/Auth/NotificationInitializer';
+import LoadingScreen from './components/UI/LoadingScreen';
+import { useAuth } from './hooks/useAuth';
 
 function App() {
+  const { loading } = useAuth();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
   return (
     <Router>
       <NotificationInitializer />
