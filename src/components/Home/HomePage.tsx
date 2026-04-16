@@ -6,14 +6,12 @@ import JournalSearchResults from '../Journal/JournalSearchResults';
 import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import { Building2, AlertCircle, FileText, Bookmark, Receipt, PlusCircle } from 'lucide-react';
+import { Building2, AlertCircle } from 'lucide-react';
 import type { Order, JournalEntry } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [orders, setOrders] = useState<Order[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
@@ -21,6 +19,7 @@ const HomePage: React.FC = () => {
   const [journalLoading, setJournalLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Journal interaction states
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [selectedEntryForPopup, setSelectedEntryForPopup] = useState<JournalEntry | null>(null);
   const [isJournalFormOpen, setIsJournalFormOpen] = useState(false);
@@ -37,9 +36,9 @@ const HomePage: React.FC = () => {
       setError(null);
 
       const [contractsRes, samplesRes, debitNotesRes] = await Promise.all([
-        supabase.from('contracts').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('samples').select('*').order('created_at', { ascending: false }).limit(50),
-        supabase.from('debit_notes').select('*').order('created_at', { ascending: false }).limit(50)
+        supabase.from('contracts').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('samples').select('*').order('created_at', { ascending: false }).limit(100),
+        supabase.from('debit_notes').select('*').order('created_at', { ascending: false }).limit(100)
       ]);
 
       if (contractsRes.error) throw contractsRes.error;
@@ -91,7 +90,7 @@ const HomePage: React.FC = () => {
       setOrders(allOrders);
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError('Failed to load recent orders.');
+      setError('Failed to load recent orders. Please check your connection.');
     } finally {
       setLoading(false);
     }
@@ -149,136 +148,78 @@ const HomePage: React.FC = () => {
   });
 
   const activeOrders = orders.filter((order) => order.status !== 'Completed');
-  const stats = {
-    contracts: orders.filter(o => o.type === 'contract' && o.status !== 'Completed').length,
-    letters: orders.filter(o => o.type === 'sample' && o.status !== 'Completed').length,
-    payments: orders.filter(o => o.type === 'debit_note' && o.status !== 'Completed').length,
-  };
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
+        <AlertCircle className="h-12 w-12 text-amber-500 mb-4" />
+        <h2 className="text-xl font-bold text-gray-900 mb-2">Configuration Required</h2>
+        <p className="text-gray-600 max-w-md">
+          Please connect your Supabase project using the "Connect to Supabase" button to start managing your office data.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 space-y-8 page-fade-in">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3 mb-1">
-            <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
-              <Building2 className="h-6 w-6 text-white" />
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">JILD IMPEX</h1>
-          </div>
-          <p className="text-slate-500 font-medium ml-11">Leather Import/Export Management</p>
+    <div className="max-w-7xl mx-auto page-fade-in px-4">
+      <div className="mb-6 md:mb-8 flex flex-col items-center text-center pt-4">
+        <div className="flex items-center justify-center mb-2">
+          <Building2 className="h-8 w-8 text-blue-600 mr-2" />
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">JILD IMPEX</h1>
         </div>
-        
-        <div className="w-full md:w-96">
-          <SearchBar
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            placeholder="Search contracts, suppliers, articles..."
-          />
-        </div>
+        <p className="text-sm md:text-base text-gray-600">Leather Import/Export Management System</p>
       </div>
 
-      {/* Quick Stats Row */}
-      {!searchTerm && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-blue-50 rounded-2xl text-blue-600">
-              <FileText className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.contracts}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Contracts</p>
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-amber-50 rounded-2xl text-amber-600">
-              <Bookmark className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.letters}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Letters</p>
-            </div>
-          </div>
-          <div className="bg-white p-5 rounded-[24px] border border-slate-100 shadow-sm flex items-center gap-4">
-            <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
-              <Receipt className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-2xl font-black text-slate-900">{stats.payments}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Open Payments</p>
-            </div>
-          </div>
+      <div className="mb-6 md:mb-8">
+        <SearchBar
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          placeholder="Search tasks & orders by contract #, supplier, article, color..."
+        />
+      </div>
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700">
+          <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+          {error}
+          <button onClick={fetchData} className="ml-auto font-bold underline">Retry</button>
         </div>
       )}
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Journal & Search Results */}
-        <div className="lg:col-span-4 space-y-6">
-          {searchTerm ? (
-            <JournalSearchResults
-              entries={filteredJournal}
-              searchTerm={searchTerm}
-              onEntriesUpdated={fetchJournalEntries}
-              onDoubleTap={(e) => setSelectedEntryForPopup(e)}
-              onEdit={(e) => {
-                setEditingEntry(e);
-                setIsJournalFormOpen(true);
-              }}
-            />
-          ) : (
-            <JournalWidget 
-              entries={journalEntries} 
-              loading={journalLoading} 
-              onEntriesUpdated={fetchJournalEntries} 
-            />
-          )}
-          
-          {/* Quick Actions Card */}
-          {!searchTerm && (
-            <div className="bg-slate-900 rounded-[32px] p-6 text-white shadow-xl shadow-slate-200">
-              <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-slate-400 mb-4">Quick Actions</h3>
-              <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={() => navigate('/app/contracts')}
-                  className="flex flex-col items-center justify-center p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all group"
-                >
-                  <PlusCircle className="h-6 w-6 mb-2 text-blue-400 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-bold">New Contract</span>
-                </button>
-                <button 
-                  onClick={() => navigate('/app/debit-notes')}
-                  className="flex flex-col items-center justify-center p-4 bg-white/10 rounded-2xl hover:bg-white/20 transition-all group"
-                >
-                  <PlusCircle className="h-6 w-6 mb-2 text-emerald-400 group-hover:scale-110 transition-transform" />
-                  <span className="text-xs font-bold">New Payment</span>
-                </button>
-              </div>
-            </div>
-          )}
+      {searchTerm ? (
+        <div className="mb-6 md:mb-8">
+          <JournalSearchResults
+            entries={filteredJournal}
+            searchTerm={searchTerm}
+            onEntriesUpdated={fetchJournalEntries}
+            onDoubleTap={(e) => setSelectedEntryForPopup(e)}
+            onEdit={(e) => {
+              setEditingEntry(e);
+              setIsJournalFormOpen(true);
+            }}
+          />
         </div>
+      ) : (
+        <JournalWidget 
+          entries={journalEntries} 
+          loading={journalLoading} 
+          onEntriesUpdated={fetchJournalEntries} 
+        />
+      )}
 
-        {/* Right Column: Orders List */}
-        <div className="lg:col-span-8">
-          <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden">
-            <div className="px-6 py-5 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                {searchTerm ? 'Search Results' : 'Recent Activity'}
-              </h2>
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                {searchTerm ? `${filteredOrders.length} found` : 'Latest 50'}
-              </span>
-            </div>
-            <RecentOrdersList
-              orders={searchTerm ? filteredOrders : activeOrders}
-              loading={loading}
-              onStatusChange={fetchData}
-            />
-          </div>
-        </div>
+      <div className="mb-6 md:mb-8">
+        <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider mb-4">
+          {searchTerm ? 'Search Results' : 'Recent Orders'}
+        </h2>
+        <RecentOrdersList
+          orders={searchTerm ? filteredOrders : activeOrders}
+          loading={loading}
+          onStatusChange={fetchData}
+        />
       </div>
 
-      {/* Modals */}
+      {/* Shared Modals for Journal */}
       {isJournalFormOpen && (
         <JournalEntryForm
           initialDate={editingEntry ? new Date(editingEntry.entry_date) : new Date()}
