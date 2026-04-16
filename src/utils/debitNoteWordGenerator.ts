@@ -7,12 +7,17 @@ import type { DebitNote } from '../types';
  * like {{SupplierName}} are split across multiple internal XML runs, causing
  * docxtemplater to fail with "tag not found" errors.
  *
- * Strategy: iteratively strip any XML element that appears inside a pair of
- * { ... } braces until no more splits remain. Multiple passes handle tags
- * split into more than two fragments.
+ * Google Docs splits a tag like {{Date}} into separate <w:r> runs with
+ * structure like: <w:t>{{</w:t></w:r><w:r><w:rPr>…</w:rPr><w:t>Date}}</w:t>
+ * Between the two text halves sit 3–4 consecutive XML elements, not just one,
+ * so the fix must remove ALL of them at once.
  *
- * Note: brace characters ARE allowed in the text segments (unlike the previous
- * version) so that double-brace delimiters {{ and }} are handled correctly.
+ * Strategy:
+ *  1. Process each <w:p> paragraph independently — this prevents the regex
+ *     from accidentally collapsing paragraph boundaries.
+ *  2. Within each paragraph use (?:<[^>]+>)+ to strip a whole sequence of
+ *     consecutive XML elements that sits between a { and a } in one pass.
+ *  3. Iterate until the paragraph XML is stable (handles exotic multi-fragment splits).
  */
 function fixGoogleDocsSplitTags(zip: PizZip): void {
   const filesToFix = Object.keys(zip.files).filter((name) =>
@@ -24,13 +29,17 @@ function fixGoogleDocsSplitTags(zip: PizZip): void {
     if (!file) continue;
     let xml = file.asText();
 
-    // Iteratively remove any single XML tag that sits between { and }
-    // Each pass handles one XML tag; the loop runs until nothing more changes.
-    let prev = '';
-    while (prev !== xml) {
-      prev = xml;
-      xml = xml.replace(/(\{[^<>]*)<[^>]+>([^<>]*\})/g, '$1$2');
-    }
+    // Process each paragraph block in isolation so we never touch paragraph markers.
+    xml = xml.replace(/(<w:p[ >][\s\S]*?<\/w:p>)/g, (para) => {
+      let fixed = para;
+      let prev = '';
+      while (prev !== fixed) {
+        prev = fixed;
+        // Remove ONE OR MORE consecutive XML elements sitting between { … }
+        fixed = fixed.replace(/(\{[^<>]*)(?:<[^>]+>)+([^<>]*\})/g, '$1$2');
+      }
+      return fixed;
+    });
 
     zip.file(fileName, xml);
   }
