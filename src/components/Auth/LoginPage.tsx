@@ -33,15 +33,49 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <style>{`
+        @keyframes jiSlideJ {
+          0%   { opacity: 0; transform: translateY(28px) scale(0.7) rotate(-6deg); }
+          60%  { transform: translateY(-4px) scale(1.06) rotate(1deg); }
+          100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+        }
+        @keyframes jiSlideI {
+          0%   { opacity: 0; transform: translateY(28px) scale(0.7) rotate(6deg); }
+          60%  { transform: translateY(-4px) scale(1.06) rotate(-1deg); }
+          100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+        }
+        @keyframes jiUnderline {
+          from { transform: scaleX(0); opacity: 0; }
+          to   { transform: scaleX(1); opacity: 1; }
+        }
+        .ji-letter-j {
+          animation: jiSlideJ 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s both;
+        }
+        .ji-letter-i {
+          animation: jiSlideI 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+        }
+        .ji-underline {
+          animation: jiUnderline 0.4s ease-out 0.55s both;
+          transform-origin: left;
+        }
+      `}</style>
       <div className="w-full max-w-md">
         {/* Logo mark */}
         <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-20 h-20 rounded-3xl flex items-center justify-center mb-4 shadow-2xl"
-            style={{ background: 'linear-gradient(135deg,#1e293b,#0f172a)' }}
-          >
-            <span className="text-5xl font-black text-white leading-none select-none">J</span>
+          <div className="flex items-end gap-0.5 mb-3 select-none">
+            <span
+              className="ji-letter-j text-8xl font-black leading-none"
+              style={{ color: '#0f172a', letterSpacing: '-0.03em' }}
+            >J</span>
+            <span
+              className="ji-letter-i text-8xl font-black leading-none"
+              style={{ color: '#2563eb', letterSpacing: '-0.03em' }}
+            >I</span>
           </div>
+          <div
+            className="ji-underline w-16 h-1 rounded-full mb-4"
+            style={{ background: 'linear-gradient(90deg,#0f172a,#2563eb)' }}
+          />
           <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">
             JILD <span className="text-blue-600">IMPEX</span>
           </h1>

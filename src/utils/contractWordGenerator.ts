@@ -7,9 +7,12 @@ import type { Contract } from '../types';
  * like {{SupplierName}} are split across multiple internal XML runs, causing
  * docxtemplater to fail with "tag not found" errors.
  *
- * Strategy: iteratively strip any XML elements that appear inside a pair of
- * { ... } braces until no more splits remain.  Multiple passes are needed
- * because a single tag can be split into more than two fragments.
+ * Strategy: iteratively strip any XML element that appears inside a pair of
+ * { ... } braces until no more splits remain. Multiple passes handle tags
+ * split into more than two fragments.
+ *
+ * Note: brace characters ARE allowed in the text segments (unlike the previous
+ * version) so that double-brace delimiters {{ and }} are handled correctly.
  */
 function fixGoogleDocsSplitTags(zip: PizZip): void {
   const filesToFix = Object.keys(zip.files).filter((name) =>
@@ -21,12 +24,12 @@ function fixGoogleDocsSplitTags(zip: PizZip): void {
     if (!file) continue;
     let xml = file.asText();
 
+    // Iteratively remove any single XML tag that sits between { and }
+    // Each pass handles one XML tag; the loop runs until nothing more changes.
     let prev = '';
     while (prev !== xml) {
       prev = xml;
-      // Remove any XML tag that sits between an opening { and a closing }
-      // so fragmented {{Tag}} pieces get joined back into one run.
-      xml = xml.replace(/(\{[^<>{}]*)<[^>]+>([^<>{}]*\})/g, '$1$2');
+      xml = xml.replace(/(\{[^<>]*)<[^>]+>([^<>]*\})/g, '$1$2');
     }
 
     zip.file(fileName, xml);
@@ -129,6 +132,8 @@ export async function generateContractWord(
       paragraphLoop: true,
       linebreaks: true,
       nullGetter: () => '',
+      // Templates use {{Tag}} double-brace syntax (matches the "Copy Tags" UI)
+      delimiters: { start: '{{', end: '}}' },
     });
 
     try {
