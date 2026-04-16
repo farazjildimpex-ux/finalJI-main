@@ -349,9 +349,19 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
                     {/* Template Section */}
                     <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
-                      <div className="flex items-center gap-2 mb-4">
-                        <FileText className="h-6 w-6 text-blue-600" />
-                        <h4 className="font-black text-blue-900 uppercase tracking-tight">Word Export Template (.docx)</h4>
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-6 w-6 text-blue-600" />
+                          <h4 className="font-black text-blue-900 uppercase tracking-tight">Word Export Template (.docx)</h4>
+                        </div>
+                        <a 
+                          href="https://docs.google.com/document/d/1-X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X_X/export?format=docx" 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-tighter hover:bg-blue-50 transition-all"
+                        >
+                          <Download className="h-3 w-3" /> Download Sample
+                        </a>
                       </div>
                       
                       {editMode ? (

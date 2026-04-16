@@ -65,11 +65,11 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
     data[`BuyerAddress${i + 1}`] = buyerAddr[i] || '';
     data[`ImportantNote${i + 1}`] = importantNotes[i] || '';
     
-    data[`Selection${i + 1}`] = contract.selection?.[idx] || '';
-    data[`Color${i + 1}`] = contract.color?.[idx] || '';
-    data[`Swatch${i + 1}`] = contract.swatch?.[idx] || '';
-    data[`Quantity${i + 1}`] = contract.quantity?.[idx] || '';
-    data[`Price${i + 1}`] = contract.price?.[idx] || '';
+    data[`Selection${i + 1}`] = contract.selection?.[i] || '';
+    data[`Color${i + 1}`] = contract.color?.[i] || '';
+    data[`Swatch${i + 1}`] = contract.swatch?.[i] || '';
+    data[`Quantity${i + 1}`] = contract.quantity?.[i] || '';
+    data[`Price${i + 1}`] = contract.price?.[i] || '';
   }
 
   return data;
@@ -112,9 +112,8 @@ export async function generateContractWord(
     document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    alert(`Word export failed: ${msg}\n\nMake sure your template uses valid {{Placeholder}} syntax.`);
     console.error('Word export error:', err);
+    alert('Word export failed. This usually happens if the template has invalid tags or formatting. Try using the sample template as a base.');
   }
 }
 
