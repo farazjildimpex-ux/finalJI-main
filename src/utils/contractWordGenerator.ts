@@ -2,6 +2,37 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import type { Contract } from '../types';
 
+/**
+ * Fixes a well-known issue with Google Docs .docx exports where template tags
+ * like {{SupplierName}} are split across multiple internal XML runs, causing
+ * docxtemplater to fail with "tag not found" errors.
+ *
+ * Strategy: iteratively strip any XML elements that appear inside a pair of
+ * { ... } braces until no more splits remain.  Multiple passes are needed
+ * because a single tag can be split into more than two fragments.
+ */
+function fixGoogleDocsSplitTags(zip: PizZip): void {
+  const filesToFix = Object.keys(zip.files).filter((name) =>
+    /^word\/(document|header\d*|footer\d*)\.xml$/.test(name)
+  );
+
+  for (const fileName of filesToFix) {
+    const file = zip.files[fileName];
+    if (!file) continue;
+    let xml = file.asText();
+
+    let prev = '';
+    while (prev !== xml) {
+      prev = xml;
+      // Remove any XML tag that sits between an opening { and a closing }
+      // so fragmented {{Tag}} pieces get joined back into one run.
+      xml = xml.replace(/(\{[^<>{}]*)<[^>]+>([^<>{}]*\})/g, '$1$2');
+    }
+
+    zip.file(fileName, xml);
+  }
+}
+
 function buildTemplateData(contract: Contract): Record<string, unknown> {
   const dateStr = contract.contract_date
     ? new Date(contract.contract_date).toLocaleDateString('en-GB')
@@ -27,15 +58,15 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
   const data: Record<string, unknown> = {
     SupplierName: contract.supplier_name || '',
     SupplierAddress: supplierAddr.join('\n'),
-    SupplierAddressLines: supplierAddr.map(line => ({ line })),
-    
+    SupplierAddressLines: supplierAddr.map((line) => ({ line })),
+
     Date: dateStr,
     ContractNo: contract.contract_no || '',
     BuyersRef: contract.buyers_reference || '',
 
     BuyerName: contract.buyer_name || '',
     BuyerAddress: buyerAddr.join('\n'),
-    BuyerAddressLines: buyerAddr.map(line => ({ line })),
+    BuyerAddressLines: buyerAddr.map((line) => ({ line })),
 
     Description: contract.description || '',
     Article: contract.article || '',
@@ -45,7 +76,7 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
     Measurement: contract.measurement || '',
 
     ImportantNotes: importantNotes.join('\n'),
-    ImportantNoteLines: importantNotes.map(line => ({ line })),
+    ImportantNoteLines: importantNotes.map((line) => ({ line })),
 
     Delivery: (contract.delivery_schedule || []).filter(Boolean).join(', '),
     Destination: (contract.destination || []).filter(Boolean).join(', '),
@@ -64,7 +95,7 @@ function buildTemplateData(contract: Contract): Record<string, unknown> {
     data[`SupplierAddress${i + 1}`] = supplierAddr[i] || '';
     data[`BuyerAddress${i + 1}`] = buyerAddr[i] || '';
     data[`ImportantNote${i + 1}`] = importantNotes[i] || '';
-    
+
     data[`Selection${i + 1}`] = contract.selection?.[i] || '';
     data[`Color${i + 1}`] = contract.color?.[i] || '';
     data[`Swatch${i + 1}`] = contract.swatch?.[i] || '';
@@ -90,6 +121,10 @@ export async function generateContractWord(
     const templateBuffer = await resp.arrayBuffer();
 
     const zip = new PizZip(templateBuffer);
+
+    // Repair Google Docs split-tag fragments before handing off to docxtemplater
+    fixGoogleDocsSplitTags(zip);
+
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
@@ -99,7 +134,6 @@ export async function generateContractWord(
     try {
       doc.render(buildTemplateData(contract));
     } catch (error: any) {
-      // Detailed error reporting for template tags
       if (error.properties && error.properties.errors instanceof Array) {
         const errorMessages = error.properties.errors
           .map((e: any) => `• ${e.message} (Tag: ${e.properties.explanation || e.properties.id})`)

@@ -2,6 +2,37 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import type { DebitNote } from '../types';
 
+/**
+ * Fixes a well-known issue with Google Docs .docx exports where template tags
+ * like {{SupplierName}} are split across multiple internal XML runs, causing
+ * docxtemplater to fail with "tag not found" errors.
+ *
+ * Strategy: iteratively strip any XML elements that appear inside a pair of
+ * { ... } braces until no more splits remain.  Multiple passes are needed
+ * because a single tag can be split into more than two fragments.
+ */
+function fixGoogleDocsSplitTags(zip: PizZip): void {
+  const filesToFix = Object.keys(zip.files).filter((name) =>
+    /^word\/(document|header\d*|footer\d*)\.xml$/.test(name)
+  );
+
+  for (const fileName of filesToFix) {
+    const file = zip.files[fileName];
+    if (!file) continue;
+    let xml = file.asText();
+
+    let prev = '';
+    while (prev !== xml) {
+      prev = xml;
+      // Remove any XML tag that sits between an opening { and a closing }
+      // so fragmented {{Tag}} pieces get joined back into one run.
+      xml = xml.replace(/(\{[^<>{}]*)<[^>]+>([^<>{}]*\})/g, '$1$2');
+    }
+
+    zip.file(fileName, xml);
+  }
+}
+
 function buildTemplateData(dn: DebitNote): Record<string, unknown> {
   const dateStr = dn.debit_note_date
     ? new Date(dn.debit_note_date).toLocaleDateString('en-GB')
@@ -21,7 +52,7 @@ function buildTemplateData(dn: DebitNote): Record<string, unknown> {
   const data: Record<string, unknown> = {
     SupplierName: dn.supplier_name || '',
     SupplierAddress: supplierAddr.join('\n'),
-    SupplierAddressLines: supplierAddr.map(line => ({ line })),
+    SupplierAddressLines: supplierAddr.map((line) => ({ line })),
 
     DebitNoteNo: dn.debit_note_no || '',
     Date: dateStr,
@@ -70,6 +101,10 @@ export async function generateDebitNoteWord(
     const templateBuffer = await resp.arrayBuffer();
 
     const zip = new PizZip(templateBuffer);
+
+    // Repair Google Docs split-tag fragments before handing off to docxtemplater
+    fixGoogleDocsSplitTags(zip);
+
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
