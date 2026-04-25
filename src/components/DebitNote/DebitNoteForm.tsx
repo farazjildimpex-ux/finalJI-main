@@ -8,6 +8,7 @@ import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
+import FormRow, { FormSection, formInputClass, formInputReadOnlyClass } from '../UI/FormRow';
 
 const STATUS_OPTIONS = ['Issued', 'Completed'] as const;
 
@@ -487,12 +488,28 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     });
   };
 
-  const inputClassName = "mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20";
-  const labelClassName = "block text-sm font-medium text-gray-700";
+
+  const inputClassName = formInputClass;
+  const inputReadOnlyClass = formInputReadOnlyClass;
+
+  const renderToggle = (checked: boolean, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+        checked ? 'bg-blue-600' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-5' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-2 md:p-3">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
       {validationError && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <div className="flex items-start">
@@ -506,258 +523,358 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       )}
 
       {/* Basic Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label htmlFor="debit_note_no" className={labelClassName}>Debit Note No *</label>
-          <input type="text" id="debit_note_no" name="debit_note_no" value={formData.debit_note_no} onChange={handleChange} className={inputClassName} required />
-        </div>
-        <div>
+      <FormSection title="Basic Information">
+        <FormRow label="Debit Note No" htmlFor="debit_note_no" required alt>
+          <input
+            type="text"
+            id="debit_note_no"
+            name="debit_note_no"
+            value={formData.debit_note_no}
+            onChange={handleChange}
+            className={inputClassName}
+            required
+          />
+        </FormRow>
+        <FormRow label="Debit Note Date">
           <DatePicker
-            label="Debit Note Date"
             value={formData.debit_note_date || ''}
             onChange={(val) => setFormData({ ...formData, debit_note_date: val })}
           />
-        </div>
-        <div>
-          <label htmlFor="status" className={labelClassName}>Status</label>
-          <select id="status" name="status" value={formData.status} onChange={handleChange} className={inputClassName}>
+        </FormRow>
+        <FormRow label="Status" htmlFor="status">
+          <select
+            id="status"
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className={inputClassName}
+          >
             {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
           </select>
-        </div>
-        <div>
-          <label htmlFor="currency" className={labelClassName}>Currency</label>
-          <input type="text" id="currency" name="currency" value={formData.currency} readOnly className={`${inputClassName} bg-gray-100`} />
-        </div>
-      </div>
-      
-      {/* Company Information */}
-      <div className="space-y-3 border-t border-gray-100 pt-4">
-        <div className="flex items-center justify-between mb-1">
-            <h3 className="text-sm font-bold text-gray-900">Company Information</h3>
-            <div className="flex items-center">
-              <label htmlFor="showCompanyInPdfToggle" className="mr-2 text-xs font-medium text-gray-700">Show in PDF</label>
-              <button
-                type="button"
-                className={`${
-                  showCompanyInPdf ? 'bg-blue-600' : 'bg-gray-200'
-                } relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
-                id="showCompanyInPdfToggle"
-                role="switch"
-                aria-checked={showCompanyInPdf}
-                onClick={() => setShowCompanyInPdf(!showCompanyInPdf)}
-              >
-                <span
-                  aria-hidden="true"
-                  className={`${
-                    showCompanyInPdf ? 'translate-x-5' : 'translate-x-0'
-                  } pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
-                />
-              </button>
-            </div>
-        </div>
-        <select id="company" name="company" value={formData.company} onChange={(e) => {
-            const selected = companies.find(c => c.name === e.target.value);
-            handleChange(e);
-            setCompanyLetterheadUrl(selected?.letterhead_url || null);
-          }} className={inputClassName}>
+        </FormRow>
+        <FormRow label="Currency" htmlFor="currency">
+          <input
+            type="text"
+            id="currency"
+            name="currency"
+            value={formData.currency}
+            readOnly
+            className={inputReadOnlyClass}
+          />
+        </FormRow>
+      </FormSection>
+
+      {/* Company */}
+      <FormSection
+        title="Company"
+        right={
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show in PDF</span>
+            {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
+          </div>
+        }
+      >
+        <FormRow label="Company" htmlFor="company">
+          <select
+            id="company"
+            name="company"
+            value={formData.company}
+            onChange={(e) => {
+              const selected = companies.find(c => c.name === e.target.value);
+              handleChange(e);
+              setCompanyLetterheadUrl(selected?.letterhead_url || null);
+            }}
+            className={inputClassName}
+          >
             <option value="">Select a company</option>
             {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-        </select>
-      </div>
+          </select>
+        </FormRow>
+      </FormSection>
 
       {/* Supplier Information */}
-      <div className="space-y-3 border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-bold text-gray-900">Supplier Information</h3>
-        <div>
-          <label htmlFor="supplier_name" className={labelClassName}>Supplier</label>
+      <FormSection title="Supplier Information">
+        <FormRow label="Supplier" htmlFor="supplier_name">
           <div className="relative">
-            <div className="flex">
-              <span className="inline-flex items-center px-2 rounded-l-xl border border-r-0 border-blue-200 bg-blue-50 text-blue-500 text-xs shadow-sm"><Search className="h-3 w-3"/></span>
-              <input
-                type="text"
-                id="supplier_name"
-                name="supplier_name"
-                value={supplierSearch}
-                onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }}
-                onFocus={() => setShowSupplierDropdown(true)}
-                className="mt-0 block w-full rounded-none rounded-r-xl border border-blue-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                autoComplete="off"
-              />
-            </div>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              id="supplier_name"
+              name="supplier_name"
+              value={supplierSearch}
+              onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }}
+              onFocus={() => setShowSupplierDropdown(true)}
+              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
+              className={`${inputClassName} pl-9`}
+              autoComplete="off"
+              placeholder="Search supplier..."
+            />
             {showSupplierDropdown && filteredContacts.length > 0 && (
-              <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-blue-200 bg-white shadow-lg shadow-blue-100">
+              <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-300 bg-white shadow-lg">
                 {filteredContacts.map(contact => (
-                  <li key={contact.id} onClick={() => handleSupplierSelect(contact)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700">
+                  <li
+                    key={contact.id}
+                    onMouseDown={() => handleSupplierSelect(contact)}
+                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700"
+                  >
                     {contact.name}
                   </li>
                 ))}
               </ul>
             )}
           </div>
-        </div>
-        <div>
-          <label className={labelClassName}>Supplier Address</label>
-          {(formData.supplier_address || ['']).map((address, index) => (
-            <div key={index} className="flex items-center mt-1.5">
-              <input type="text" value={address} onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)} className={inputClassName} placeholder={`Address Line ${index + 1}`} />
-              {index > 0 && ( <button type="button" onClick={() => removeArrayField('supplier_address', index)} className="ml-2 text-red-500 hover:text-red-700"><Minus className="h-4 w-4"/></button> )}
-            </div>
-          ))}
-          <button type="button" onClick={() => addArrayField('supplier_address')} className="mt-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium">+ Add Address Line</button>
-        </div>
-      </div>
+        </FormRow>
+        <FormRow label="Supplier Address">
+          <div className="space-y-2">
+            {(formData.supplier_address || ['']).map((address, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={address}
+                  onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)}
+                  className={inputClassName}
+                  placeholder={`Address Line ${index + 1}`}
+                />
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => removeArrayField('supplier_address', index)}
+                    className="text-gray-400 hover:text-red-600 p-1.5"
+                    title="Remove"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => addArrayField('supplier_address')}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              <Plus className="h-3 w-3" /> Add Address Line
+            </button>
+          </div>
+        </FormRow>
+      </FormSection>
 
       {/* Contract Information */}
-      <div className="space-y-3 border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-bold text-gray-900">Contract Information</h3>
-        <div>
-        <label className={labelClassName}>Contract(s)</label>
-        {contractSearches.map((searchTerm, index) => (
-          <div key={index} className="relative flex items-center mt-1.5">
-            <div className="flex-grow">
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={e => {
-                  const newSearches = [...contractSearches];
-                  newSearches[index] = e.target.value;
-                  setContractSearches(newSearches);
-                  const newDropdowns = [...showContractDropdowns];
-                  newDropdowns[index] = true;
-                  setShowContractDropdowns(newDropdowns);
-                }}
-                onFocus={() => {
-                  const newDropdowns = [...showContractDropdowns];
-                  newDropdowns[index] = true;
-                  setShowContractDropdowns(newDropdowns);
-                }}
-                className={inputClassName}
-                placeholder="Search by Contract No, Buyer, or Supplier"
-                autoComplete="off"
-              />
-              {showContractDropdowns[index] && (
-                <ul className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-blue-200 bg-white shadow-lg shadow-blue-100">
-                  {getFilteredContracts(searchTerm).map(contract => (
-                    <li key={contract.id} onClick={() => handleContractSelect(contract, index)} className="px-4 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700">
-                      <strong>{contract.contract_no}</strong> - {contract.buyer_name} / {contract.supplier_name}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            {index > 0 && (<button type="button" onClick={() => removeContractField(index)} className="ml-2 text-red-500 hover:text-red-700"><Minus className="h-4 w-4"/></button>)}
+      <FormSection title="Contract Information">
+        <FormRow label="Contract(s)">
+          <div className="space-y-2">
+            {contractSearches.map((searchTerm, index) => (
+              <div key={index} className="relative flex gap-2">
+                <div className="relative flex-grow">
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={e => {
+                      const newSearches = [...contractSearches];
+                      newSearches[index] = e.target.value;
+                      setContractSearches(newSearches);
+                      const newDropdowns = [...showContractDropdowns];
+                      newDropdowns[index] = true;
+                      setShowContractDropdowns(newDropdowns);
+                    }}
+                    onFocus={() => {
+                      const newDropdowns = [...showContractDropdowns];
+                      newDropdowns[index] = true;
+                      setShowContractDropdowns(newDropdowns);
+                    }}
+                    onBlur={() => setTimeout(() => {
+                      const newDropdowns = [...showContractDropdowns];
+                      newDropdowns[index] = false;
+                      setShowContractDropdowns(newDropdowns);
+                    }, 150)}
+                    className={inputClassName}
+                    placeholder="Search by Contract No, Buyer, or Supplier"
+                    autoComplete="off"
+                  />
+                  {showContractDropdowns[index] && (
+                    <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-300 bg-white shadow-lg">
+                      {getFilteredContracts(searchTerm).map(contract => (
+                        <li
+                          key={contract.id}
+                          onMouseDown={() => handleContractSelect(contract, index)}
+                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700"
+                        >
+                          <strong>{contract.contract_no}</strong> — {contract.buyer_name} / {contract.supplier_name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                {index > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => removeContractField(index)}
+                    className="text-gray-400 hover:text-red-600 p-1.5"
+                    title="Remove"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addContractField}
+              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              <Plus className="h-3 w-3" /> Add Contract
+            </button>
           </div>
-        ))}
-        <button type="button" onClick={addContractField} className="mt-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium">+ Add Contract</button>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div>
-            <label htmlFor="contract_date" className={labelClassName}>Contract Date</label>
-            <input 
-              type="text" 
-              id="contract_date" 
-              value={formData.contract_date ? new Date(formData.contract_date).toLocaleDateString('en-GB') : ''} 
-              readOnly 
-              className={`${inputClassName} bg-gray-100`}
-              placeholder="Auto-filled"
-            />
-          </div>
-          <div>
-            <label htmlFor="buyer_name" className={labelClassName}>Buyer Name</label>
-            <input type="text" id="buyer_name" value={formData.buyer_name} readOnly className={`${inputClassName} bg-gray-100`}/>
-          </div>
-          <div>
-            <label htmlFor="destination" className={labelClassName}>Destination</label>
-            <input type="text" id="destination" value={formData.destination} readOnly className={`${inputClassName} bg-gray-100`}/>
-          </div>
-        </div>
-      </div>
-      
+        </FormRow>
+        <FormRow label="Contract Date" htmlFor="contract_date">
+          <input
+            type="text"
+            id="contract_date"
+            value={formData.contract_date ? new Date(formData.contract_date).toLocaleDateString('en-GB') : ''}
+            readOnly
+            className={inputReadOnlyClass}
+            placeholder="Auto-filled"
+          />
+        </FormRow>
+        <FormRow label="Buyer Name" htmlFor="buyer_name">
+          <input
+            type="text"
+            id="buyer_name"
+            value={formData.buyer_name}
+            readOnly
+            className={inputReadOnlyClass}
+          />
+        </FormRow>
+        <FormRow label="Destination" htmlFor="destination">
+          <input
+            type="text"
+            id="destination"
+            value={formData.destination}
+            readOnly
+            className={inputReadOnlyClass}
+          />
+        </FormRow>
+      </FormSection>
+
       {/* Invoice Information */}
-      <div className="space-y-3 border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-bold text-gray-900">Invoice Information</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <label htmlFor="invoice_no" className={labelClassName}>Invoice No</label>
-          <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} />
-        </div>
-        <div>
+      <FormSection title="Invoice Information">
+        <FormRow label="Invoice No" htmlFor="invoice_no">
+          <input
+            type="text"
+            id="invoice_no"
+            name="invoice_no"
+            value={formData.invoice_no}
+            onChange={handleChange}
+            className={inputClassName}
+          />
+        </FormRow>
+        <FormRow label="Invoice Date">
           <DatePicker
-            label="Invoice Date"
             value={formData.invoice_date || ''}
             onChange={(val) => setFormData({ ...formData, invoice_date: val })}
           />
-        </div>
-        <div>
-          <label htmlFor="quantity" className={labelClassName}>Quantity</label>
-          <input type="text" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClassName} />
-        </div>
-        <div>
-          <label htmlFor="pieces" className={labelClassName}>Pieces</label>
-          <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
-        </div>
-        </div>
-      </div>
+        </FormRow>
+        <FormRow label="Quantity" htmlFor="quantity">
+          <input
+            type="text"
+            id="quantity"
+            name="quantity"
+            value={formData.quantity}
+            onChange={handleChange}
+            className={inputClassName}
+          />
+        </FormRow>
+        <FormRow label="Pieces" htmlFor="pieces">
+          <input
+            type="text"
+            id="pieces"
+            name="pieces"
+            value={formData.pieces}
+            onChange={handleChange}
+            className={inputClassName}
+          />
+        </FormRow>
+      </FormSection>
 
       {/* Commission Calculation */}
-      <div className="space-y-3 border-t border-gray-100 pt-4">
-        <h3 className="text-sm font-bold text-gray-900">Commission Calculation</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          <div>
-              <label htmlFor="local_commission" className={labelClassName}>Local Commission (%)</label>
-              <input type="text" id="local_commission" value={formData.local_commission} readOnly className={`${inputClassName} bg-gray-100`}/>
-          </div>
-          <div>
-              <label htmlFor="invoice_value" className={labelClassName}>Invoice Value</label>
-              <input type="number" id="invoice_value" name="invoice_value" value={formData.invoice_value} onChange={handleChange} className={inputClassName} placeholder="0.00"/>
-          </div>
-          <div>
-              <label htmlFor="exchange_rate" className={labelClassName}>Exchange Rate</label>
-              <input type="number" step="0.01" id="exchange_rate" name="exchange_rate" value={formData.exchange_rate} onChange={handleChange} className={inputClassName}/>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-              <label htmlFor="commissioning" className={labelClassName}>Commissioning (Calculated)</label>
-              <input type="number" id="commissioning" value={formData.commissioning.toFixed(2)} readOnly className={`${inputClassName} bg-gray-100`}/>
-          </div>
-          <div>
-              <label htmlFor="commission_in_rupees" className={labelClassName}>Commission in Rupees (Calculated)</label>
-              <input type="text" id="commission_in_rupees" value={formData.commission_in_rupees.toFixed(2)} readOnly className={`${inputClassName} bg-gray-100`}/>
-          </div>
-        </div>
-        
-        <div>
-            <label htmlFor="commission_in_words" className={labelClassName}>Commission in Words (Auto-generated)</label>
-            <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputClassName} bg-gray-100 h-16`} rows={2}/>
-        </div>
-      </div>
-
-      {/* Signature Toggle */}
-      <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-        <label className="block text-xs font-medium text-gray-700">Add Signature to PDF</label>
-        <button
-          type="button"
-          onClick={() => setIncludeSignature(!includeSignature)}
-          className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-            includeSignature ? 'bg-blue-600' : 'bg-gray-200'
-          }`}
-        >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-              includeSignature ? 'translate-x-5' : 'translate-x-1'
-            }`}
+      <FormSection title="Commission Calculation">
+        <FormRow label="Local Commission (%)" htmlFor="local_commission">
+          <input
+            type="text"
+            id="local_commission"
+            value={formData.local_commission}
+            readOnly
+            className={inputReadOnlyClass}
           />
-        </button>
-      </div>
+        </FormRow>
+        <FormRow label="Invoice Value" htmlFor="invoice_value">
+          <input
+            type="number"
+            id="invoice_value"
+            name="invoice_value"
+            value={formData.invoice_value}
+            onChange={handleChange}
+            className={inputClassName}
+            placeholder="0.00"
+          />
+        </FormRow>
+        <FormRow label="Exchange Rate" htmlFor="exchange_rate">
+          <input
+            type="number"
+            step="0.01"
+            id="exchange_rate"
+            name="exchange_rate"
+            value={formData.exchange_rate}
+            onChange={handleChange}
+            className={inputClassName}
+          />
+        </FormRow>
+        <FormRow label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
+          <input
+            type="number"
+            id="commissioning"
+            value={formData.commissioning.toFixed(2)}
+            readOnly
+            className={inputReadOnlyClass}
+          />
+        </FormRow>
+        <FormRow label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
+          <input
+            type="text"
+            id="commission_in_rupees"
+            value={formData.commission_in_rupees.toFixed(2)}
+            readOnly
+            className={inputReadOnlyClass}
+          />
+        </FormRow>
+        <FormRow label="Commission in Words" htmlFor="commission_in_words" hint="Auto-generated">
+          <textarea
+            id="commission_in_words"
+            value={formData.commission_in_words}
+            readOnly
+            className={`${inputReadOnlyClass} resize-y`}
+            rows={2}
+          />
+        </FormRow>
+      </FormSection>
+
+      {/* Export Options */}
+      <FormSection title="Export Options">
+        <FormRow label="Add Signature to PDF">
+          <div className="pt-1">
+            {renderToggle(includeSignature, () => setIncludeSignature(!includeSignature))}
+          </div>
+        </FormRow>
+      </FormSection>
 
       {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-4 border-t border-gray-100">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
         {initialData?.id && (
-          <button type="button" onClick={handleDelete} className="px-3 py-2 text-xs font-medium text-red-700 bg-white border border-red-200 rounded-xl hover:bg-red-50 shadow-sm">
-            <Trash2 className="h-3.5 w-3.5 inline mr-1" />
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="inline-flex items-center justify-center px-4 py-2 border border-red-300 text-xs font-bold uppercase rounded-md text-red-700 bg-white hover:bg-red-50 w-full sm:w-auto"
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
             Delete
           </button>
         )}
@@ -774,14 +891,14 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
           <button
             type="button"
             disabled={loading || generatingWord}
-            className="inline-flex items-center justify-center w-full px-3 py-2 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 shadow-sm disabled:opacity-50"
+            className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-200 text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 rounded-md"
           >
             <FileDown className="h-3.5 w-3.5 mr-1.5" />
             {generatingWord ? 'Generating Word...' : 'Export'}
             <ChevronDown className="h-3 w-3 ml-1.5" />
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full mb-1 right-0 z-30 min-w-[140px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+            <div className="absolute bottom-full mb-1 right-0 z-30 min-w-[140px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
               <button
                 type="button"
                 onClick={handleExportPDF}
@@ -804,13 +921,16 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
           )}
         </div>
 
-        <button type="submit" disabled={loading} className="px-3 py-2 text-xs font-medium text-white bg-blue-600 border border-transparent rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-sm">
-          <Save className="h-3.5 w-3.5 inline mr-1" />
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex items-center justify-center px-4 py-2 text-xs font-bold uppercase text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 w-full sm:w-auto"
+        >
+          <Save className="h-3.5 w-3.5 mr-1.5" />
           {loading ? 'Saving...' : initialData?.id ? 'Update' : 'Save'}
         </button>
       </div>
-      </form>
-    </div>
+    </form>
   );
 };
 

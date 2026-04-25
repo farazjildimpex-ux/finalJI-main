@@ -78,3 +78,9 @@ supabase/
 - Firebase/push notifications are optional — the app works fully without them
 - Supabase Edge Functions (`check-reminders`, `onesignal-proxy`) are deployed separately to Supabase
 - The Replit-provisioned PostgreSQL database is present but not actively used — Supabase is the data layer
+
+## Recent Changes (Apr 2026)
+
+- **Favicon**: Redesigned with bold centered "JI" (letter-spacing tightened) on dark navy rounded square. SVG + regenerated PNG/ICO assets in `public/`.
+- **Journal grid + colors**: Home dashboard journal entries now render in a responsive grid (1/2/3 columns). Each entry has a `color` field (palette of 9 pastel shades + Auto fallback). Color picker in `JournalEntryForm`. Requires migration: `supabase/migrations/20260425120000_add_journal_color.sql` (ALTER journal_entries ADD COLUMN color text). Apply this in Supabase SQL editor.
+- **Contract & Debit Note forms**: Redesigned in Zoho Purchase Order style — sectioned cards with light-gray section headers, two-column layout (red labels left @170px, inputs right). Shared helpers in `src/components/UI/FormRow.tsx` (`FormRow`, `FormSection`, `formInputClass`, `formInputReadOnlyClass`). All fields preserved; only visual layout changed. PDF/Word generators unaffected.

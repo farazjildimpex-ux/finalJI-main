@@ -235,6 +235,7 @@ export interface JournalEntry {
   reminder_time: string | null;
   reminder_sent: boolean;
   parent_id?: string | null;
+  color?: string | null;
   created_at: string;
   updated_at: string;
 }

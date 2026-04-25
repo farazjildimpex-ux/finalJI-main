@@ -110,12 +110,12 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {selectedDayEntries.map((entry) => (
-              <JournalEntryCard 
-                key={entry.id} 
-                entry={entry} 
-                onEntryUpdated={onEntriesUpdated} 
+              <JournalEntryCard
+                key={entry.id}
+                entry={entry}
+                onEntryUpdated={onEntriesUpdated}
                 onDoubleTap={(e) => setSelectedEntryForPopup(e)}
                 onEdit={(e) => {
                   setEditingEntry(e);
