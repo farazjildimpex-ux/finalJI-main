@@ -361,50 +361,6 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           </div>
         </div>
 
-        {/* Shipping Details Section */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-          <h5 className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
-            <Truck className="h-3.5 w-3.5" /> Shipping Details
-          </h5>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                Bill Type
-              </label>
-              <select
-                value={editingInvoice.bill_type || ''}
-                onChange={(e) => updateField('bill_type', e.target.value as any)}
-                className={formInputClass}
-              >
-                <option value="">Select Type</option>
-                <option value="Airway Bill">Airway Bill</option>
-                <option value="Bill of Lading">Bill of Lading</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                Bill Number
-              </label>
-              <input
-                type="text"
-                value={editingInvoice.bill_number || ''}
-                onChange={(e) => updateField('bill_number', e.target.value)}
-                className={formInputClass}
-                placeholder="Enter number"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
-                Shipping Date
-              </label>
-              <DatePicker
-                value={editingInvoice.shipping_date || ''}
-                onChange={(val) => updateField('shipping_date', val || null)}
-              />
-            </div>
-          </div>
-        </div>
-
         <div>
           <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
             Linked Contracts
@@ -581,8 +537,52 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
             onChange={(e) => updateField('notes', e.target.value)}
             className={`${formInputClass} resize-y`}
             rows={3}
-            placeholder="Shipping details, packing notes, special remarks…"
+            placeholder="Packing notes, special remarks…"
           />
+        </div>
+
+        {/* Shipping Details Section - Moved to bottom */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
+          <h5 className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
+            <Truck className="h-3.5 w-3.5" /> Shipping Details
+          </h5>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                Bill Type
+              </label>
+              <select
+                value={editingInvoice.bill_type || ''}
+                onChange={(e) => updateField('bill_type', e.target.value as any)}
+                className={formInputClass}
+              >
+                <option value="">Select Type</option>
+                <option value="Airway Bill">Airway Bill</option>
+                <option value="Bill of Lading">Bill of Lading</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                Bill Number
+              </label>
+              <input
+                type="text"
+                value={editingInvoice.bill_number || ''}
+                onChange={(e) => updateField('bill_number', e.target.value)}
+                className={formInputClass}
+                placeholder="Enter number"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1">
+                Shipping Date
+              </label>
+              <DatePicker
+                value={editingInvoice.shipping_date || ''}
+                onChange={(val) => updateField('shipping_date', val || null)}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-3 pt-4 border-t border-blue-100">
