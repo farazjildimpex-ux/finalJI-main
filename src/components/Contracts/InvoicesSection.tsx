@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Receipt,
   Plus,
   Trash2,
   Edit2,
@@ -8,7 +7,6 @@ import {
   Save,
   ChevronRight,
   FileText,
-  Link2,
   Truck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -369,7 +367,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     return (
       <div key={id} className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-blue-200 transition-colors">
         <button type="button" onClick={() => setExpandedId(isExpanded ? null : id)} className="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-blue-50/40 transition-colors">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100"><Receipt className="h-5 w-5" /></div>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-400 ring-1 ring-gray-200"><FileText className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-base font-bold text-gray-900">{invoice.invoice_number}</span>
@@ -469,7 +467,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
         <div className="space-y-2">
           {invoices.length === 0 ? (
             <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl">
-              <Receipt className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+              <FileText className="h-8 w-8 text-gray-300 mx-auto mb-2" />
               <p className="text-sm text-gray-500 mb-3">No invoices linked to this contract yet.</p>
               <button type="button" onClick={startCreate} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-md hover:bg-blue-100 transition-colors">
                 <Plus className="h-3.5 w-3.5" /> Create First Invoice
