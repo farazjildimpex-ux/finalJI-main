@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import ContractForm from './ContractForm';
 import DebitNotesSection from './DebitNotesSection';
-import FileUploadSection from './FileUploadSection';
+import InvoicesSection from './InvoicesSection';
 import { FileText } from 'lucide-react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import type { Contract } from '../../types';
@@ -103,12 +103,9 @@ const ContractsPage: React.FC = () => {
         <ContractForm initialContract={selectedContract} />
       </div>
 
-      {/* File Upload Section - Only show if we have a selected contract */}
+      {/* Invoices and Shipping Details - Only show if we have a selected contract */}
       {selectedContract && (
-        <FileUploadSection 
-          contractId={selectedContract.id} 
-          contractNumber={selectedContract.contract_no} 
-        />
+        <InvoicesSection contractNumber={selectedContract.contract_no} />
       )}
 
       {/* Debit Notes Section - Only show if we have a selected contract */}

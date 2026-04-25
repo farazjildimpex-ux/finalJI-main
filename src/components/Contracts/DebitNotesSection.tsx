@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import type { DebitNote } from '../../types';
 import { jsPDF } from 'jspdf';
+import { dialogService } from '../../lib/dialogService';
 
 interface DebitNotesSectionProps {
   contractNumber: string;
@@ -77,9 +78,13 @@ const DebitNotesSection: React.FC<DebitNotesSectionProps> = ({ contractNumber })
   };
 
   const handleDeleteDebitNote = async (debitNoteId: string) => {
-    if (!confirm('Are you sure you want to delete this debit note?')) {
-      return;
-    }
+    const ok = await dialogService.confirm({
+      title: 'Delete debit note?',
+      message: 'Are you sure you want to delete this debit note? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase
@@ -88,18 +93,22 @@ const DebitNotesSection: React.FC<DebitNotesSectionProps> = ({ contractNumber })
         .eq('id', debitNoteId);
 
       if (error) throw error;
-      
+
       // Refresh the list
       await fetchDebitNotes();
-      alert('Debit note deleted successfully!');
-      
+      dialogService.success('Debit note deleted.');
+
       // Navigate to home after successful deletion
       setTimeout(() => {
         window.location.href = '/app/home';
-      }, 1000);
-    } catch (error) {
+      }, 800);
+    } catch (error: any) {
       console.error('Error deleting debit note:', error);
-      alert('Failed to delete debit note');
+      dialogService.alert({
+        title: 'Failed to delete debit note',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
   };
 

@@ -3,6 +3,7 @@ import { X, Save, Trash2, Plus, Minus, Calendar, Mail, Phone, ExternalLink } fro
 import { supabase } from '../../lib/supabaseClient';
 import type { Lead, CallLog, EmailLog } from '../../types';
 import DatePicker from '../UI/DatePicker';
+import { dialogService } from '../../lib/dialogService';
 
 interface LeadDetailsModalProps {
   isOpen: boolean;
@@ -94,7 +95,11 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
 
   const handleSave = async () => {
     if (!formData.company_name || !formData.contact_person || !formData.email) {
-      alert('Company name, contact person, and email are required');
+      dialogService.alert({
+        title: 'Missing required fields',
+        message: 'Company name, contact person, and email are required.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -126,18 +131,27 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
       }
 
       onLeadUpdated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving lead:', error);
-      alert('Failed to save lead');
+      dialogService.alert({
+        title: 'Failed to save lead',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!lead?.id || !confirm('Are you sure you want to delete this lead?')) {
-      return;
-    }
+    if (!lead?.id) return;
+    const ok = await dialogService.confirm({
+      title: 'Delete lead?',
+      message: 'Are you sure you want to delete this lead? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -147,10 +161,15 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
         .eq('id', lead.id);
 
       if (error) throw error;
+      dialogService.success('Lead deleted.');
       onLeadUpdated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting lead:', error);
-      alert('Failed to delete lead');
+      dialogService.alert({
+        title: 'Failed to delete lead',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import type { DebitNote } from '../types';
+import { dialogService } from '../lib/dialogService';
 
 /**
  * Fixes a well-known issue with Google Docs .docx exports where template tags
@@ -103,7 +104,11 @@ export async function generateDebitNoteWord(
   templateUrl: string | null | undefined
 ): Promise<void> {
   if (!templateUrl) {
-    alert('No Word template found for this company. Please upload a .docx template in Company Management.');
+    dialogService.alert({
+      title: 'No Word template',
+      message: 'No Word template found for this company. Please upload a .docx template in Company Management.',
+      tone: 'warning',
+    });
     return;
   }
 
@@ -150,6 +155,10 @@ export async function generateDebitNoteWord(
     URL.revokeObjectURL(link.href);
   } catch (err: any) {
     console.error('Word export error:', err);
-    alert(err.message || 'Word export failed. Check your template for typos in tags like {{Tag}}.');
+    dialogService.alert({
+      title: 'Word export failed',
+      message: err.message || 'Word export failed. Check your template for typos in tags like {{Tag}}.',
+      tone: 'danger',
+    });
   }
 }

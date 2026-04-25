@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { JournalEntry } from '../../types';
 import DatePicker from '../UI/DatePicker';
 import { JOURNAL_COLOR_OPTIONS, JournalColorKey } from './journalColors';
+import { dialogService } from '../../lib/dialogService';
 
 const JournalEntryForm: React.FC<{
   initialDate: Date;
@@ -78,9 +79,13 @@ const JournalEntryForm: React.FC<{
       }
 
       onSave();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving entry:', error);
-      alert('Failed to save entry');
+      dialogService.alert({
+        title: 'Failed to save entry',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setSaving(false);
     }

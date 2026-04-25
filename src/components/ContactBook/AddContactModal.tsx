@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Minus } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
+import { dialogService } from '../../lib/dialogService';
 
 interface AddContactModalProps {
   isOpen: boolean;
@@ -38,9 +39,13 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
       onContactAdded();
       onClose();
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding contact:', error);
-      alert('Failed to add contact. Please try again.');
+      dialogService.alert({
+        title: 'Failed to add contact',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }

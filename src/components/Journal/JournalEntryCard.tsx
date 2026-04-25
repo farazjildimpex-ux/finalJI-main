@@ -4,6 +4,7 @@ import { JournalEntry } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { resolveJournalColor, getJournalColorStyles } from './journalColors';
+import { dialogService } from '../../lib/dialogService';
 
 interface JournalEntryCardProps {
   entry: JournalEntry;
@@ -22,7 +23,13 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
 
   const handleDelete = async () => {
     if (!user) return;
-    if (!confirm('Are you sure you want to delete this entry?')) return;
+    const ok = await dialogService.confirm({
+      title: 'Delete entry?',
+      message: 'Are you sure you want to delete this journal entry? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase
@@ -31,9 +38,15 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
         .eq('id', entry.id);
 
       if (error) throw error;
+      dialogService.success('Entry deleted.');
       onEntryUpdated();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting entry:', error);
+      dialogService.alert({
+        title: 'Failed to delete entry',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
   };
 

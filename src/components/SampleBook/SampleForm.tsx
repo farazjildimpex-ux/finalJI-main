@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bold, ChevronDown, FileDown, Save, Trash2, Underline, X } from 'lucide-react';
+import {
+  Bold,
+  ChevronDown,
+  FileDown,
+  Plus,
+  Save,
+  Trash2,
+  Underline,
+  X,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import DatePicker from '../UI/DatePicker';
+import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
+import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed'] as const;
 const FONT_SIZES = ['12px', '14px', '16px', '18px'] as const;
@@ -37,9 +48,9 @@ const createEmptySample = (): Sample => ({
 
 const escapeHtml = (value: string) =>
   value
-    .replace(/&/g, '&')
-    .replace(/</g, '<')
-    .replace(/>/g, '>')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
@@ -93,7 +104,8 @@ const sanitizeRichTextHtml = (html: string) => {
       if (fontSize) cleanElement.style.fontSize = fontSize;
       if (color) cleanElement.style.color = color;
       if (element.style.fontWeight === 'bold') cleanElement.style.fontWeight = 'bold';
-      if (element.style.textDecoration.includes('underline')) cleanElement.style.textDecoration = 'underline';
+      if (element.style.textDecoration.includes('underline'))
+        cleanElement.style.textDecoration = 'underline';
     }
 
     Array.from(element.childNodes).forEach((child) => {
@@ -137,7 +149,8 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [selectedColor, setSelectedColor] = useState(DEFAULT_TEXT_COLOR);
-  const [selectedFontSize, setSelectedFontSize] = useState<(typeof FONT_SIZES)[number]>('14px');
+  const [selectedFontSize, setSelectedFontSize] =
+    useState<(typeof FONT_SIZES)[number]>('14px');
   const [formData, setFormData] = useState<Sample>(createEmptySample());
 
   const isEditorInitialized = useRef(false);
@@ -163,7 +176,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
 
   const fetchContacts = async () => {
     try {
-      const { data, error } = await supabase.from('contact_book').select('*').order('name');
+      const { data, error } = await supabase
+        .from('contact_book')
+        .select('*')
+        .order('name');
       if (error) throw error;
       setContacts(data || []);
     } catch (error) {
@@ -173,7 +189,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
 
   const fetchCompanies = async () => {
     try {
-      const { data, error } = await supabase.from('companies').select('*').order('name');
+      const { data, error } = await supabase
+        .from('companies')
+        .select('*')
+        .order('name');
       if (error) throw error;
       setCompanies(data || []);
     } catch (error) {
@@ -199,24 +218,24 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
     index: number,
     value: string
   ) => {
-    setFormData(prev => {
-      const newArray = [...(prev[field] as string[])];
+    setFormData((prev) => {
+      const newArray = [...((prev[field] as string[]) || [])];
       newArray[index] = value;
       return { ...prev, [field]: newArray };
     });
   };
 
   const addArrayField = (field: keyof Sample) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: [...(prev[field] as string[]), '']
+      [field]: [...((prev[field] as string[]) || []), ''],
     }));
   };
 
   const removeArrayField = (field: keyof Sample, index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: (prev[field] as string[]).filter((_, i) => i !== index)
+      [field]: ((prev[field] as string[]) || []).filter((_, i) => i !== index),
     }));
   };
 
@@ -269,7 +288,11 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
     e.preventDefault();
 
     if (!formData.company_name || !formData.sample_number || !formData.supplier_name) {
-      alert('Company name, letter number, and supplier name are required');
+      dialogService.alert({
+        title: 'Missing required fields',
+        message: 'Company name, letter number, and supplier name are required.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -293,40 +316,68 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       };
 
       if (initialData?.id) {
-        const { error } = await supabase.from('samples').update(dataToSave).eq('id', initialData.id);
+        const { error } = await supabase
+          .from('samples')
+          .update(dataToSave)
+          .eq('id', initialData.id);
         if (error) throw error;
+        dialogService.success('Letter updated.');
       } else {
         const { error } = await supabase.from('samples').insert([dataToSave]);
         if (error) throw error;
+        dialogService.success('Letter saved.');
       }
 
       navigate('/app/home');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving letter:', error);
-      alert('Failed to save letter');
+      dialogService.alert({
+        title: 'Failed to save letter',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!initialData?.id || !confirm('Are you sure you want to delete this letter?')) {
-      return;
-    }
+    if (!initialData?.id) return;
+
+    const confirmed = await dialogService.confirm({
+      title: 'Delete letter?',
+      message: 'Are you sure you want to delete this letter? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     try {
-      const { error } = await supabase.from('samples').delete().eq('id', initialData.id);
+      const { error } = await supabase
+        .from('samples')
+        .delete()
+        .eq('id', initialData.id);
       if (error) throw error;
+      dialogService.success('Letter deleted.');
       navigate('/app/home');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting letter:', error);
-      alert('Failed to delete letter');
+      dialogService.alert({
+        title: 'Failed to delete letter',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
   };
 
   const handleExportPDF = async () => {
     if (!formData.company_name || !formData.sample_number || !formData.supplier_name) {
-      alert('Please enter the company name, letter number, and supplier before exporting the PDF');
+      dialogService.alert({
+        title: 'Missing details',
+        message:
+          'Please enter the company name, letter number, and supplier before exporting the PDF.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -340,93 +391,140 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         selectedCompany,
         showCompanyInPdf
       );
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF');
+      dialogService.alert({
+        title: 'PDF export failed',
+        message: error?.message || 'Failed to generate PDF.',
+        tone: 'danger',
+      });
     } finally {
       setGeneratingPdf(false);
     }
   };
 
-  const inputClassName =
-    'mt-1 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
-  const labelClassName = 'block text-sm font-medium text-gray-700';
+  const renderToggle = (checked: boolean, onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none ${
+        checked ? 'bg-blue-600' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-5' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+
+  const renderArrayList = (
+    field: keyof Sample,
+    items: string[] | undefined,
+    placeholder: string,
+    addLabel: string
+  ) => (
+    <div className="space-y-2">
+      {(items || ['']).map((value, index) => (
+        <div key={index} className="flex gap-2">
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleArrayFieldChange(field, index, e.target.value)}
+            className={formInputClass}
+            placeholder={placeholder}
+          />
+          {index > 0 && (
+            <button
+              type="button"
+              onClick={() => removeArrayField(field, index)}
+              className="text-gray-400 hover:text-rose-600 p-1.5"
+              title="Remove"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => addArrayField(field)}
+        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+      >
+        <Plus className="h-3 w-3" /> {addLabel}
+      </button>
+    </div>
+  );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div className="md:col-span-2">
-          <div className="mb-1 flex items-center justify-between gap-3">
-            <label htmlFor="company_name" className={labelClassName}>Company Name</label>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-600">Show in PDF</span>
-              <button
-                type="button"
-                onClick={() => setShowCompanyInPdf(!showCompanyInPdf)}
-                className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                  showCompanyInPdf ? 'bg-blue-600' : 'bg-gray-200'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    showCompanyInPdf ? 'translate-x-5' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
+    <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
+      {/* Basic Information */}
+      <FormSection
+        title="Basic Information"
+        right={
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">
+              Show Company in PDF
+            </span>
+            {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
           </div>
+        }
+      >
+        <FormRow label="Company Name" htmlFor="company_name" alt required>
           <select
             id="company_name"
             value={formData.company_name}
             onChange={(e) => setField('company_name', e.target.value)}
-            className={inputClassName}
+            className={formInputClass}
             required
           >
             <option value="">Select Company</option>
             {companies.map((company) => (
-              <option key={company.id} value={company.name}>{company.name}</option>
+              <option key={company.id} value={company.name}>
+                {company.name}
+              </option>
             ))}
           </select>
-        </div>
+        </FormRow>
 
-        <div>
-          <label htmlFor="status" className={labelClassName}>Status</label>
-          <select
-            id="status"
-            value={formData.status}
-            onChange={(e) => setField('status', e.target.value as Sample['status'])}
-            className={inputClassName}
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="sample_number" className={labelClassName}>Letter Number</label>
+        <FormRow label="Letter Number" htmlFor="sample_number" required>
           <input
             id="sample_number"
             type="text"
             value={formData.sample_number}
             onChange={(e) => setField('sample_number', e.target.value)}
-            className={inputClassName}
+            className={formInputClass}
             required
           />
-        </div>
+        </FormRow>
 
-        <div>
+        <FormRow label="Date">
           <DatePicker
-            label="Date"
             value={formData.date || ''}
             onChange={(val) => setField('date', val)}
           />
-        </div>
+        </FormRow>
 
-        <div className="hidden md:block"></div>
+        <FormRow label="Status" htmlFor="status">
+          <select
+            id="status"
+            value={formData.status}
+            onChange={(e) => setField('status', e.target.value as Sample['status'])}
+            className={formInputClass}
+          >
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </FormRow>
+      </FormSection>
 
-        <div className="relative">
-          <label htmlFor="supplier_name" className={labelClassName}>Supplier Name</label>
+      {/* Supplier Information */}
+      <FormSection title="Supplier Information">
+        <FormRow label="Supplier Name" htmlFor="supplier_name" required>
           <div className="relative">
             <input
               id="supplier_name"
@@ -438,188 +536,166 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
                 setShowSupplierDropdown(true);
               }}
               onFocus={() => setShowSupplierDropdown(true)}
-              className={inputClassName}
+              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
+              className={formInputClass}
               placeholder="Search supplier..."
+              autoComplete="off"
               required
             />
-            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-500" />
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            {showSupplierDropdown && filteredContacts.length > 0 && (
+              <div className="absolute z-50 mt-1 w-full max-w-xl max-h-60 overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg">
+                {filteredContacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
+                    onMouseDown={() => handleSupplierSelect(contact)}
+                  >
+                    {contact.name}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          {showSupplierDropdown && filteredContacts.length > 0 && (
-            <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-blue-200 bg-white shadow-lg shadow-blue-100">
-              {filteredContacts.map((contact) => (
-                <button
-                  key={contact.id}
-                  type="button"
-                  onClick={() => handleSupplierSelect(contact)}
-                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-blue-50"
-                >
-                  {contact.name}
-                </button>
-              ))}
-            </div>
+        </FormRow>
+
+        <FormRow label="Supplier Address">
+          {renderArrayList(
+            'supplier_address',
+            formData.supplier_address,
+            'Address line',
+            'Add Address Line'
           )}
-        </div>
+        </FormRow>
+      </FormSection>
 
-        <div>
-          <label className={labelClassName}>Supplier Address</label>
-          {formData.supplier_address?.map((address, index) => (
-            <div key={index} className="flex gap-2 mt-1.5">
-              <input
-                type="text"
-                value={address}
-                onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)}
-                className={inputClassName}
-              />
-              {index > 0 && (
-                <button
-                  type="button"
-                  onClick={() => removeArrayField('supplier_address', index)}
-                  className="text-red-500 hover:text-red-700 p-2"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => addArrayField('supplier_address')}
-            className="mt-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium"
-          >
-            + Add Address Line
-          </button>
-        </div>
-
-        <div className="md:col-span-2">
-          <label htmlFor="description" className={labelClassName}>Description</label>
+      {/* Letter Content */}
+      <FormSection title="Letter Content">
+        <FormRow label="Description" htmlFor="description">
           <input
             id="description"
             type="text"
             value={formData.description}
             onChange={(e) => setField('description', e.target.value)}
-            className={inputClassName}
+            className={formInputClass}
             placeholder="Short bold heading for the letter"
           />
-        </div>
-      </div>
+        </FormRow>
 
-      <div>
-        <div className="mb-1 flex items-center justify-between gap-3">
-          <label className={labelClassName}>Letter Details</label>
-          <div className="text-[10px] text-gray-500 uppercase font-bold">Basic formatting supported</div>
-        </div>
+        <FormRow
+          label="Letter Details"
+          hint="Basic formatting: bold, underline, font size and color."
+        >
+          <div className="rounded-md border border-gray-300 bg-white shadow-sm overflow-hidden">
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
+              <button
+                type="button"
+                onClick={() => applyCommand('bold')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                title="Bold"
+              >
+                <Bold className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => applyCommand('underline')}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
+                title="Underline"
+              >
+                <Underline className="h-3.5 w-3.5" />
+              </button>
 
-        <div className="rounded-2xl border border-blue-200 bg-white shadow-sm">
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-blue-100 bg-blue-50/70 px-2 py-1.5">
-            <button
-              type="button"
-              onClick={() => applyCommand('bold')}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-100"
-              title="Bold"
-            >
-              <Bold className="h-3.5 w-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => applyCommand('underline')}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-blue-200 bg-white text-blue-700 hover:bg-blue-100"
-              title="Underline"
-            >
-              <Underline className="h-3.5 w-3.5" />
-            </button>
-
-            <select
-              value={selectedFontSize}
-              onChange={(e) => {
-                const next = e.target.value as (typeof FONT_SIZES)[number];
-                setSelectedFontSize(next);
-                applyInlineStyle({ fontSize: next });
-              }}
-              className="h-8 rounded-lg border border-blue-200 bg-white px-2 text-xs text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              title="Font size"
-            >
-              {FONT_SIZES.map((size) => (
-                <option key={size} value={size}>{size}</option>
-              ))}
-            </select>
-
-            <label className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-blue-200 bg-white px-2 text-xs text-blue-700">
-              Color
-              <input
-                type="color"
-                value={selectedColor}
+              <select
+                value={selectedFontSize}
                 onChange={(e) => {
-                  setSelectedColor(e.target.value);
-                  applyInlineStyle({ color: e.target.value });
+                  const next = e.target.value as (typeof FONT_SIZES)[number];
+                  setSelectedFontSize(next);
+                  applyInlineStyle({ fontSize: next });
                 }}
-                className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
-                title="Text color"
-              />
-            </label>
+                className="h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                title="Font size"
+              >
+                {FONT_SIZES.map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+
+              <label className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700">
+                Color
+                <input
+                  type="color"
+                  value={selectedColor}
+                  onChange={(e) => {
+                    setSelectedColor(e.target.value);
+                    applyInlineStyle({ color: e.target.value });
+                  }}
+                  className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
+                  title="Text color"
+                />
+              </label>
+            </div>
+
+            <div
+              ref={editorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onPaste={(event) => {
+                event.preventDefault();
+                const text = event.clipboardData.getData('text/plain');
+                document.execCommand('insertText', false, text);
+              }}
+              className="min-h-[200px] px-3 py-2 text-sm leading-6 text-gray-800 focus:outline-none"
+            />
           </div>
+        </FormRow>
+      </FormSection>
 
-          <div
-            ref={editorRef}
-            contentEditable
-            suppressContentEditableWarning
-            onPaste={(event) => {
-              event.preventDefault();
-              const text = event.clipboardData.getData('text/plain');
-              document.execCommand('insertText', false, text);
-            }}
-            className="min-h-[200px] px-3 py-2 text-sm leading-6 text-gray-800 focus:outline-none"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label htmlFor="signee_name" className={labelClassName}>Signee Name</label>
+      {/* Signature */}
+      <FormSection title="Signature">
+        <FormRow label="Signee Name" htmlFor="signee_name">
           <input
             id="signee_name"
             type="text"
             value={formData.customer_comments || ''}
             onChange={(e) => setField('customer_comments', e.target.value)}
-            className={inputClassName}
+            className={formInputClass}
             placeholder="Name to show under the signature"
           />
-        </div>
-      </div>
+        </FormRow>
+      </FormSection>
 
-      <div className="flex flex-col gap-2 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          {initialData?.id && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Delete
-            </button>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row">
+      {/* Form Actions */}
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
+        {initialData?.id && (
           <button
             type="button"
-            onClick={handleExportPDF}
-            disabled={generatingPdf}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-50"
-          >
-            <FileDown className="h-3.5 w-3.5" />
-            {generatingPdf ? 'Generating...' : 'Export PDF'}
-          </button>
-
-          <button
-            type="submit"
+            onClick={handleDelete}
             disabled={loading}
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="inline-flex items-center justify-center px-4 py-2 border border-red-300 text-xs font-bold uppercase rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 w-full sm:w-auto"
           >
-            <Save className="h-3.5 w-3.5" />
-            {loading ? 'Saving...' : 'Save'}
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Delete
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          onClick={handleExportPDF}
+          disabled={generatingPdf}
+          className="inline-flex items-center justify-center px-4 py-2 border border-blue-200 text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 rounded-md w-full sm:w-auto"
+        >
+          <FileDown className="h-3.5 w-3.5 mr-1.5" />
+          {generatingPdf ? 'Generating...' : 'Export PDF'}
+        </button>
+        <button
+          type="submit"
+          disabled={loading}
+          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-xs font-bold uppercase rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 w-full sm:w-auto"
+        >
+          <Save className="h-3.5 w-3.5 mr-1.5" />
+          {loading ? 'Saving...' : initialData?.id ? 'Update' : 'Save'}
+        </button>
       </div>
     </form>
   );

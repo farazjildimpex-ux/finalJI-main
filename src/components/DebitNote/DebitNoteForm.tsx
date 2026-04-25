@@ -9,6 +9,7 @@ import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { FormSection, formInputClass, formInputReadOnlyClass } from '../UI/FormRow';
+import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed'] as const;
 
@@ -425,23 +426,33 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
 
   const handleDelete = async () => {
     if (!initialData?.id) return;
-    if (window.confirm('Are you sure you want to delete this debit note?')) {
-      setLoading(true);
-      try {
-        const { error } = await supabase
-          .from('debit_notes')
-          .delete()
-          .eq('id', initialData.id);
-        
-        if (error) throw error;
-        
-        navigate('/app/home');
-      } catch (error) {
-        console.error('Error deleting debit note:', error);
-        setValidationError('Failed to delete debit note.');
-      } finally {
-        setLoading(false);
-      }
+    const ok = await dialogService.confirm({
+      title: 'Delete debit note?',
+      message: 'Are you sure you want to delete this debit note? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('debit_notes')
+        .delete()
+        .eq('id', initialData.id);
+
+      if (error) throw error;
+
+      dialogService.success('Debit note deleted.');
+      navigate('/app/home');
+    } catch (error: any) {
+      console.error('Error deleting debit note:', error);
+      dialogService.alert({
+        title: 'Failed to delete debit note',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -454,9 +465,13 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         if (imgs.headerBase64) letterheadImages = imgs;
       }
       generateDebitNotePDF(formData, showCompanyInPdf, includeSignature, letterheadImages);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error generating PDF:', err);
-      alert('Failed to generate PDF. Please try again.');
+      dialogService.alert({
+        title: 'PDF export failed',
+        message: err?.message || 'Failed to generate PDF.',
+        tone: 'danger',
+      });
     }
   };
 
@@ -465,9 +480,13 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     setGeneratingWord(true);
     try {
       await generateDebitNoteWord(formData, companyLetterheadUrl);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error generating Word document:', err);
-      alert('Failed to generate Word document. Please try again.');
+      dialogService.alert({
+        title: 'Word export failed',
+        message: err?.message || 'Failed to generate Word document.',
+        tone: 'danger',
+      });
     } finally {
       setGeneratingWord(false);
     }

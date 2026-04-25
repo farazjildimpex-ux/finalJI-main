@@ -12,16 +12,22 @@ import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import NotificationInitializer from './components/Auth/NotificationInitializer';
 import LoadingScreen from './components/UI/LoadingScreen';
+import DialogProvider from './components/UI/DialogProvider';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
   const { loading } = useAuth();
 
   if (loading) {
-    return <LoadingScreen />;
+    return (
+      <DialogProvider>
+        <LoadingScreen />
+      </DialogProvider>
+    );
   }
 
   return (
+    <DialogProvider>
     <Router>
       <NotificationInitializer />
       <Routes>
@@ -43,6 +49,7 @@ function App() {
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
+    </DialogProvider>
   );
 }
 

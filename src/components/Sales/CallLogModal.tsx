@@ -3,6 +3,7 @@ import { X, Save, Phone } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Lead, CallLog } from '../../types';
 import DatePicker from '../UI/DatePicker';
+import { dialogService } from '../../lib/dialogService';
 
 interface CallLogModalProps {
   isOpen: boolean;
@@ -30,7 +31,11 @@ const CallLogModal: React.FC<CallLogModalProps> = ({
 
   const handleSave = async () => {
     if (!callData.notes.trim()) {
-      alert('Please enter call notes');
+      dialogService.alert({
+        title: 'Missing call notes',
+        message: 'Please enter call notes before saving.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -73,10 +78,15 @@ const CallLogModal: React.FC<CallLogModalProps> = ({
           .eq('id', lead.id);
       }
 
+      dialogService.success('Call logged.');
       onCallLogged();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging call:', error);
-      alert('Failed to log call');
+      dialogService.alert({
+        title: 'Failed to log call',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }

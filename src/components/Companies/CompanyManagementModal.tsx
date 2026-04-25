@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Copy, Loader2, ChevronDown, ChevronRight, Info, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company } from '../../types';
+import { dialogService } from '../../lib/dialogService';
 
 interface CompanyManagementModalProps {
   isOpen: boolean;
@@ -129,7 +130,11 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      alert('Company name is required');
+      dialogService.alert({
+        title: 'Missing company name',
+        message: 'Company name is required.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -175,10 +180,14 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       await fetchCompanies();
       setEditMode(false);
       onCompanyUpdated();
-      alert('Company saved successfully!');
-    } catch (error) {
+      dialogService.success('Company saved successfully.');
+    } catch (error: any) {
       console.error('Error saving company:', error);
-      alert('Failed to save company. Please try again.');
+      dialogService.alert({
+        title: 'Failed to save company',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -186,7 +195,13 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
 
   const handleDelete = async () => {
     if (!selectedCompany) return;
-    if (!confirm(`Delete "${selectedCompany.name}"? This will also remove its template.`)) return;
+    const ok = await dialogService.confirm({
+      title: 'Delete company?',
+      message: `Delete "${selectedCompany.name}"? This will also remove its template. This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -196,9 +211,14 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       setEditMode(false);
       await fetchCompanies();
       onCompanyUpdated();
-    } catch (error) {
+      dialogService.success('Company deleted.');
+    } catch (error: any) {
       console.error('Error deleting company:', error);
-      alert('Failed to delete company');
+      dialogService.alert({
+        title: 'Failed to delete company',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -208,7 +228,11 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.name.toLowerCase().endsWith('.docx')) {
-      alert('Please select a .docx Word document file');
+      dialogService.alert({
+        title: 'Invalid file type',
+        message: 'Please select a .docx Word document file.',
+        tone: 'warning',
+      });
       return;
     }
     setLetterheadFile(file);
@@ -220,7 +244,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       : `{{SupplierName}}\n{{SupplierAddress}}\n{{DebitNoteNo}}\n{{Date}}\n{{ContractNo}}\n{{ContractDate}}\n{{BuyerName}}\n{{InvoiceNo}}\n{{InvoiceDate}}\n{{Quantity}}\n{{Pieces}}\n{{Destination}}\n{{CommissionPercent}}\n{{Currency}}\n{{InvoiceValue}}\n{{CommissionAmount}}\n{{ExchangeRate}}\n{{CommissionInRupees}}\n{{CommissionInWords}}`;
     
     navigator.clipboard.writeText(tags);
-    alert('Tags copied to clipboard! You can now paste them into your Word document.');
+    dialogService.success('Tags copied! Paste them into your Word document.');
   };
 
   if (!isOpen) return null;

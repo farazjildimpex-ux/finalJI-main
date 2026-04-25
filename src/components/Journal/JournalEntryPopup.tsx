@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { JournalEntry } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
 import JournalEntryForm from './JournalEntryForm';
+import { dialogService } from '../../lib/dialogService';
 
 interface JournalEntryPopupProps {
   entry: JournalEntry;
@@ -80,7 +81,13 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
   };
 
   const handleUnlinkEntry = async (targetEntryId: string) => {
-    if (!confirm('Remove this entry from the thread?')) return;
+    const ok = await dialogService.confirm({
+      title: 'Unlink from thread?',
+      message: 'Remove this entry from the conversation thread?',
+      confirmLabel: 'Unlink',
+      tone: 'warning',
+    });
+    if (!ok) return;
     try {
       setIsProcessing(true);
       await supabase.from('journal_entries').update({ parent_id: null }).eq('id', targetEntryId);

@@ -8,6 +8,7 @@ import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useNavigate } from 'react-router-dom';
+import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Inspected', 'Completed'] as const;
 const CURRENCY_OPTIONS = ['Euro', 'USD', 'INR'] as const;
@@ -183,7 +184,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const handleSaveAsNew = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.contract_no) {
-      alert('Contract number is required');
+      dialogService.alert({
+        title: 'Missing contract number',
+        message: 'Contract number is required.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -192,7 +197,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     try {
       const exists = await checkContractNumberExists(formData.contract_no);
       if (exists) {
-        alert('Contract number already exists. Please use a different number.');
+        dialogService.alert({
+          title: 'Duplicate contract number',
+          message: 'This contract number already exists. Please use a different number.',
+          tone: 'warning',
+        });
         return;
       }
 
@@ -207,11 +216,15 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         throw error;
       }
 
-      alert('Contract saved successfully!');
+      dialogService.success('Contract saved.');
       navigate('/app/contracts');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving contract:', error);
-      alert('Failed to save contract. Please try again.');
+      dialogService.alert({
+        title: 'Failed to save contract',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -220,7 +233,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.contract_no) {
-      alert('Contract number is required');
+      dialogService.alert({
+        title: 'Missing contract number',
+        message: 'Contract number is required.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -237,13 +254,17 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         if (error) {
           throw error;
         }
-        alert('Contract updated successfully!');
+        dialogService.success('Contract updated.');
         navigate('/app/home');
       } else {
         // Create new contract
         const exists = await checkContractNumberExists(formData.contract_no);
         if (exists) {
-          alert('Contract number already exists. Please use a different number.');
+          dialogService.alert({
+            title: 'Duplicate contract number',
+            message: 'This contract number already exists. Please use a different number.',
+            tone: 'warning',
+          });
           return;
         }
 
@@ -254,13 +275,17 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         if (error) {
           throw error;
         }
-        alert('Contract saved successfully!');
+        dialogService.success('Contract saved.');
       }
-      
+
       navigate('/app/contracts');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving contract:', error);
-      alert('Failed to save contract. Please try again.');
+      dialogService.alert({
+        title: 'Failed to save contract',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -268,10 +293,14 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
 
   const handleDelete = async () => {
     if (!initialContract?.id) return;
-    
-    if (!confirm('Are you sure you want to delete this contract? This action cannot be undone.')) {
-      return;
-    }
+
+    const ok = await dialogService.confirm({
+      title: 'Delete contract?',
+      message: 'Are you sure you want to delete this contract? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     setSaving(true);
 
@@ -285,11 +314,15 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         throw error;
       }
 
-      alert('Contract deleted successfully!');
+      dialogService.success('Contract deleted.');
       navigate('/app/home');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting contract:', error);
-      alert('Failed to delete contract. Please try again.');
+      dialogService.alert({
+        title: 'Failed to delete contract',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setSaving(false);
     }
@@ -297,7 +330,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
 
   const handleExportPDF = async () => {
     if (!formData.contract_no) {
-      alert('Please save the contract first before generating PDF');
+      dialogService.alert({
+        title: 'Save contract first',
+        message: 'Please save the contract before generating a PDF.',
+        tone: 'warning',
+      });
       return;
     }
     setShowExportMenu(false);
@@ -309,9 +346,13 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         if (imgs.headerBase64) letterheadImages = imgs;
       }
       await generateContractPDF(formData as Contract, showCompanyInPdf, includeSignature, letterheadImages);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      dialogService.alert({
+        title: 'PDF export failed',
+        message: error?.message || 'Failed to generate PDF.',
+        tone: 'danger',
+      });
     } finally {
       setGeneratingPdf(false);
     }
@@ -319,16 +360,24 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
 
   const handleExportWord = async () => {
     if (!formData.contract_no) {
-      alert('Please save the contract first before exporting Word document');
+      dialogService.alert({
+        title: 'Save contract first',
+        message: 'Please save the contract before exporting the Word document.',
+        tone: 'warning',
+      });
       return;
     }
     setShowExportMenu(false);
     setGeneratingWord(true);
     try {
       await generateContractWord(formData as Contract, companyLetterheadUrl);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating Word document:', error);
-      alert('Failed to generate Word document. Please try again.');
+      dialogService.alert({
+        title: 'Word export failed',
+        message: error?.message || 'Failed to generate Word document.',
+        tone: 'danger',
+      });
     } finally {
       setGeneratingWord(false);
     }

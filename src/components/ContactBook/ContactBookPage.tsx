@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Book, Plus, Search, Edit2, Trash2, Save, Mail, Phone, MapPin, ArrowLeft } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import AddContactModal from './AddContactModal';
+import { dialogService } from '../../lib/dialogService';
 
 interface Contact {
   id: string;
@@ -68,14 +69,25 @@ const ContactBookPage: React.FC = () => {
       setEditMode(false);
       setSelectedContact(editedContact);
       await fetchContacts();
-    } catch (error) {
+      dialogService.success('Contact updated.');
+    } catch (error: any) {
       console.error('Error updating contact:', error);
-      alert('Failed to update contact');
+      dialogService.alert({
+        title: 'Failed to update contact',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
   };
 
   const handleDelete = async (contactId: string) => {
-    if (!confirm('Are you sure you want to delete this contact?')) return;
+    const ok = await dialogService.confirm({
+      title: 'Delete contact?',
+      message: 'Are you sure you want to delete this contact? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       const { error } = await supabase
@@ -91,9 +103,14 @@ const ContactBookPage: React.FC = () => {
         setEditedContact(null);
         setEditMode(false);
       }
-    } catch (error) {
+      dialogService.success('Contact deleted.');
+    } catch (error: any) {
       console.error('Error deleting contact:', error);
-      alert('Failed to delete contact');
+      dialogService.alert({
+        title: 'Failed to delete contact',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
   };
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Plus, CreditCard as Edit2, Trash2, Save, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { EmailTemplate } from '../../types';
+import { dialogService } from '../../lib/dialogService';
 
 interface EmailTemplatesModalProps {
   isOpen: boolean;
@@ -75,7 +76,11 @@ const EmailTemplatesModal: React.FC<EmailTemplatesModalProps> = ({ isOpen, onClo
 
   const handleSave = async () => {
     if (!formData.name || !formData.subject || !formData.body) {
-      alert('Name, subject, and body are required');
+      dialogService.alert({
+        title: 'Missing required fields',
+        message: 'Name, subject, and body are required.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -101,18 +106,28 @@ const EmailTemplatesModal: React.FC<EmailTemplatesModalProps> = ({ isOpen, onClo
 
       await fetchTemplates();
       setEditMode(false);
-    } catch (error) {
+      dialogService.success('Template saved.');
+    } catch (error: any) {
       console.error('Error saving template:', error);
-      alert('Failed to save template');
+      dialogService.alert({
+        title: 'Failed to save template',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!selectedTemplate?.id || !confirm('Are you sure you want to delete this template?')) {
-      return;
-    }
+    if (!selectedTemplate?.id) return;
+    const ok = await dialogService.confirm({
+      title: 'Delete template?',
+      message: 'Are you sure you want to delete this template? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
 
     try {
       setLoading(true);
@@ -133,9 +148,14 @@ const EmailTemplatesModal: React.FC<EmailTemplatesModalProps> = ({ isOpen, onClo
       });
       setEditMode(false);
       await fetchTemplates();
-    } catch (error) {
+      dialogService.success('Template deleted.');
+    } catch (error: any) {
       console.error('Error deleting template:', error);
-      alert('Failed to delete template');
+      dialogService.alert({
+        title: 'Failed to delete template',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }

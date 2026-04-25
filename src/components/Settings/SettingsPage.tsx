@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Database, Download, Upload, AlertCircle, HardDrive, Trash2, ChevronDown, ChevronUp, FileText, Book, Bookmark, Receipt, Clipboard, Search, RefreshCw, CheckCircle2, ShieldCheck, Bell, BellOff, BellRing } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useNotifications } from '../../hooks/useNotifications';
+import { dialogService } from '../../lib/dialogService';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -66,9 +67,13 @@ const SettingsPage: React.FC = () => {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Export failed:', error);
-      alert('Export failed. Please try again.');
+      dialogService.alert({
+        title: 'Export failed',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -78,7 +83,16 @@ const SettingsPage: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (!confirm('This will merge the imported data with your existing records. Continue?')) return;
+    const ok = await dialogService.confirm({
+      title: 'Restore from backup?',
+      message: 'This will merge the imported data with your existing records. Continue?',
+      confirmLabel: 'Restore',
+      tone: 'warning',
+    });
+    if (!ok) {
+      event.target.value = '';
+      return;
+    }
 
     try {
       setLoading(true);
@@ -92,11 +106,15 @@ const SettingsPage: React.FC = () => {
         }
       }
 
-      alert('Import completed successfully!');
+      dialogService.success('Import completed successfully!');
       fetchStats();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Import failed:', error);
-      alert('Import failed. Please check the file format.');
+      dialogService.alert({
+        title: 'Import failed',
+        message: error?.message || 'Please check the file format.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
       event.target.value = '';
@@ -133,16 +151,27 @@ const SettingsPage: React.FC = () => {
   };
 
   const deleteRecord = async (table: string, id: string) => {
-    if (!confirm('Are you sure you want to delete this record? This cannot be undone.')) return;
-    
+    const ok = await dialogService.confirm({
+      title: 'Delete record?',
+      message: 'Are you sure you want to delete this record? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
     try {
       const { error } = await supabase.from(table).delete().eq('id', id);
       if (error) throw error;
-      
+
       setRecords(records.filter(r => r.id !== id));
       fetchStats();
-    } catch (error) {
-      alert('Delete failed. Please try again.');
+      dialogService.success('Record deleted.');
+    } catch (error: any) {
+      dialogService.alert({
+        title: 'Delete failed',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
   };
 

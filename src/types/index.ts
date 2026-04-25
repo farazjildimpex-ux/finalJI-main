@@ -223,6 +223,26 @@ export interface FileAttachment {
   type: 'image' | 'pdf' | 'other';
 }
 
+export interface InvoiceLineItem {
+  color: string;
+  selection: string;
+  quantity: string;
+}
+
+export interface Invoice {
+  id?: string;
+  user_id?: string;
+  invoice_number: string;
+  invoice_date: string | null;
+  contract_numbers: string[];
+  line_items: InvoiceLineItem[];
+  price_adjustment: string;
+  invoice_value: string;
+  notes: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface JournalEntry {
   id: string;
   user_id: string;

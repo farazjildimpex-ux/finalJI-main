@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Upload, Download, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Lead } from '../../types';
+import { dialogService } from '../../lib/dialogService';
 
 interface LeadImportModalProps {
   isOpen: boolean;
@@ -27,7 +28,11 @@ const LeadImportModal: React.FC<LeadImportModalProps> = ({
     if (!file) return;
 
     if (!file.name.endsWith('.csv')) {
-      alert('Please select a CSV file');
+      dialogService.alert({
+        title: 'Invalid file type',
+        message: 'Please select a CSV file.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -39,7 +44,11 @@ const LeadImportModal: React.FC<LeadImportModalProps> = ({
       const lines = text.split('\n').filter(line => line.trim());
       
       if (lines.length < 2) {
-        alert('CSV file must have at least a header row and one data row');
+        dialogService.alert({
+          title: 'Invalid CSV',
+          message: 'CSV file must have at least a header row and one data row.',
+          tone: 'warning',
+        });
         return;
       }
 
@@ -51,7 +60,11 @@ const LeadImportModal: React.FC<LeadImportModalProps> = ({
       const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
       
       if (missingHeaders.length > 0) {
-        alert(`Missing required columns: ${missingHeaders.join(', ')}`);
+        dialogService.alert({
+          title: 'Missing required columns',
+          message: `Missing required columns: ${missingHeaders.join(', ')}`,
+          tone: 'warning',
+        });
         return;
       }
 
@@ -158,9 +171,13 @@ const LeadImportModal: React.FC<LeadImportModalProps> = ({
         onLeadsImported();
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error importing CSV:', error);
-      alert('Failed to import CSV file');
+      dialogService.alert({
+        title: 'Failed to import CSV',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
       // Reset file input
@@ -213,9 +230,13 @@ const LeadImportModal: React.FC<LeadImportModalProps> = ({
         onLeadsImported();
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error importing from website:', error);
-      alert('Failed to import from website');
+      dialogService.alert({
+        title: 'Failed to import from website',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }

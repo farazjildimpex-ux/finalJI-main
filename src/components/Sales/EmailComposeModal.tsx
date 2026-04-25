@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Send, LayoutTemplate as Template, Save } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Lead, EmailTemplate } from '../../types';
+import { dialogService } from '../../lib/dialogService';
 
 interface EmailComposeModalProps {
   isOpen: boolean;
@@ -87,7 +88,11 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
 
   const handleSendEmail = async () => {
     if (!emailData.to || !emailData.subject || !emailData.body) {
-      alert('Please fill in all fields');
+      dialogService.alert({
+        title: 'Missing fields',
+        message: 'Please fill in all fields before sending.',
+        tone: 'warning',
+      });
       return;
     }
 
@@ -123,11 +128,17 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
           .eq('id', lead.id);
       }
 
-      alert('Email logged successfully! In a production environment, this would be sent via your email service.');
+      dialogService.success(
+        'Email logged. In production, this would be sent via your email service.'
+      );
       onEmailSent();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging email:', error);
-      alert('Failed to log email');
+      dialogService.alert({
+        title: 'Failed to log email',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setLoading(false);
     }
@@ -135,7 +146,7 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
 
   const handleSaveDraft = async () => {
     // In a real application, you might want to save drafts
-    alert('Draft saved locally');
+    dialogService.success('Draft saved locally.');
   };
 
   if (!isOpen || !lead) return null;

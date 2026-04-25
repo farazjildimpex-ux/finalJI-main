@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Order } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
 import { FileText, Bookmark, Receipt, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { dialogService } from '../../lib/dialogService';
 
 interface RecentOrdersListProps {
   orders: Order[];
@@ -123,9 +124,13 @@ const RecentOrdersList: React.FC<RecentOrdersListProps> = ({
 
       if (error) throw error;
       onStatusChange();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating status:', error);
-      alert('Failed to update status');
+      dialogService.alert({
+        title: 'Failed to update status',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     }
     setOpenDropdown(null);
     setDropdownPosition(null);
