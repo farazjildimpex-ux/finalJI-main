@@ -171,6 +171,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
       dialogService.success('Invoice deleted.');
       await fetchInvoices();
     } catch (err: any) {
+      console.error('Error deleting invoice:', err);
       dialogService.alert({ title: 'Could not delete invoice', message: err?.message, tone: 'danger' });
     }
   };
@@ -200,8 +201,37 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     });
   };
 
+  const computeColorTotals = (items: InvoiceLineItem[]) => {
+    const map: Record<string, { display: string; total: number }> = {};
+    items.forEach((item) => {
+      const raw = (item.color || '').trim();
+      if (!raw) return;
+      const key = raw.toLowerCase();
+      const qty = parseFloat((item.quantity || '').toString());
+      if (Number.isNaN(qty)) return;
+      if (!map[key]) map[key] = { display: raw, total: 0 };
+      map[key].total += qty;
+    });
+    return map;
+  };
+
+  const getLineShare = (
+    item: InvoiceLineItem,
+    totals: Record<string, { display: string; total: number }>
+  ) => {
+    const raw = (item.color || '').trim();
+    if (!raw) return null;
+    const qty = parseFloat((item.quantity || '').toString());
+    if (Number.isNaN(qty)) return null;
+    const total = totals[raw.toLowerCase()]?.total;
+    if (!total) return null;
+    return (qty / total) * 100;
+  };
+
   const renderEditor = () => {
     if (!editingInvoice) return null;
+    const editorTotals = computeColorTotals(editingInvoice.line_items);
+
     return (
       <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
         <FormSection title="Invoice Details" right={<button onClick={cancelEdit} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>}>
@@ -226,20 +256,30 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <div className="px-4 sm:px-6 py-4 space-y-3">
             <div className="overflow-x-auto no-scrollbar">
               <div className="min-w-[600px] space-y-2">
-                <div className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 px-1 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                <div className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 px-1 text-xs font-bold text-gray-500 uppercase tracking-wide">
                   <div>Color</div>
                   <div>Selection</div>
                   <div>Quantity (sqft)</div>
                   <div></div>
                 </div>
-                {editingInvoice.line_items.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 items-center">
-                    <input type="text" placeholder="Color" value={item.color} onChange={(e) => updateLineItem(idx, 'color', e.target.value)} className={formInputClass} />
-                    <input type="text" placeholder="Selection" value={item.selection} onChange={(e) => updateLineItem(idx, 'selection', e.target.value)} className={formInputClass} />
-                    <input type="text" placeholder="Qty" value={item.quantity} onChange={(e) => updateLineItem(idx, 'quantity', e.target.value)} className={formInputClass} />
-                    <button type="button" onClick={() => removeLineItem(idx)} className="text-gray-400 hover:text-red-600 p-1"><Trash2 className="h-4 w-4" /></button>
-                  </div>
-                ))}
+                {editingInvoice.line_items.map((item, idx) => {
+                  const share = getLineShare(item, editorTotals);
+                  return (
+                    <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 items-start">
+                      <input type="text" placeholder="Color" value={item.color} onChange={(e) => updateLineItem(idx, 'color', e.target.value)} className={formInputClass} />
+                      <input type="text" placeholder="Selection" value={item.selection} onChange={(e) => updateLineItem(idx, 'selection', e.target.value)} className={formInputClass} />
+                      <div>
+                        <input type="text" placeholder="Qty" value={item.quantity} onChange={(e) => updateLineItem(idx, 'quantity', e.target.value)} className={formInputClass} />
+                        {share !== null && (
+                          <div className="mt-1 ml-1 text-[10px] font-bold text-blue-600 uppercase">
+                            {share.toFixed(2)}% of {item.color}
+                          </div>
+                        )}
+                      </div>
+                      <button type="button" onClick={() => removeLineItem(idx)} className="text-gray-400 hover:text-red-600 p-1 mt-1"><Trash2 className="h-4 w-4" /></button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             <button type="button" onClick={addLineItem} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold">
@@ -289,56 +329,75 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
   const renderInvoiceCard = (invoice: Invoice) => {
     const id = invoice.id || '';
     const isExpanded = expandedId === id;
+    const viewTotals = computeColorTotals(invoice.line_items);
+
     return (
       <div key={id} className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-blue-200 transition-colors">
-        <button type="button" onClick={() => setExpandedId(isExpanded ? null : id)} className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-blue-50/40 transition-colors">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100"><Receipt className="h-4 w-4" /></div>
+        <button type="button" onClick={() => setExpandedId(isExpanded ? null : id)} className="w-full text-left px-4 py-4 flex items-center gap-3 hover:bg-blue-50/40 transition-colors">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100"><Receipt className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-gray-900">{invoice.invoice_number}</span>
-              <span className="text-[11px] text-gray-500">{formatDate(invoice.invoice_date)}</span>
+              <span className="text-base font-bold text-gray-900">{invoice.invoice_number}</span>
+              <span className="text-xs text-gray-500">{formatDate(invoice.invoice_date)}</span>
             </div>
-            <div className="mt-0.5 flex items-center gap-3 text-[11px] text-gray-500">
+            <div className="mt-0.5 flex items-center gap-4 text-xs text-gray-500">
               <span>{invoice.line_items?.length || 0} items</span>
-              <span className="font-bold text-gray-900">{invoice.invoice_value}</span>
-              {invoice.bill_number && <span className="text-blue-600 flex items-center gap-1"><Truck className="h-2.5 w-2.5" /> {invoice.bill_number}</span>}
+              <span className="font-bold text-gray-900 text-sm">{invoice.invoice_value}</span>
+              {invoice.bill_number && <span className="text-blue-600 flex items-center gap-1 font-medium"><Truck className="h-3 w-3" /> {invoice.bill_number}</span>}
             </div>
           </div>
-          <ChevronRight className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+          <ChevronRight className={`h-5 w-5 text-gray-400 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
         </button>
 
         {isExpanded && (
-          <div className="px-4 pb-4 pt-0 border-t border-gray-100 bg-gray-50/40 space-y-3">
+          <div className="px-4 pb-5 pt-0 border-t border-gray-100 bg-gray-50/40 space-y-4">
             <div className="pt-3 overflow-x-auto no-scrollbar">
-              <table className="min-w-full text-xs">
+              <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="text-gray-500 uppercase font-bold border-b border-gray-200">
+                  <tr className="text-gray-500 uppercase font-bold border-b border-gray-200 text-xs">
                     <th className="text-left py-2">Color</th>
                     <th className="text-left py-2">Selection</th>
                     <th className="text-right py-2">Quantity</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {invoice.line_items.map((item, i) => (
-                    <tr key={i}>
-                      <td className="py-2">{item.color || '—'}</td>
-                      <td className="py-2">{item.selection || '—'}</td>
-                      <td className="py-2 text-right font-bold">{item.quantity || '—'}</td>
-                    </tr>
-                  ))}
+                  {invoice.line_items.map((item, i) => {
+                    const share = getLineShare(item, viewTotals);
+                    return (
+                      <tr key={i}>
+                        <td className="py-3 font-medium">{item.color || '—'}</td>
+                        <td className="py-3">{item.selection || '—'}</td>
+                        <td className="py-3 text-right">
+                          <div className="font-bold text-gray-900">{item.quantity || '—'}</div>
+                          {share !== null && (
+                            <div className="text-[10px] font-bold text-blue-600 uppercase">{share.toFixed(2)}%</div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
+            
             {(invoice.bill_type || invoice.bill_number || invoice.shipping_date) && (
-              <div className="grid grid-cols-3 gap-2 text-[10px] bg-white p-2 rounded-lg border border-gray-100">
-                <div><p className="text-gray-400 uppercase font-bold">Type</p><p className="font-bold">{invoice.bill_type || '—'}</p></div>
-                <div><p className="text-gray-400 uppercase font-bold">Bill #</p><p className="font-bold">{invoice.bill_number || '—'}</p></div>
-                <div><p className="text-gray-400 uppercase font-bold">Date</p><p className="font-bold">{formatDate(invoice.shipping_date)}</p></div>
+              <div className="grid grid-cols-3 gap-3 text-xs bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Type</p><p className="font-bold text-gray-900">{invoice.bill_type || '—'}</p></div>
+                <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Bill #</p><p className="font-bold text-gray-900">{invoice.bill_number || '—'}</p></div>
+                <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Date</p><p className="font-bold text-gray-900">{formatDate(invoice.shipping_date)}</p></div>
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
-              <button type="button" onClick={() => handleDelete(invoice)} className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-[10px] font-bold uppercase text-rose-600 bg-white hover:bg-rose-50"><Trash2 className="h-3 w-3" /> Delete</button>
-              <button type="button" onClick={() => startEdit(invoice)} className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[10px] font-bold uppercase text-white bg-blue-600 hover:bg-blue-700"><Edit2 className="h-3 w-3" /> Edit</button>
+
+            {invoice.notes && (
+              <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+                <p className="text-gray-400 uppercase font-bold text-[10px] mb-1">Notes</p>
+                <p className="text-sm text-gray-700">{invoice.notes}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
+              <button type="button" onClick={() => handleDelete(invoice)} className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-200 px-4 py-2 text-xs font-bold uppercase text-rose-600 bg-white hover:bg-rose-50 transition-colors"><Trash2 className="h-4 w-4" /> Delete</button>
+              <button type="button" onClick={() => startEdit(invoice)} className="inline-flex items-center justify-center gap-1.5 rounded-md px-5 py-2 text-xs font-bold uppercase text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors"><Edit2 className="h-4 w-4" /> Edit</button>
             </div>
           </div>
         )}
