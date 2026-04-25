@@ -111,7 +111,6 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   const [loading, setLoading] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
-  const [includeSignature, setIncludeSignature] = useState(false);
   const [generatingWord, setGeneratingWord] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
@@ -464,7 +463,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         const imgs = await extractLetterheadImages(companyLetterheadUrl);
         if (imgs.headerBase64) letterheadImages = imgs;
       }
-      generateDebitNotePDF(formData, showCompanyInPdf, includeSignature, letterheadImages);
+      generateDebitNotePDF(formData, showCompanyInPdf, false, letterheadImages);
     } catch (err: any) {
       console.error('Error generating PDF:', err);
       dialogService.alert({
@@ -873,15 +872,6 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             className={`${inputReadOnlyClass} resize-y`}
             rows={2}
           />
-        </FormRow>
-      </FormSection>
-
-      {/* Export Options */}
-      <FormSection title="Export Options">
-        <FormRow label="Add Signature to PDF">
-          <div className="pt-1">
-            {renderToggle(includeSignature, () => setIncludeSignature(!includeSignature))}
-          </div>
         </FormRow>
       </FormSection>
 

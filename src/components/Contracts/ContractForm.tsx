@@ -30,7 +30,6 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const [generatingWord, setGeneratingWord] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
-  const [includeSignature, setIncludeSignature] = useState(false);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
   const exportMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [formData, setFormData] = useState<Partial<Contract>>({
@@ -345,7 +344,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         const imgs = await extractLetterheadImages(companyLetterheadUrl);
         if (imgs.headerBase64) letterheadImages = imgs;
       }
-      await generateContractPDF(formData as Contract, showCompanyInPdf, includeSignature, letterheadImages);
+      await generateContractPDF(formData as Contract, showCompanyInPdf, false, letterheadImages);
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       dialogService.alert({
@@ -809,15 +808,6 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <div className="px-4 sm:px-6 py-3">
           {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
         </div>
-      </FormSection>
-
-      {/* Export Options */}
-      <FormSection title="Export Options">
-        <FormRow label="Add Signature to PDF">
-          <div className="pt-1">
-            {renderToggle(includeSignature, () => setIncludeSignature(!includeSignature))}
-          </div>
-        </FormRow>
       </FormSection>
 
       {/* Form Actions */}

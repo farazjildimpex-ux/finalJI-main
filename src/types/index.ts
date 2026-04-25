@@ -239,6 +239,9 @@ export interface Invoice {
   price_adjustment: string;
   invoice_value: string;
   notes: string;
+  bill_type?: 'Airway Bill' | 'Bill of Lading' | '';
+  bill_number?: string;
+  shipping_date?: string | null;
   created_at?: string;
   updated_at?: string;
 }
