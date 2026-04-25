@@ -26,7 +26,7 @@ const Layout: React.FC = () => {
   }, [location.pathname, location.search]);
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-slate-50 overflow-hidden pt-safe">
       {/* Desktop Sidebar */}
       <aside className="hidden md:block h-full">
         <Sidebar

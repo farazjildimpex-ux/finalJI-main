@@ -42,6 +42,20 @@
     scrollbar-width: none;
   }
   
+  /* Safe Area Utilities for PWA */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mt-safe {
+    margin-top: env(safe-area-inset-top);
+  }
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom);
+  }
+
   /* Smooth scrolling container */
   .smooth-scroll {
     scroll-behavior: smooth;
