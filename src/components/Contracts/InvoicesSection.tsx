@@ -12,7 +12,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import type { Invoice, InvoiceLineItem } from '../../types';
+import type { Invoice, InvoiceLineItem, Contract } from '../../types';
 import { dialogService } from '../../lib/dialogService';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
@@ -51,6 +51,7 @@ const formatDate = (value: string | null | undefined) => {
 
 const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +62,25 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
   const isCreatingNew = isEditing && !editingInvoice?.id;
 
   useEffect(() => {
-    if (contractNumber) fetchInvoices();
+    if (contractNumber) {
+      fetchInvoices();
+      fetchContract();
+    }
   }, [contractNumber]);
+
+  const fetchContract = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .eq('contract_no', contractNumber)
+        .maybeSingle();
+      if (error) throw error;
+      setContract(data);
+    } catch (err) {
+      console.error('Error fetching contract:', err);
+    }
+  };
 
   const fetchInvoices = async () => {
     if (!contractNumber) return;
@@ -269,7 +287,10 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                       <input type="text" placeholder="Color" value={item.color} onChange={(e) => updateLineItem(idx, 'color', e.target.value)} className={formInputClass} />
                       <input type="text" placeholder="Selection" value={item.selection} onChange={(e) => updateLineItem(idx, 'selection', e.target.value)} className={formInputClass} />
                       <div>
-                        <input type="text" placeholder="Qty" value={item.quantity} onChange={(e) => updateLineItem(idx, 'quantity', e.target.value)} className={formInputClass} />
+                        <div className="relative">
+                          <input type="text" placeholder="Qty" value={item.quantity} onChange={(e) => updateLineItem(idx, 'quantity', e.target.value)} className={`${formInputClass} pr-12`} />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">sqft</span>
+                        </div>
                         {share !== null && (
                           <div className="mt-1 ml-1 text-[10px] font-bold text-blue-600 uppercase">
                             {share.toFixed(2)}% of {item.color}
@@ -282,6 +303,17 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                 })}
               </div>
             </div>
+            
+            {Object.keys(editorTotals).length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {Object.values(editorTotals).map(total => (
+                  <div key={total.display} className="px-2 py-1 bg-blue-50 border border-blue-100 rounded text-[10px] font-bold text-blue-700 uppercase">
+                    Total {total.display}: {total.total.toLocaleString()} sqft
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button type="button" onClick={addLineItem} className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold">
               <Plus className="h-3.5 w-3.5" /> Add Row
             </button>
@@ -292,8 +324,11 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <FormRow label="Price Adjustment">
             <input type="text" value={editingInvoice.price_adjustment} onChange={(e) => updateField('price_adjustment', e.target.value)} className={formInputClass} placeholder="+/- 0.00" />
           </FormRow>
-          <FormRow label="Invoice Value">
-            <input type="text" value={editingInvoice.invoice_value} onChange={(e) => updateField('invoice_value', e.target.value)} className={`${formInputClass} font-bold text-blue-700`} placeholder="0.00" />
+          <FormRow label={`Invoice Value (${contract?.currency || ''})`}>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">{contract?.currency}</span>
+              <input type="text" value={editingInvoice.invoice_value} onChange={(e) => updateField('invoice_value', e.target.value)} className={`${formInputClass} pl-12 font-bold text-blue-700`} placeholder="0.00" />
+            </div>
           </FormRow>
           <FormRow label="Notes">
             <textarea value={editingInvoice.notes} onChange={(e) => updateField('notes', e.target.value)} className={`${formInputClass} resize-none`} rows={2} placeholder="Remarks..." />
@@ -342,7 +377,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
             </div>
             <div className="mt-0.5 flex items-center gap-4 text-xs text-gray-500">
               <span>{invoice.line_items?.length || 0} items</span>
-              <span className="font-bold text-gray-900 text-sm">{invoice.invoice_value}</span>
+              <span className="font-bold text-gray-900 text-sm">{contract?.currency} {invoice.invoice_value}</span>
               {invoice.bill_number && <span className="text-blue-600 flex items-center gap-1 font-medium"><Truck className="h-3 w-3" /> {invoice.bill_number}</span>}
             </div>
           </div>
@@ -368,9 +403,9 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                         <td className="py-3 font-medium">{item.color || '—'}</td>
                         <td className="py-3">{item.selection || '—'}</td>
                         <td className="py-3 text-right">
-                          <div className="font-bold text-gray-900">{item.quantity || '—'}</div>
+                          <div className="font-bold text-gray-900">{item.quantity ? `${item.quantity} sqft` : '—'}</div>
                           {share !== null && (
-                            <div className="text-[10px] font-bold text-blue-600 uppercase">{share.toFixed(2)}%</div>
+                            <div className="text-[10px] font-bold text-blue-600 uppercase">{share.toFixed(2)}% of {item.color}</div>
                           )}
                         </td>
                       </tr>
@@ -379,6 +414,17 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                 </tbody>
               </table>
             </div>
+
+            {Object.keys(viewTotals).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {Object.values(viewTotals).map(total => (
+                  <div key={total.display} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 shadow-sm">
+                    <span className="text-blue-600 uppercase mr-1">{total.display}:</span>
+                    {total.total.toLocaleString()} sqft
+                  </div>
+                ))}
+              </div>
+            )}
             
             {(invoice.bill_type || invoice.bill_number || invoice.shipping_date) && (
               <div className="grid grid-cols-3 gap-3 text-xs bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
