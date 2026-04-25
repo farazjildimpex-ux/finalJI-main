@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Receipt,
   Plus,
@@ -277,19 +277,39 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     });
   };
 
-  const totalInvoiceValue = useMemo(() => {
-    if (!invoices.length) return null;
-    let sum = 0;
-    let hasAny = false;
-    for (const inv of invoices) {
-      const num = parseFloat((inv.invoice_value || '').replace(/[^0-9.\-]/g, ''));
-      if (!Number.isNaN(num)) {
-        sum += num;
-        hasAny = true;
-      }
-    }
-    return hasAny ? sum : null;
-  }, [invoices]);
+  const computeColorTotals = (items: InvoiceLineItem[]) => {
+    const map: Record<string, { display: string; total: number }> = {};
+    items.forEach((item) => {
+      const raw = (item.color || '').trim();
+      if (!raw) return;
+      const key = raw.toLowerCase();
+      const qty = parseFloat((item.quantity || '').toString());
+      if (Number.isNaN(qty)) return;
+      if (!map[key]) map[key] = { display: raw, total: 0 };
+      map[key].total += qty;
+    });
+    return map;
+  };
+
+  const formatNumber = (n: number) => {
+    if (!Number.isFinite(n)) return '';
+    return Number.isInteger(n)
+      ? n.toString()
+      : n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  };
+
+  const getLineShare = (
+    item: InvoiceLineItem,
+    totals: Record<string, { display: string; total: number }>
+  ) => {
+    const raw = (item.color || '').trim();
+    if (!raw) return null;
+    const qty = parseFloat((item.quantity || '').toString());
+    if (Number.isNaN(qty)) return null;
+    const total = totals[raw.toLowerCase()]?.total;
+    if (!total) return null;
+    return (qty / total) * 100;
+  };
 
   const renderEditor = () => {
     if (!editingInvoice) return null;
@@ -379,59 +399,99 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <label className="block text-xs font-semibold text-gray-700 mb-1.5">
             Line Items
           </label>
-          <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-            <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_36px] gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-              <div>Color</div>
-              <div>Selection</div>
-              <div>Quantity</div>
-              <div></div>
-            </div>
-            <div className="divide-y divide-gray-100">
-              {editingInvoice.line_items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="px-3 py-2 grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_36px] gap-2 items-center"
-                >
-                  <input
-                    type="text"
-                    placeholder="Color"
-                    value={item.color}
-                    onChange={(e) => updateLineItem(idx, 'color', e.target.value)}
-                    className={formInputClass}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Selection"
-                    value={item.selection}
-                    onChange={(e) => updateLineItem(idx, 'selection', e.target.value)}
-                    className={formInputClass}
-                  />
-                  <input
-                    type="text"
-                    placeholder="Quantity"
-                    value={item.quantity}
-                    onChange={(e) => updateLineItem(idx, 'quantity', e.target.value)}
-                    className={formInputClass}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeLineItem(idx)}
-                    className="text-gray-400 hover:text-rose-600 p-1.5 justify-self-center"
-                    title="Remove line"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+          {(() => {
+            const editorTotals = computeColorTotals(editingInvoice.line_items);
+            return (
+              <>
+                <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                  <div className="hidden md:grid grid-cols-[1fr_1fr_1.4fr_36px] gap-2 px-3 py-2 bg-gray-50 border-b border-gray-200 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                    <div>Color</div>
+                    <div>Selection</div>
+                    <div>Quantity</div>
+                    <div></div>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {editingInvoice.line_items.map((item, idx) => {
+                      const share = getLineShare(item, editorTotals);
+                      return (
+                        <div
+                          key={idx}
+                          className="px-3 py-2 grid grid-cols-1 md:grid-cols-[1fr_1fr_1.4fr_36px] gap-2 items-start"
+                        >
+                          <input
+                            type="text"
+                            placeholder="Color"
+                            value={item.color}
+                            onChange={(e) => updateLineItem(idx, 'color', e.target.value)}
+                            className={formInputClass}
+                          />
+                          <input
+                            type="text"
+                            placeholder="Selection"
+                            value={item.selection}
+                            onChange={(e) => updateLineItem(idx, 'selection', e.target.value)}
+                            className={formInputClass}
+                          />
+                          <div>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              placeholder="Quantity"
+                              value={item.quantity}
+                              onChange={(e) => updateLineItem(idx, 'quantity', e.target.value)}
+                              className={formInputClass}
+                            />
+                            {item.quantity && (
+                              <div className="mt-1 ml-1 text-[10px] font-medium text-gray-500 flex items-center gap-1.5">
+                                <span className="uppercase tracking-wide">sqft</span>
+                                {share !== null && (
+                                  <>
+                                    <span className="text-gray-300">•</span>
+                                    <span className="font-semibold text-blue-600">
+                                      {share.toFixed(2)}%
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLineItem(idx)}
+                            className="text-gray-400 hover:text-rose-600 p-1.5 justify-self-center"
+                            title="Remove line"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={addLineItem}
-            className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
-          >
-            <Plus className="h-3 w-3" /> Add Line Item
-          </button>
+                {Object.keys(editorTotals).length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {Object.values(editorTotals).map((entry) => (
+                      <span
+                        key={entry.display}
+                        className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 bg-blue-50 ring-1 ring-blue-100 rounded-md px-2 py-0.5"
+                      >
+                        <span className="text-blue-700">{entry.display}</span>
+                        <span className="text-gray-400">·</span>
+                        <span>{formatNumber(entry.total)} sqft</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800"
+                >
+                  <Plus className="h-3 w-3" /> Add Line Item
+                </button>
+              </>
+            );
+          })()}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -572,26 +632,67 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
               </div>
             )}
 
-            {(invoice.line_items?.length || 0) > 0 && (
-              <div className="pt-1">
-                <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
-                  <div className="grid grid-cols-3 gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold uppercase tracking-wide text-gray-500">
-                    <div>Color</div>
-                    <div>Selection</div>
-                    <div>Quantity</div>
+            {(invoice.line_items?.length || 0) > 0 && (() => {
+              const viewTotals = computeColorTotals(invoice.line_items);
+              return (
+                <div className="pt-1">
+                  <div className="rounded-lg border border-gray-200 overflow-hidden bg-white">
+                    <div className="grid grid-cols-[1fr_1fr_1.4fr] gap-2 px-3 py-1.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold uppercase tracking-wide text-gray-500">
+                      <div>Color</div>
+                      <div>Selection</div>
+                      <div>Quantity</div>
+                    </div>
+                    <div className="divide-y divide-gray-100 text-xs text-gray-700">
+                      {invoice.line_items.map((item, idx) => {
+                        const share = getLineShare(item, viewTotals);
+                        return (
+                          <div key={idx} className="grid grid-cols-[1fr_1fr_1.4fr] gap-2 px-3 py-1.5">
+                            <div className="truncate">{item.color || '—'}</div>
+                            <div className="truncate">{item.selection || '—'}</div>
+                            <div className="truncate">
+                              {item.quantity ? (
+                                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-gray-900">
+                                    {item.quantity}
+                                  </span>
+                                  <span className="text-[10px] uppercase tracking-wide text-gray-500">
+                                    sqft
+                                  </span>
+                                  {share !== null && (
+                                    <>
+                                      <span className="text-gray-300">•</span>
+                                      <span className="text-[10px] font-semibold text-blue-600">
+                                        {share.toFixed(2)}%
+                                      </span>
+                                    </>
+                                  )}
+                                </span>
+                              ) : (
+                                '—'
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="divide-y divide-gray-100 text-xs text-gray-700">
-                    {invoice.line_items.map((item, idx) => (
-                      <div key={idx} className="grid grid-cols-3 gap-2 px-3 py-1.5">
-                        <div className="truncate">{item.color || '—'}</div>
-                        <div className="truncate">{item.selection || '—'}</div>
-                        <div className="truncate">{item.quantity || '—'}</div>
-                      </div>
-                    ))}
-                  </div>
+                  {Object.keys(viewTotals).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {Object.values(viewTotals).map((entry) => (
+                        <span
+                          key={entry.display}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 bg-blue-50 ring-1 ring-blue-100 rounded-md px-2 py-0.5"
+                        >
+                          <span className="text-blue-700">{entry.display}</span>
+                          <span className="text-gray-400">·</span>
+                          <span>{formatNumber(entry.total)} sqft</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {invoice.price_adjustment && (
@@ -661,17 +762,6 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           </h3>
         </div>
         <div className="flex items-center gap-3">
-          {totalInvoiceValue !== null && (
-            <span className="text-xs text-gray-500">
-              Total:{' '}
-              <span className="font-semibold text-gray-900">
-                {totalInvoiceValue.toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
-              </span>
-            </span>
-          )}
           {!isEditing && (
             <button
               type="button"
