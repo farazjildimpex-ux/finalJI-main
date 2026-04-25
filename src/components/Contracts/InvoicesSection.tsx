@@ -541,9 +541,9 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           />
         </div>
 
-        {/* Shipping Details Section - Moved to bottom */}
+        {/* Shipping Details Section */}
         <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-          <h5 className="text-xs font-black uppercase tracking-widest text-blue-600 flex items-center gap-2">
+          <h5 className="text-xs font-bold uppercase tracking-widest text-blue-600 flex items-center gap-2">
             <Truck className="h-3.5 w-3.5" /> Shipping Details
           </h5>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -590,7 +590,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
             type="button"
             onClick={cancelEdit}
             disabled={saving}
-            className="inline-flex items-center justify-center px-6 py-2.5 border border-gray-200 text-xs font-black uppercase tracking-widest rounded-xl text-gray-500 bg-white hover:bg-gray-50 transition-all"
+            className="inline-flex items-center justify-center px-4 py-1.5 border border-gray-200 text-xs font-bold uppercase rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all"
           >
             Cancel
           </button>
@@ -598,7 +598,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center justify-center px-8 py-2.5 text-xs font-black uppercase tracking-widest rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95"
+            className="inline-flex items-center justify-center px-4 py-1.5 text-xs font-bold uppercase rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all active:scale-95"
           >
             <Save className="h-4 w-4 mr-2" />
             {saving ? 'Saving…' : isCreatingNew ? 'Save Invoice' : 'Update Invoice'}
@@ -618,7 +618,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     return (
       <div
         key={id}
-        className="rounded-2xl border border-gray-200 bg-white overflow-hidden hover:border-blue-200 transition-all duration-200 shadow-sm"
+        className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:border-blue-200 transition-all duration-200 shadow-sm"
       >
         <button
           type="button"
@@ -637,7 +637,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                 {formatDate(invoice.invoice_date)}
               </span>
               {otherContracts.length > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-tighter text-purple-600 bg-purple-50 ring-1 ring-purple-100 rounded-full px-2 py-0.5">
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-purple-700 bg-purple-50 ring-1 ring-purple-200 rounded-full px-2 py-0.5">
                   <Link2 className="h-2.5 w-2.5" />
                   +{otherContracts.length}
                 </span>
@@ -672,7 +672,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <div className="px-4 pb-5 pt-0 border-t border-gray-100 bg-gray-50/30 space-y-4">
             {otherContracts.length > 0 && (
               <div className="pt-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
                   Linked Contracts
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -693,15 +693,15 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
             {(invoice.bill_type || invoice.bill_number || invoice.shipping_date) && (
               <div className="pt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-white rounded-xl border border-gray-100 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Bill Type</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Bill Type</p>
                   <p className="text-sm font-bold text-gray-900">{invoice.bill_type || '—'}</p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Bill Number</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Bill Number</p>
                   <p className="text-sm font-bold text-gray-900">{invoice.bill_number || '—'}</p>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-100 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Shipping Date</p>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Shipping Date</p>
                   <p className="text-sm font-bold text-gray-900">{formatDate(invoice.shipping_date)}</p>
                 </div>
               </div>
@@ -714,7 +714,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                   <div className="rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
                     <div className="overflow-x-auto">
                       <div className="min-w-[500px]">
-                        <div className="grid grid-cols-[1.2fr_1.2fr_1.5fr] gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <div className="grid grid-cols-[1.2fr_1.2fr_1.5fr] gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-[10px] font-bold uppercase tracking-widest text-gray-400">
                           <div>Color</div>
                           <div>Selection</div>
                           <div>Quantity</div>
@@ -732,7 +732,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                                       <span>{item.quantity}</span>
                                       <span className="text-[10px] uppercase tracking-tighter text-gray-400">sqft</span>
                                       {share !== null && (
-                                        <span className="text-[11px] font-black text-blue-600 ml-1">
+                                        <span className="text-[11px] font-bold text-blue-600 ml-1">
                                           {share.toFixed(2)}%
                                         </span>
                                       )}
@@ -769,7 +769,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {invoice.price_adjustment && (
                 <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-                  <span className="text-[10px] uppercase font-black tracking-widest text-gray-400">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-gray-400">
                     Price Adjustment
                   </span>
                   <p className="text-base font-bold text-gray-800 mt-0.5">
@@ -779,10 +779,10 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
               )}
               {invoice.invoice_value && (
                 <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3">
-                  <span className="text-[10px] uppercase font-black tracking-widest text-blue-400">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-blue-400">
                     Invoice Value
                   </span>
-                  <p className="text-lg font-black text-blue-700 mt-0.5">
+                  <p className="text-lg font-bold text-blue-700 mt-0.5">
                     {invoice.invoice_value}
                   </p>
                 </div>
@@ -791,7 +791,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
 
             {invoice.notes && (
               <div className="bg-white rounded-xl border border-gray-100 p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
                   Notes & Remarks
                 </p>
                 <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
@@ -800,21 +800,21 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-100">
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-4 border-t border-gray-100">
               <button
                 type="button"
                 onClick={() => handleDelete(invoice)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-100 px-5 py-2.5 text-xs font-black uppercase tracking-widest text-rose-600 bg-white hover:bg-rose-50 transition-all"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-bold uppercase text-rose-600 bg-white hover:bg-rose-50 transition-all"
               >
-                <Trash2 className="h-4 w-4" />
+                <Trash2 className="h-3.5 w-3.5" />
                 Delete
               </button>
               <button
                 type="button"
                 onClick={() => startEdit(invoice)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl px-6 py-2.5 text-xs font-black uppercase tracking-widest text-white bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-100 transition-all active:scale-95"
+                className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all active:scale-95"
               >
-                <Edit2 className="h-4 w-4" />
+                <Edit2 className="h-3.5 w-3.5" />
                 Edit
               </button>
             </div>
@@ -825,27 +825,22 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 md:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-blue-600 rounded-xl text-white shadow-lg shadow-blue-200">
-            <FileText className="h-6 w-6" />
-          </div>
-          <div>
-            <h3 className="text-lg font-black text-gray-900 tracking-tight">
-              Invoices & Shipping
-            </h3>
-            <p className="text-xs font-medium text-gray-400">Track shipments and billing details</p>
-          </div>
+    <div className="bg-white rounded-lg shadow-lg p-3 md:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-blue-600" />
+          <h3 className="text-base font-bold text-gray-900">
+            Invoices & Shipping
+          </h3>
         </div>
         <div className="flex items-center gap-3">
           {!isEditing && (
             <button
               type="button"
               onClick={startCreate}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition-colors shadow-sm"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5" />
               Add Invoice
             </button>
           )}
@@ -867,24 +862,22 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <p className="text-sm font-bold uppercase tracking-widest">Loading invoices…</p>
         </div>
       ) : invoices.length === 0 && !isEditing ? (
-        <div className="text-center py-16 border-2 border-dashed border-gray-100 rounded-3xl bg-gray-50/30">
-          <div className="h-16 w-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mx-auto mb-4 ring-1 ring-gray-100">
-            <Receipt className="h-8 w-8 text-gray-200" />
-          </div>
-          <p className="text-base font-bold text-gray-400 mb-4">
+        <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-xl">
+          <Receipt className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+          <p className="text-sm text-gray-500 mb-3">
             No invoices linked to this contract yet.
           </p>
           <button
             type="button"
             onClick={startCreate}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-white text-blue-600 text-xs font-black uppercase tracking-widest rounded-xl border border-blue-100 hover:bg-blue-50 transition-all shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 text-xs font-bold rounded-md hover:bg-blue-100 transition-colors"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3.5 w-3.5" />
             Create First Invoice
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {invoices.map((invoice) => renderInvoiceCard(invoice))}
         </div>
       )}
