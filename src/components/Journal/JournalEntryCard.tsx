@@ -109,13 +109,6 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
             {entry.content}
           </p>
         )}
-        
-        {/* Double tap hint (subtle) */}
-        <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
-          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-            Double tap to view thread
-          </span>
-        </div>
       </div>
     </div>
   );
