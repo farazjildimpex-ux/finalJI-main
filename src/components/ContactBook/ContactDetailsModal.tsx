@@ -241,7 +241,7 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
               </div>
             </div>
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-6">
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Name</p>
                 <p className="text-2xl font-bold text-gray-900">{contact.name}</p>
@@ -249,11 +249,11 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
 
               {contact.address.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Addresses</p>
-                  <div className="space-y-3">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Addresses</p>
+                  <div className="space-y-2">
                     {contact.address.map((addr, index) => (
-                      <div key={index} className="flex gap-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                        <MapPin className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
+                      <div key={index} className="flex gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <MapPin className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
                         <p className="text-sm text-gray-900 leading-relaxed">{addr}</p>
                       </div>
                     ))}
@@ -261,10 +261,10 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {contact.email.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Emails</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Emails</p>
                     <div className="space-y-2">
                       {contact.email.map((email, index) => (
                         <a 
@@ -282,7 +282,7 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
 
                 {contact.contact_no.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Phones</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Phones</p>
                     <div className="space-y-2">
                       {contact.contact_no.map((phone, index) => (
                         <a 

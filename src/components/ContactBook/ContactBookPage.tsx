@@ -94,9 +94,9 @@ const ContactBookPage: React.FC = () => {
               <div
                 key={contact.id}
                 onClick={() => handleContactClick(contact)}
-                className="p-5 rounded-[24px] border border-gray-100 transition-all bg-white shadow-sm hover:shadow-md hover:border-blue-200 cursor-pointer group"
+                className="p-4 rounded-[24px] border border-gray-100 transition-all bg-white shadow-sm hover:shadow-md hover:border-blue-200 cursor-pointer group"
               >
-                <div className="flex items-start justify-between mb-4">
+                <div className="flex items-start justify-between mb-3">
                   <h3 className="text-base font-bold text-gray-900 flex-1 truncate group-hover:text-blue-600 transition-colors">{contact.name}</h3>
                   {contact.mark && (
                     <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 ring-1 ring-blue-100">
@@ -105,7 +105,7 @@ const ContactBookPage: React.FC = () => {
                   )}
                 </div>
 
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {contact.email[0] && (
                     <div className="flex items-center gap-3 text-xs text-gray-500">
                       <Mail className="h-4 w-4 text-gray-300 flex-shrink-0" />
