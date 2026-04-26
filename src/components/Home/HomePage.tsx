@@ -13,6 +13,7 @@ import { useAuth } from '../../hooks/useAuth';
 const HomePage: React.FC = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
   const [orders, setOrders] = useState<Order[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +131,12 @@ const HomePage: React.FC = () => {
   }, [user, fetchJournalEntries]);
 
   const filteredOrders = orders.filter((order) => {
+    // First check database filter
+    if (activeFilter !== 'all' && activeFilter !== 'journal' && order.type !== activeFilter) {
+      return false;
+    }
+    
+    // Then check search term
     const searchLower = searchTerm.toLowerCase();
     return (
       order.contractNumber.toLowerCase().includes(searchLower) ||
@@ -140,6 +147,12 @@ const HomePage: React.FC = () => {
   });
 
   const filteredJournal = journalEntries.filter((entry) => {
+    // First check database filter
+    if (activeFilter !== 'all' && activeFilter !== 'journal') {
+      return false;
+    }
+
+    // Then check search term
     const searchLower = searchTerm.toLowerCase();
     return (
       entry.title.toLowerCase().includes(searchLower) || 
@@ -161,6 +174,9 @@ const HomePage: React.FC = () => {
     );
   }
 
+  const showJournal = activeFilter === 'all' || activeFilter === 'journal';
+  const showOrders = activeFilter === 'all' || activeFilter !== 'journal';
+
   return (
     <div className="max-w-7xl mx-auto page-fade-in px-4">
       <div className="mb-6 md:mb-8 flex flex-col items-center text-center pt-4">
@@ -175,7 +191,8 @@ const HomePage: React.FC = () => {
         <SearchBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
-          placeholder="Search tasks & orders by contract #, supplier, article, color..."
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
         />
       </div>
 
@@ -187,37 +204,43 @@ const HomePage: React.FC = () => {
         </div>
       )}
 
-      {searchTerm ? (
+      {/* Journal Section */}
+      {showJournal && (
         <div className="mb-6 md:mb-8">
-          <JournalSearchResults
-            entries={filteredJournal}
-            searchTerm={searchTerm}
-            onEntriesUpdated={fetchJournalEntries}
-            onOpen={(e) => setSelectedEntryForPopup(e)}
-            onEdit={(e) => {
-              setEditingEntry(e);
-              setIsJournalFormOpen(true);
-            }}
-          />
+          {searchTerm || activeFilter === 'journal' ? (
+            <JournalSearchResults
+              entries={filteredJournal}
+              searchTerm={searchTerm}
+              onEntriesUpdated={fetchJournalEntries}
+              onOpen={(e) => setSelectedEntryForPopup(e)}
+              onEdit={(e) => {
+                setEditingEntry(e);
+                setIsJournalFormOpen(true);
+              }}
+            />
+          ) : (
+            <JournalWidget 
+              entries={journalEntries} 
+              loading={journalLoading} 
+              onEntriesUpdated={fetchJournalEntries} 
+            />
+          )}
         </div>
-      ) : (
-        <JournalWidget 
-          entries={journalEntries} 
-          loading={journalLoading} 
-          onEntriesUpdated={fetchJournalEntries} 
-        />
       )}
 
-      <div className="mb-6 md:mb-8">
-        <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider mb-4">
-          {searchTerm ? 'Search Results' : 'Recent Orders'}
-        </h2>
-        <RecentOrdersList
-          orders={searchTerm ? filteredOrders : activeOrders}
-          loading={loading}
-          onStatusChange={fetchData}
-        />
-      </div>
+      {/* Orders Section */}
+      {showOrders && (
+        <div className="mb-6 md:mb-8">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider mb-4">
+            {searchTerm || activeFilter !== 'all' ? 'Search Results' : 'Recent Orders'}
+          </h2>
+          <RecentOrdersList
+            orders={searchTerm || activeFilter !== 'all' ? filteredOrders : activeOrders}
+            loading={loading}
+            onStatusChange={fetchData}
+          />
+        </div>
+      )}
 
       {/* Shared Modals for Journal */}
       {isJournalFormOpen && (
