@@ -217,13 +217,20 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     });
   };
 
+  const parseQuantity = (raw: string | number | null | undefined) => {
+    if (raw === null || raw === undefined) return NaN;
+    const cleaned = raw.toString().replace(/,/g, '').trim();
+    if (!cleaned) return NaN;
+    return parseFloat(cleaned);
+  };
+
   const computeColorTotals = (items: InvoiceLineItem[]) => {
     const map: Record<string, { display: string; total: number }> = {};
     items.forEach((item) => {
       const raw = (item.color || '').trim();
       if (!raw) return;
       const key = raw.toLowerCase();
-      const qty = parseFloat((item.quantity || '').toString());
+      const qty = parseQuantity(item.quantity);
       if (Number.isNaN(qty)) return;
       if (!map[key]) map[key] = { display: raw, total: 0 };
       map[key].total += qty;
@@ -237,7 +244,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
   ) => {
     const raw = (item.color || '').trim();
     if (!raw) return null;
-    const qty = parseFloat((item.quantity || '').toString());
+    const qty = parseQuantity(item.quantity);
     if (Number.isNaN(qty)) return null;
     const total = totals[raw.toLowerCase()]?.total;
     if (!total) return null;

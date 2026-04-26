@@ -245,7 +245,7 @@ const ContactBookPage: React.FC = () => {
 
         {/* Details Panel */}
         {selectedContact && (
-          <div className={`w-full md:w-[400px] bg-white border-l border-gray-200 flex flex-col overflow-hidden ${selectedContact ? 'fixed inset-0 z-20 md:relative md:inset-auto' : 'hidden'}`}>
+          <div className={`w-full md:w-[400px] bg-white border-l border-gray-200 flex flex-col overflow-hidden ${selectedContact ? 'fixed inset-0 z-[60] md:relative md:inset-auto md:z-auto' : 'hidden'}`}>
             {/* Details Header */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white sticky top-0">
               <div className="flex items-center gap-3">

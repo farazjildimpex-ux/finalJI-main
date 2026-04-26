@@ -52,7 +52,19 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
       </button>
 
       {isOpen && (
-        <div className="absolute z-[200] mt-2 w-72 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 animate-in fade-in zoom-in-95 duration-200">
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 z-[199] bg-black/30 backdrop-blur-sm sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          <div
+            className="
+              fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] max-w-[300px]
+              sm:absolute sm:left-auto sm:top-auto sm:translate-x-0 sm:translate-y-0 sm:mt-2 sm:w-72
+              z-[200] bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 animate-in fade-in zoom-in-95 duration-200
+            "
+          >
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
@@ -119,7 +131,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
               Close
             </button>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );
