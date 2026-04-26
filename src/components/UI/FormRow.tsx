@@ -53,9 +53,9 @@ interface FormSectionProps {
 }
 
 export const FormSection: React.FC<FormSectionProps> = ({ title, right, children, noHeader }) => (
-  <div className="border border-gray-200 rounded-lg overflow-hidden bg-white">
+  <div className="border border-gray-200 rounded-lg bg-white">
     {!noHeader && title && (
-      <div className="px-4 sm:px-6 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-4 sm:px-6 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between rounded-t-lg">
         <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider">{title}</h3>
         {right}
       </div>
