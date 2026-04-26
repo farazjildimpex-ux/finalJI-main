@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isSameMonth, isSameDay, eachDayOfInterval } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, X } from 'lucide-react';
 
 interface DatePickerProps {
   value: string; // yyyy-MM-dd
@@ -15,47 +15,21 @@ interface DatePickerProps {
 const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, className }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
-  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selectedDate = useMemo(() => (value ? new Date(value) : null), [value]);
 
-  const updateCoords = () => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setCoords({
-        top: rect.bottom + window.scrollY,
-        left: rect.left + window.scrollX,
-        width: rect.width
-      });
-    }
-  };
-
   useEffect(() => {
     if (isOpen) {
-      updateCoords();
-      window.addEventListener('scroll', updateCoords, true);
-      window.addEventListener('resize', updateCoords);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
     }
     return () => {
-      window.removeEventListener('scroll', updateCoords, true);
-      window.removeEventListener('resize', updateCoords);
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        containerRef.current && !containerRef.current.contains(event.target as Node) &&
-        dropdownRef.current && !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   const days = useMemo(() => {
     const start = startOfWeek(startOfMonth(viewDate));
@@ -69,46 +43,47 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
   };
 
   const calendarContent = (
-    <>
-      {/* Backdrop for mobile */}
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+      {/* Backdrop with blur */}
       <div
-        className="fixed inset-0 z-[999] bg-black/20 backdrop-blur-[1px] sm:hidden"
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={() => setIsOpen(false)}
       />
+      
+      {/* Modal Content */}
       <div
         ref={dropdownRef}
-        style={{
-          top: window.innerWidth >= 640 ? `${coords.top + 8}px` : '50%',
-          left: window.innerWidth >= 640 ? `${coords.left}px` : '50%',
-          transform: window.innerWidth >= 640 ? 'none' : 'translate(-50%, -50%)',
-          minWidth: window.innerWidth >= 640 ? '280px' : '300px'
-        }}
         className="
-          fixed z-[1000] bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 
+          relative w-full max-w-[320px] bg-white rounded-[32px] shadow-2xl border border-slate-100 p-6 
           animate-in fade-in zoom-in-95 duration-200
         "
       >
-        <div className="flex items-center justify-between mb-4">
-          <button
-            type="button"
-            onClick={() => setViewDate(subMonths(viewDate, 1))}
-            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <h4 className="font-bold text-slate-900">{format(viewDate, 'MMMM yyyy')}</h4>
-          <button
-            type="button"
-            onClick={() => setViewDate(addMonths(viewDate, 1))}
-            className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-600 transition-colors"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col">
+            <h4 className="font-black text-slate-900 text-lg tracking-tight">{format(viewDate, 'MMMM')}</h4>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{format(viewDate, 'yyyy')}</p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setViewDate(subMonths(viewDate, 1))}
+              className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewDate(addMonths(viewDate, 1))}
+              className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition-colors"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-7 gap-1 mb-2">
-          {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-            <div key={d} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-widest py-1">
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+            <div key={i} className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest py-1">
               {d}
             </div>
           ))}
@@ -126,10 +101,10 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
                 type="button"
                 onClick={() => handleDateSelect(day)}
                 className={`
-                  h-9 w-9 rounded-lg text-xs font-medium transition-all flex items-center justify-center
-                  ${!isCurrentMonth ? 'text-slate-300' : 'text-slate-700'}
-                  ${isSelected ? 'bg-blue-600 text-white shadow-md shadow-blue-200 scale-110' : 'hover:bg-blue-50'}
-                  ${isToday && !isSelected ? 'border border-blue-200 text-blue-600' : ''}
+                  h-9 w-9 rounded-xl text-xs font-bold transition-all flex items-center justify-center
+                  ${!isCurrentMonth ? 'text-slate-200' : 'text-slate-700'}
+                  ${isSelected ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-110' : 'hover:bg-slate-50'}
+                  ${isToday && !isSelected ? 'text-blue-600 ring-1 ring-blue-100' : ''}
                 `}
               >
                 {format(day, 'd')}
@@ -138,35 +113,35 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
           })}
         </div>
 
-        <div className="mt-4 pt-3 border-t border-slate-50 flex justify-between">
+        <div className="mt-6 pt-4 border-t border-slate-50 flex items-center justify-between">
           <button
             type="button"
             onClick={() => handleDateSelect(new Date())}
-            className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline"
+            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="text-[10px] font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-200 transition-colors"
           >
-            Close
+            <X className="h-3 w-3" /> Close
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 
   return (
-    <div className={`relative ${className}`} ref={containerRef}>
-      {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+    <div className={`relative ${className}`}>
+      {label && <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">{label}</label>}
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-center gap-3 px-3 py-2.5 bg-white border border-blue-200 rounded-xl text-sm text-gray-900 shadow-sm hover:border-blue-400 transition-all"
+        onClick={() => setIsOpen(true)}
+        className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 shadow-sm hover:border-blue-400 transition-all group"
       >
-        <CalendarIcon className="h-4 w-4 text-blue-500" />
+        <CalendarIcon className="h-4 w-4 text-blue-500 group-hover:scale-110 transition-transform" />
         <span className="font-bold">{selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Select Date'}</span>
       </button>
 
