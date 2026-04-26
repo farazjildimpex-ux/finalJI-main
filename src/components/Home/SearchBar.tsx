@@ -18,22 +18,27 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm }) => {
   return (
     <div className="w-full space-y-4">
       <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-          <span className="text-xs font-black uppercase tracking-widest text-slate-400 group-focus-within:text-blue-600 transition-colors">
-            Search
-          </span>
-        </div>
+        {/* Search Label - Only visible when empty */}
+        {!searchTerm && (
+          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none animate-in fade-in duration-200">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 group-focus-within:text-blue-600 transition-colors">
+              Search
+            </span>
+          </div>
+        )}
+        
         <input
           type="text"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full pl-20 pr-12 py-4 bg-white border border-slate-200 rounded-[24px] text-sm font-medium text-slate-900
+          className={`block w-full py-4 bg-white border border-slate-200 rounded-[24px] text-sm text-slate-900
                     shadow-sm transition-all duration-200
                     focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:shadow-md
-                    placeholder-transparent"
-          placeholder="Search"
+                    ${searchTerm ? 'pl-6' : 'pl-20'}`}
+          placeholder=""
           aria-label="Search"
         />
+        
         <div className="absolute inset-y-0 right-0 pr-4 flex items-center gap-2">
           {searchTerm ? (
             <button
