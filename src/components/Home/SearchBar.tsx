@@ -31,31 +31,34 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
   return (
     <div className="w-full space-y-4">
       <div className="relative group">
-        {/* Search Label - Hides on focus OR when text exists */}
+        {/* Search Label - Fades out without shifting padding */}
         {!searchTerm && !isFocused && (
-          <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none animate-in fade-in duration-200">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-400 transition-colors">
+          <div className="absolute inset-y-0 left-0 pl-12 flex items-center pointer-events-none animate-in fade-in duration-200">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
               Search
             </span>
           </div>
         )}
         
+        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <Search className={`h-5 w-5 transition-colors ${isFocused ? 'text-blue-500' : 'text-slate-300'}`} />
+        </div>
+
         <input
           type="text"
           value={searchTerm}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className={`block w-full py-4 bg-white border border-slate-200 rounded-[24px] text-sm text-slate-900
+          className="block w-full py-4 pl-12 pr-12 bg-white border border-slate-200 rounded-[24px] text-sm text-slate-900
                     shadow-sm transition-all duration-200
-                    focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:shadow-md
-                    ${(searchTerm || isFocused) ? 'pl-6' : 'pl-20'}`}
+                    focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:shadow-md"
           placeholder=""
           aria-label="Search"
         />
         
-        <div className="absolute inset-y-0 right-0 pr-4 flex items-center gap-2">
-          {searchTerm ? (
+        {searchTerm && (
+          <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
             <button
               onClick={() => setSearchTerm('')}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
@@ -63,30 +66,26 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
             >
               <X className="h-5 w-5" />
             </button>
-          ) : (
-            <div className="p-2 text-slate-300">
-              <Search className="h-5 w-5" />
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* Quick Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 sm:mb-0 sm:mr-1">Quick Filters:</span>
-        <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
+      {/* Quick Filters - Horizontal Scrollable */}
+      <div className="flex items-center gap-2 px-1 overflow-hidden">
+        <span className="hidden sm:block text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1 shrink-0">Quick Filters:</span>
+        <div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar pb-1 -mb-1 w-full">
           {quickFilters.map((filter) => {
             const isActive = activeFilter === filter.id;
             return (
               <button
                 key={filter.id}
                 onClick={() => handleFilterClick(filter.id)}
-                className={`inline-flex items-center gap-2.5 px-4 py-2.5 sm:py-1.5 border rounded-xl sm:rounded-full text-xs sm:text-[11px] font-bold transition-all shadow-sm active:scale-95
+                className={`inline-flex items-center gap-2 px-4 py-2 border rounded-full text-[11px] font-bold transition-all shrink-0 active:scale-95
                            ${isActive 
-                             ? `${filter.bg} ${filter.border} ${filter.color} ring-2 ring-offset-1 ring-slate-100` 
-                             : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600'}`}
+                             ? `${filter.bg} ${filter.border} ${filter.color} shadow-sm ring-2 ring-blue-500/10` 
+                             : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:text-blue-600 shadow-sm'}`}
               >
-                <filter.icon className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isActive ? filter.color : filter.color}`} />
+                <filter.icon className="h-3.5 w-3.5" />
                 {filter.label}
               </button>
             );

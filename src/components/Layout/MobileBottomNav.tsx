@@ -2,26 +2,22 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Book, FileText, Bookmark, Receipt } from 'lucide-react';
+import { Home, Users, FileText, Bookmark, CreditCard } from 'lucide-react';
 
-interface MobileBottomNavProps {
-  // onOpenMenu is no longer needed since we removed the menu button
-}
-
-const MobileBottomNav: React.FC<MobileBottomNavProps> = () => {
+const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   
   const navItems = [
     { name: 'Home', path: '/app/home', icon: Home },
-    { name: 'Contacts', path: '/app/contacts', icon: Book },
+    { name: 'Contacts', path: '/app/contacts', icon: Users },
     { name: 'Contracts', path: '/app/contracts', icon: FileText },
     { name: 'Letters', path: '/app/samples', icon: Bookmark },
-    { name: 'Payments', path: '/app/debit-notes', icon: Receipt },
+    { name: 'Payments', path: '/app/debit-notes', icon: CreditCard },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 z-50 md:hidden shadow-[0_-8px_20px_rgba(0,0,0,0.03)] pb-safe">
-      <div className="flex justify-around items-center h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 z-50 md:hidden shadow-[0_-10px_30px_rgba(0,0,0,0.04)] pb-safe">
+      <div className="flex justify-around items-center h-16 px-4">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -30,23 +26,30 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = () => {
             <Link
               key={item.name}
               to={item.path}
-              className="relative flex flex-col items-center justify-center flex-1 min-w-0 h-full group"
+              className="relative flex flex-col items-center justify-center flex-1 h-full"
             >
               <div className={`
-                flex flex-col items-center justify-center w-full py-1.5 rounded-2xl transition-all duration-300 ease-out
-                ${isActive ? 'bg-blue-50/80 scale-105' : 'bg-transparent'}
+                flex flex-col items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]
+                ${isActive ? '-translate-y-1 scale-110' : 'translate-y-0 scale-100'}
               `}>
-                <Icon
-                  className={`h-5 w-5 mb-0.5 transition-all duration-300 ${
-                    isActive ? 'text-blue-600 scale-110' : 'text-gray-400'
-                  }`}
-                />
-                <span className={`text-[9px] font-black uppercase tracking-tighter truncate w-full text-center transition-colors duration-300 ${
-                  isActive ? 'text-blue-700' : 'text-gray-400'
-                }`}>
+                <div className={`
+                  p-1.5 rounded-xl transition-colors duration-300
+                  ${isActive ? 'text-blue-600' : 'text-slate-400'}
+                `}>
+                  <Icon className="h-5 w-5" strokeWidth={isActive ? 2.5 : 2} />
+                </div>
+                <span className={`
+                  text-[9px] font-bold uppercase tracking-tighter transition-all duration-300
+                  ${isActive ? 'text-blue-700 opacity-100 mt-0.5' : 'text-slate-400 opacity-80 mt-0'}
+                `}>
                   {item.name}
                 </span>
               </div>
+              
+              {/* Subtle active indicator line */}
+              {isActive && (
+                <div className="absolute bottom-1 w-1 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
+              )}
             </Link>
           );
         })}
