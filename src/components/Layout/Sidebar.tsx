@@ -46,7 +46,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
                 >
                   {Icon && <Icon className="mr-3 h-5 w-5" />}
                   <span>{item.name}</span>
-                  {isActive && <div className="ml-auto h-2 w-2 rounded-full bg-white" />}
                 </Link>
               </li>
             );

@@ -45,11 +45,6 @@ const MobileBottomNav: React.FC = () => {
                   {item.name}
                 </span>
               </div>
-              
-              {/* Subtle active indicator line */}
-              {isActive && (
-                <div className="absolute bottom-1 w-1 h-1 bg-blue-600 rounded-full animate-in fade-in zoom-in duration-300" />
-              )}
             </Link>
           );
         })}
