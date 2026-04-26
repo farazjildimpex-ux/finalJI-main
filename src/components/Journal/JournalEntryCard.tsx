@@ -1,4 +1,4 @@
-import { Edit2, Trash2, Maximize2, Clock, Link2 } from 'lucide-react';
+import { Edit2, Trash2, Link2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { JournalEntry } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
@@ -55,33 +55,26 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
 
   return (
     <div
-      onDoubleClick={() => onDoubleTap?.(entry)}
-      className={`group relative rounded-xl border overflow-hidden cursor-pointer select-none flex flex-col h-full transition-all duration-300 ease-out hover:-translate-y-0.5 ${styles.gradient} ${styles.border} ${styles.hoverBorder} ${styles.shadow} ${styles.hoverShadow}`}
+      onClick={() => onDoubleTap?.(entry)}
+      className={`group relative rounded-xl border overflow-hidden cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 ${styles.gradient} ${styles.border} ${styles.hoverBorder} ${styles.shadow} ${styles.hoverShadow}`}
     >
-      {/* Top accent strip */}
-      <div className={`absolute inset-x-0 top-0 h-0.5 ${styles.accent}`} />
+      {/* Left accent strip */}
+      <div className={`absolute inset-y-0 left-0 w-1 ${styles.accent}`} />
 
-      {/* Subtle inner highlight */}
-      <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent pointer-events-none" />
-
-      <div className="relative flex flex-col h-full p-2.5 pt-3">
-        <div className="flex items-start justify-between mb-1 gap-1.5">
-          <h4 className={`text-[13px] font-bold leading-tight tracking-tight line-clamp-2 ${styles.title}`}>
+      <div className="relative flex flex-col px-3 py-2 pl-3.5">
+        {/* Title row — title on left, time + actions on right */}
+        <div className="flex items-baseline justify-between gap-2">
+          <h4 className={`text-[13px] font-bold leading-snug tracking-tight line-clamp-1 flex-1 min-w-0 ${styles.title}`}>
             {entry.title}
           </h4>
-          <div
-            className={`flex items-center gap-0 p-0.5 rounded-md shadow-sm backdrop-blur-sm opacity-0 -translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 shrink-0 ${styles.actionBar}`}
+          <span
+            className={`text-[10px] font-semibold tabular-nums shrink-0 ${styles.meta} group-hover:opacity-0 transition-opacity`}
           >
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDoubleTap?.(entry);
-              }}
-              className={`p-0.5 rounded transition-colors ${styles.iconButton}`}
-              title="View Full"
-            >
-              <Maximize2 className="h-3 w-3" />
-            </button>
+            {format(new Date(entry.created_at), 'h:mm a')}
+          </span>
+          <div
+            className={`absolute right-2 top-1.5 flex items-center gap-0 p-0.5 rounded-md shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 ${styles.actionBar}`}
+          >
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -105,30 +98,24 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
           </div>
         </div>
 
+        {/* Content — single line preview, fades to indicate more */}
         {entry.content && (
           <p
-            className={`text-[12px] line-clamp-3 mb-1.5 whitespace-pre-wrap leading-snug flex-1 ${styles.body}`}
+            className={`text-[12px] line-clamp-2 leading-snug mt-0.5 ${styles.body}`}
           >
             {entry.content}
           </p>
         )}
 
-        <div className="flex items-center justify-between mt-auto pt-1.5 border-t border-black/5">
+        {/* Linked badge — only shown when applicable, inline at bottom-right */}
+        {entry.parent_id && (
           <span
-            className={`flex items-center gap-1 text-[10px] font-semibold ${styles.meta}`}
+            className={`absolute bottom-1.5 right-2 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${styles.badge}`}
           >
-            <Clock className="h-2.5 w-2.5" />
-            {format(new Date(entry.created_at), 'h:mm a')}
+            <Link2 className="h-2 w-2" />
+            Linked
           </span>
-          {entry.parent_id && (
-            <span
-              className={`flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${styles.badge}`}
-            >
-              <Link2 className="h-2 w-2" />
-              Linked
-            </span>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
