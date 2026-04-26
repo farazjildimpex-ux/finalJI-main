@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { JournalEntry } from '../../types';
@@ -8,7 +9,7 @@ import { dialogService } from '../../lib/dialogService';
 interface JournalEntryCardProps {
   entry: JournalEntry;
   onEntryUpdated: () => void;
-  /** Fired on a single tap/click to open the conversation thread popup. */
+  /** Fired on a double tap/click to open the conversation thread popup. */
   onOpen?: (entry: JournalEntry) => void;
   onEdit?: (entry: JournalEntry) => void;
 }
@@ -20,6 +21,18 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
   onEdit,
 }) => {
   const { user } = useAuth();
+  const lastTap = useRef<number>(0);
+
+  const handleInteraction = (e: React.MouseEvent | React.TouchEvent) => {
+    const now = Date.now();
+    const DOUBLE_TAP_DELAY = 300;
+    
+    if (now - lastTap.current < DOUBLE_TAP_DELAY) {
+      // Double tap detected
+      onOpen?.(entry);
+    }
+    lastTap.current = now;
+  };
 
   const handleDelete = async () => {
     if (!user) return;
@@ -52,48 +65,57 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
 
   return (
     <div
-      onClick={() => onOpen?.(entry)}
-      className="group relative rounded-xl border border-slate-200 bg-white cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-300 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_4px_14px_-6px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_24px_-8px_rgba(37,99,235,0.18)]"
+      onClick={handleInteraction}
+      className="group relative rounded-2xl border border-slate-200 bg-white cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-300 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_4px_14px_-6px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_24px_-8px_rgba(37,99,235,0.18)]"
     >
-      <div className="relative flex flex-col px-4 py-3.5">
-        {/* Title row — title on left, time + actions on right */}
-        <div className="flex items-baseline justify-between gap-2">
-          <h4 className="text-[15px] font-bold leading-snug tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
+      <div className="relative flex flex-col px-5 py-5">
+        {/* Title row */}
+        <div className="flex items-baseline justify-between gap-3 mb-1">
+          <h4 className="text-[16px] font-black leading-tight tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
             {entry.title}
           </h4>
-          <span className="text-[11px] font-semibold tabular-nums shrink-0 text-slate-500 group-hover:opacity-0 transition-opacity">
+          <span className="text-[11px] font-bold tabular-nums shrink-0 text-slate-400 group-hover:opacity-0 transition-opacity uppercase tracking-wider">
             {format(new Date(entry.created_at), 'h:mm a')}
           </span>
-          <div className="absolute right-3 top-2.5 flex items-center gap-0 p-0.5 rounded-md shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
+          
+          {/* Actions - visible on hover */}
+          <div className="absolute right-4 top-4 flex items-center gap-1 p-1 rounded-xl shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit?.(entry);
               }}
-              className="p-1 rounded transition-colors text-slate-600 hover:text-blue-700 hover:bg-blue-50"
+              className="p-1.5 rounded-lg transition-colors text-slate-500 hover:text-blue-600 hover:bg-blue-50"
               title="Edit"
             >
-              <Edit2 className="h-3.5 w-3.5" />
+              <Edit2 className="h-4 w-4" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 handleDelete();
               }}
-              className="p-1 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               title="Delete"
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Trash2 className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Content — taller preview with extra rows + breathing room */}
+        {/* Content - Larger preview */}
         {entry.content && (
-          <p className="text-[13px] line-clamp-4 leading-relaxed mt-2.5 text-slate-600 whitespace-pre-wrap">
+          <p className="text-[14px] line-clamp-6 leading-relaxed mt-3 text-slate-600 whitespace-pre-wrap">
             {entry.content}
           </p>
         )}
+        
+        {/* Double tap hint (subtle) */}
+        <div className="mt-4 pt-3 border-t border-slate-50 flex items-center justify-between">
+          <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+            Double tap to view thread
+          </span>
+        </div>
       </div>
     </div>
   );
