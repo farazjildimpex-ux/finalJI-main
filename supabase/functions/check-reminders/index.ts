@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
     const sentIds: string[] = [];
 
     for (const entry of dueEntries) {
-      sentIds.push(entry.id);
+      let pushSucceededForEntry = false;
 
       if (canSendPush && accessToken && entry.user_id) {
         const tokenResp = await fetch(
@@ -183,37 +183,56 @@ Deno.serve(async (req: Request) => {
           const tokenRows = await tokenResp.json();
           for (const row of tokenRows) {
             if (row.token) {
-              await sendFCMNotification(
-                accessToken,
-                firebaseProjectId!,
-                row.token,
-                `Reminder: ${entry.title}`,
-                entry.content || "Journal reminder"
-              );
-              sentCount++;
+              try {
+                await sendFCMNotification(
+                  accessToken,
+                  firebaseProjectId!,
+                  row.token,
+                  `Reminder: ${entry.title}`,
+                  entry.content || "Journal reminder"
+                );
+                sentCount++;
+                pushSucceededForEntry = true;
+              } catch (e) {
+                console.error(`Push failed for entry ${entry.id}:`, e);
+              }
             }
           }
         }
       }
+
+      // Only mark as sent if a push was actually delivered.
+      // Otherwise leave reminder_sent=false so the in-browser checker
+      // can still surface it the next time the user opens the app.
+      if (pushSucceededForEntry) {
+        sentIds.push(entry.id);
+      }
     }
 
-    const ids = sentIds.join(",");
-    await fetch(
-      `${supabaseUrl}/rest/v1/journal_entries?id=in.(${ids})`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${supabaseKey}`,
-          apikey: supabaseKey,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify({ reminder_sent: true }),
-      }
-    );
+    if (sentIds.length > 0) {
+      const ids = sentIds.join(",");
+      await fetch(
+        `${supabaseUrl}/rest/v1/journal_entries?id=in.(${ids})`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${supabaseKey}`,
+            apikey: supabaseKey,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({ reminder_sent: true }),
+        }
+      );
+    }
 
     return new Response(
-      JSON.stringify({ sent: sentCount, processed: sentIds.length, pushEnabled: canSendPush }),
+      JSON.stringify({
+        due: dueEntries.length,
+        sent: sentCount,
+        marked: sentIds.length,
+        pushEnabled: canSendPush,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

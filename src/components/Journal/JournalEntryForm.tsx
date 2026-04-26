@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft, Palette, Check } from 'lucide-react';
+import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { JournalEntry } from '../../types';
 import DatePicker from '../UI/DatePicker';
-import { JOURNAL_COLOR_OPTIONS, JournalColorKey } from './journalColors';
 import { dialogService } from '../../lib/dialogService';
 
 const JournalEntryForm: React.FC<{
@@ -30,7 +29,6 @@ const JournalEntryForm: React.FC<{
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDate, setReminderDate] = useState('');
   const [reminderTime, setReminderTime] = useState('09:00');
-  const [color, setColor] = useState<JournalColorKey | ''>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -41,7 +39,6 @@ const JournalEntryForm: React.FC<{
       setReminderEnabled(initialEntry.reminder_enabled || false);
       setReminderDate(initialEntry.reminder_date || '');
       setReminderTime(initialEntry.reminder_time || '09:00');
-      setColor((initialEntry.color as JournalColorKey) || '');
     }
   }, [initialEntry]);
 
@@ -59,7 +56,7 @@ const JournalEntryForm: React.FC<{
         reminder_date: reminderEnabled && reminderDate ? reminderDate : null,
         reminder_time: reminderEnabled && reminderTime ? reminderTime : null,
         reminder_sent: false,
-        color: color || null,
+        color: null,
         updated_at: new Date().toISOString(),
       };
 
@@ -149,50 +146,6 @@ const JournalEntryForm: React.FC<{
                 rows={4}
                 className={`${inputClass} resize-none`}
               />
-            </div>
-
-            {/* Color Picker */}
-            <div>
-              <label className={labelClass}><Palette className="h-3 w-3" /> Card Color</label>
-              <div className="flex flex-wrap gap-2 ml-1">
-                <button
-                  type="button"
-                  onClick={() => setColor('')}
-                  title="Auto / Random"
-                  className={`relative h-9 w-9 rounded-full border-2 transition-all flex items-center justify-center text-[10px] font-bold ${
-                    color === ''
-                      ? 'border-blue-500 ring-2 ring-blue-200 text-blue-600'
-                      : 'border-slate-200 text-slate-400 hover:border-slate-300'
-                  }`}
-                  style={{
-                    background:
-                      'conic-gradient(#fef3c7, #fed7aa, #fbcfe8, #ddd6fe, #bae6fd, #bbf7d0, #d9f99d, #fef3c7)',
-                  }}
-                >
-                  <span className="bg-white/80 rounded-full px-1">A</span>
-                </button>
-                {JOURNAL_COLOR_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    onClick={() => setColor(opt.key)}
-                    title={opt.name}
-                    className={`relative h-9 w-9 rounded-full border-2 transition-all flex items-center justify-center ${
-                      color === opt.key
-                        ? 'border-slate-900 ring-2 ring-slate-200 scale-110'
-                        : 'border-white shadow ring-1 ring-slate-200 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: opt.swatch }}
-                  >
-                    {color === opt.key && (
-                      <Check className="h-4 w-4 text-slate-700" strokeWidth={3} />
-                    )}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 ml-1 text-[10px] font-medium text-slate-400">
-                {color ? `Selected: ${JOURNAL_COLOR_OPTIONS.find(o => o.key === color)?.name}` : 'Auto — a random color will be assigned'}
-              </p>
             </div>
 
             {/* Reminder Section */}
