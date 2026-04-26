@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, FileText, Bookmark, Receipt, Clipboard } from 'lucide-react';
 
 interface SearchBarProps {
   searchTerm: string;
@@ -7,31 +7,65 @@ interface SearchBarProps {
   placeholder?: string;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, placeholder }) => {
+const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm }) => {
+  const quickFilters = [
+    { label: 'Contracts', icon: FileText, color: 'text-blue-500' },
+    { label: 'Samples', icon: Bookmark, color: 'text-purple-500' },
+    { label: 'Payments', icon: Receipt, color: 'text-green-500' },
+    { label: 'Journal', icon: Clipboard, color: 'text-amber-500' },
+  ];
+
   return (
-    <div className="relative w-full">
-      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-        <Search className="h-5 w-5 text-gray-400" />
+    <div className="w-full space-y-4">
+      <div className="relative group">
+        <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+          <span className="text-xs font-black uppercase tracking-widest text-slate-400 group-focus-within:text-blue-600 transition-colors">
+            Search
+          </span>
+        </div>
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="block w-full pl-20 pr-12 py-4 bg-white border border-slate-200 rounded-[24px] text-sm font-medium text-slate-900
+                    shadow-sm transition-all duration-200
+                    focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:shadow-md
+                    placeholder-transparent"
+          placeholder="Search"
+          aria-label="Search"
+        />
+        <div className="absolute inset-y-0 right-0 pr-4 flex items-center gap-2">
+          {searchTerm ? (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              type="button"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          ) : (
+            <div className="p-2 text-slate-300">
+              <Search className="h-5 w-5" />
+            </div>
+          )}
+        </div>
       </div>
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="block w-full pl-11 pr-10 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white
-                  placeholder-gray-500 focus:outline-none focus:placeholder-gray-400
-                  focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:text-sm transition-all"
-        placeholder={placeholder || "Search tasks & orders..."}
-        aria-label="Search tasks and orders"
-      />
-      {searchTerm && (
-        <button
-          onClick={() => setSearchTerm('')}
-          className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-          type="button"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      )}
+
+      {/* Quick Options / Filters */}
+      <div className="flex flex-wrap items-center gap-2 px-1">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">Quick Options:</span>
+        {quickFilters.map((filter) => (
+          <button
+            key={filter.label}
+            onClick={() => setSearchTerm(filter.label)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-100 rounded-full text-[11px] font-bold text-slate-600 
+                       hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600 transition-all shadow-sm active:scale-95"
+          >
+            <filter.icon className={`h-3.5 w-3.5 ${filter.color}`} />
+            {filter.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
