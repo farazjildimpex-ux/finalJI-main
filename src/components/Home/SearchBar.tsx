@@ -31,17 +31,17 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
   return (
     <div className="w-full space-y-4">
       <div className="relative group">
-        {/* Search Label - Fades out without shifting padding */}
+        {/* Search Label - Fades out smoothly */}
         {!searchTerm && !isFocused && (
-          <div className="absolute inset-y-0 left-0 pl-12 flex items-center pointer-events-none animate-in fade-in duration-200">
-            <span className="text-xs font-bold uppercase tracking-widest text-slate-400">
+          <div className="absolute inset-y-0 left-0 pl-12 flex items-center pointer-events-none animate-in fade-in duration-500">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               Search
             </span>
           </div>
         )}
         
         <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-          <Search className={`h-5 w-5 transition-colors ${isFocused ? 'text-blue-500' : 'text-slate-300'}`} />
+          <Search className={`h-4 w-4 transition-colors duration-300 ${isFocused ? 'text-blue-500' : 'text-slate-300'}`} />
         </div>
 
         <input
@@ -50,21 +50,21 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="block w-full py-4 pl-12 pr-12 bg-white border border-slate-200 rounded-[24px] text-sm text-slate-900
-                    shadow-sm transition-all duration-200
+          className="block w-full py-2.5 pl-12 pr-12 bg-white border border-slate-200 rounded-2xl text-sm text-slate-900
+                    shadow-sm transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]
                     focus:outline-none focus:ring-4 focus:ring-blue-500/5 focus:border-blue-500 focus:shadow-md"
           placeholder=""
           aria-label="Search"
         />
         
         {searchTerm && (
-          <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
             <button
               onClick={() => setSearchTerm('')}
-              className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+              className="p-1.5 text-slate-300 hover:text-slate-500 hover:bg-slate-50 rounded-lg transition-all duration-200"
               type="button"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         )}
@@ -80,7 +80,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
               <button
                 key={filter.id}
                 onClick={() => handleFilterClick(filter.id)}
-                className={`inline-flex items-center gap-2 px-4 py-2 border rounded-full text-[11px] font-bold transition-all shrink-0 active:scale-95
+                className={`inline-flex items-center gap-2 px-4 py-2 border rounded-full text-[11px] font-bold transition-all duration-300 shrink-0 active:scale-95
                            ${isActive 
                              ? `${filter.bg} ${filter.border} ${filter.color} shadow-sm ring-2 ring-blue-500/10` 
                              : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:text-blue-600 shadow-sm'}`}
