@@ -71,25 +71,27 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
         </div>
       </div>
 
-      {/* Quick Options / Filters */}
-      <div className="flex flex-wrap items-center gap-2 px-1">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mr-1">Quick Options:</span>
-        {quickFilters.map((filter) => {
-          const isActive = activeFilter === filter.id;
-          return (
-            <button
-              key={filter.id}
-              onClick={() => handleFilterClick(filter.id)}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-full text-[11px] font-bold transition-all shadow-sm active:scale-95
-                         ${isActive 
-                           ? `${filter.bg} ${filter.border} ${filter.color} ring-2 ring-offset-1 ring-slate-100` 
-                           : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600'}`}
-            >
-              <filter.icon className={`h-3.5 w-3.5 ${isActive ? filter.color : filter.color}`} />
-              {filter.label}
-            </button>
-          );
-        })}
+      {/* Quick Filters */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-1">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 sm:mb-0 sm:mr-1">Quick Filters:</span>
+        <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-2">
+          {quickFilters.map((filter) => {
+            const isActive = activeFilter === filter.id;
+            return (
+              <button
+                key={filter.id}
+                onClick={() => handleFilterClick(filter.id)}
+                className={`inline-flex items-center gap-2.5 px-4 py-2.5 sm:py-1.5 border rounded-xl sm:rounded-full text-xs sm:text-[11px] font-bold transition-all shadow-sm active:scale-95
+                           ${isActive 
+                             ? `${filter.bg} ${filter.border} ${filter.color} ring-2 ring-offset-1 ring-slate-100` 
+                             : 'bg-white border-slate-100 text-slate-600 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600'}`}
+              >
+                <filter.icon className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isActive ? filter.color : filter.color}`} />
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
