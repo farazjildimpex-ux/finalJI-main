@@ -60,8 +60,8 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
       >
         <div className="flex items-center justify-between mb-6">
           <div className="flex flex-col">
-            <h4 className="font-black text-slate-900 text-lg tracking-tight">{format(viewDate, 'MMMM')}</h4>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{format(viewDate, 'yyyy')}</p>
+            <h4 className="font-bold text-slate-900 text-lg tracking-tight">{format(viewDate, 'MMMM')}</h4>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">{format(viewDate, 'yyyy')}</p>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -83,7 +83,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
 
         <div className="grid grid-cols-7 gap-1 mb-2">
           {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-            <div key={i} className="text-center text-[10px] font-black text-slate-300 uppercase tracking-widest py-1">
+            <div key={i} className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest py-1">
               {d}
             </div>
           ))}
@@ -117,14 +117,14 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
           <button
             type="button"
             onClick={() => handleDateSelect(new Date())}
-            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
+            className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:underline"
           >
             Today
           </button>
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-slate-200 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-200 transition-colors"
           >
             <X className="h-3 w-3" /> Close
           </button>

@@ -71,7 +71,7 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
       <div className="relative flex flex-col px-5 py-5">
         {/* Title row */}
         <div className="flex items-baseline justify-between gap-3 mb-1">
-          <h4 className="text-[16px] font-black leading-tight tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
+          <h4 className="text-base font-bold leading-tight tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
             {entry.title}
           </h4>
           <span className="text-[11px] font-bold tabular-nums shrink-0 text-slate-400 group-hover:opacity-0 transition-opacity uppercase tracking-wider">
@@ -105,7 +105,7 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
 
         {/* Content - Larger preview */}
         {entry.content && (
-          <p className="text-[14px] line-clamp-6 leading-relaxed mt-3 text-slate-600 whitespace-pre-wrap">
+          <p className="text-sm line-clamp-6 leading-relaxed mt-3 text-slate-600 whitespace-pre-wrap">
             {entry.content}
           </p>
         )}
