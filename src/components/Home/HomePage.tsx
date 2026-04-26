@@ -193,7 +193,7 @@ const HomePage: React.FC = () => {
             entries={filteredJournal}
             searchTerm={searchTerm}
             onEntriesUpdated={fetchJournalEntries}
-            onDoubleTap={(e) => setSelectedEntryForPopup(e)}
+            onOpen={(e) => setSelectedEntryForPopup(e)}
             onEdit={(e) => {
               setEditingEntry(e);
               setIsJournalFormOpen(true);

@@ -116,7 +116,7 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
                 key={entry.id}
                 entry={entry}
                 onEntryUpdated={onEntriesUpdated}
-                onDoubleTap={(e) => setSelectedEntryForPopup(e)}
+                onOpen={(e) => setSelectedEntryForPopup(e)}
                 onEdit={(e) => {
                   setEditingEntry(e);
                   setIsFormOpen(true);

@@ -1,4 +1,4 @@
-import { Edit2, Trash2, Link2 } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { JournalEntry } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
@@ -8,14 +8,15 @@ import { dialogService } from '../../lib/dialogService';
 interface JournalEntryCardProps {
   entry: JournalEntry;
   onEntryUpdated: () => void;
-  onDoubleTap?: (entry: JournalEntry) => void;
+  /** Fired on a single tap/click to open the conversation thread popup. */
+  onOpen?: (entry: JournalEntry) => void;
   onEdit?: (entry: JournalEntry) => void;
 }
 
 const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
   entry,
   onEntryUpdated,
-  onDoubleTap,
+  onOpen,
   onEdit,
 }) => {
   const { user } = useAuth();
@@ -51,7 +52,7 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
 
   return (
     <div
-      onClick={() => onDoubleTap?.(entry)}
+      onClick={() => onOpen?.(entry)}
       className="group relative rounded-xl border border-slate-200 bg-white cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-300 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_4px_14px_-6px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_24px_-8px_rgba(37,99,235,0.18)]"
     >
       <div className="relative flex flex-col px-4 py-3.5">
@@ -92,14 +93,6 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
           <p className="text-[13px] line-clamp-4 leading-relaxed mt-2.5 text-slate-600 whitespace-pre-wrap">
             {entry.content}
           </p>
-        )}
-
-        {/* Linked badge — only shown when applicable */}
-        {entry.parent_id && (
-          <span className="mt-2.5 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 ring-1 ring-blue-200 self-start">
-            <Link2 className="h-2.5 w-2.5" />
-            Linked
-          </span>
         )}
       </div>
     </div>

@@ -7,7 +7,7 @@ interface JournalSearchResultsProps {
   entries: JournalEntry[];
   searchTerm: string;
   onEntriesUpdated: () => void;
-  onDoubleTap: (entry: JournalEntry) => void;
+  onOpen: (entry: JournalEntry) => void;
   onEdit: (entry: JournalEntry) => void;
 }
 
@@ -17,7 +17,7 @@ const JournalSearchResults: React.FC<JournalSearchResultsProps> = ({
   entries,
   searchTerm,
   onEntriesUpdated,
-  onDoubleTap,
+  onOpen,
   onEdit,
 }) => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -68,7 +68,7 @@ const JournalSearchResults: React.FC<JournalSearchResultsProps> = ({
             key={entry.id}
             entry={entry}
             onEntryUpdated={onEntriesUpdated}
-            onDoubleTap={onDoubleTap}
+            onOpen={onOpen}
             onEdit={onEdit}
           />
         ))}
