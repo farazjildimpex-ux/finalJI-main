@@ -52,21 +52,18 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
   return (
     <div
       onClick={() => onDoubleTap?.(entry)}
-      className="group relative rounded-xl border border-slate-200 bg-white overflow-hidden cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-300 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_4px_14px_-6px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_24px_-8px_rgba(37,99,235,0.20)]"
+      className="group relative rounded-xl border border-slate-200 bg-white cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-300 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_4px_14px_-6px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_24px_-8px_rgba(37,99,235,0.18)]"
     >
-      {/* Left accent strip */}
-      <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-blue-400 via-blue-500 to-indigo-500" />
-
-      <div className="relative flex flex-col px-4 py-3 pl-5">
+      <div className="relative flex flex-col px-4 py-3.5">
         {/* Title row — title on left, time + actions on right */}
         <div className="flex items-baseline justify-between gap-2">
-          <h4 className="text-[14px] font-bold leading-snug tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
+          <h4 className="text-[15px] font-bold leading-snug tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
             {entry.title}
           </h4>
-          <span className="text-[10px] font-semibold tabular-nums shrink-0 text-slate-500 group-hover:opacity-0 transition-opacity">
+          <span className="text-[11px] font-semibold tabular-nums shrink-0 text-slate-500 group-hover:opacity-0 transition-opacity">
             {format(new Date(entry.created_at), 'h:mm a')}
           </span>
-          <div className="absolute right-2.5 top-2 flex items-center gap-0 p-0.5 rounded-md shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
+          <div className="absolute right-3 top-2.5 flex items-center gap-0 p-0.5 rounded-md shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -75,7 +72,7 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
               className="p-1 rounded transition-colors text-slate-600 hover:text-blue-700 hover:bg-blue-50"
               title="Edit"
             >
-              <Edit2 className="h-3 w-3" />
+              <Edit2 className="h-3.5 w-3.5" />
             </button>
             <button
               onClick={(e) => {
@@ -85,22 +82,22 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
               className="p-1 text-slate-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
               title="Delete"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Content — generous gap from title for breathing room */}
+        {/* Content — taller preview with extra rows + breathing room */}
         {entry.content && (
-          <p className="text-[12.5px] line-clamp-2 leading-relaxed mt-2 text-slate-600 whitespace-pre-wrap">
+          <p className="text-[13px] line-clamp-4 leading-relaxed mt-2.5 text-slate-600 whitespace-pre-wrap">
             {entry.content}
           </p>
         )}
 
         {/* Linked badge — only shown when applicable */}
         {entry.parent_id && (
-          <span className="absolute bottom-2 right-2.5 inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 ring-1 ring-blue-200">
-            <Link2 className="h-2 w-2" />
+          <span className="mt-2.5 inline-flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 ring-1 ring-blue-200 self-start">
+            <Link2 className="h-2.5 w-2.5" />
             Linked
           </span>
         )}

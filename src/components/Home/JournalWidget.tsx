@@ -51,14 +51,14 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
 
   return (
     <div className="mb-4 md:mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm md:text-base font-bold text-gray-900 uppercase tracking-wider">Journal</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider">Journal</h2>
         <button
           onClick={() => {
             setEditingEntry(null);
             setIsFormOpen(true);
           }}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
         >
           <Plus className="h-3.5 w-3.5" />
           <span>New Entry</span>
