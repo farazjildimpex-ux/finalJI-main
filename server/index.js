@@ -9,12 +9,22 @@ app.use(express.json());
 
 const PORT = 3001;
 
+// Region-aware Zoho base URLs
+// Supported: com (US/global), in (India), eu (Europe), com.au (Australia), jp (Japan)
+function zohoAuthBase(region = 'com') {
+  return `https://accounts.zoho.${region}/oauth/v2/token`;
+}
+function zohoMailBase(region = 'com') {
+  return `https://mail.zoho.${region}/api`;
+}
+
 async function refreshZohoToken() {
-  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN } = process.env;
+  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_REGION } = process.env;
   if (!ZOHO_CLIENT_ID || !ZOHO_CLIENT_SECRET || !ZOHO_REFRESH_TOKEN) {
     throw new Error('ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, and ZOHO_REFRESH_TOKEN must be set as secrets.');
   }
 
+  const region = ZOHO_REGION || 'com';
   const params = new URLSearchParams({
     refresh_token: ZOHO_REFRESH_TOKEN,
     client_id: ZOHO_CLIENT_ID,
@@ -22,7 +32,7 @@ async function refreshZohoToken() {
     grant_type: 'refresh_token',
   });
 
-  const resp = await fetch('https://accounts.zoho.com/oauth/v2/token', {
+  const resp = await fetch(zohoAuthBase(region), {
     method: 'POST',
     body: params,
   });
@@ -38,7 +48,8 @@ async function refreshZohoToken() {
 }
 
 async function getAccountId(accessToken) {
-  const resp = await fetch('https://mail.zoho.com/api/accounts', {
+  const region = process.env.ZOHO_REGION || 'com';
+  const resp = await fetch(`${zohoMailBase(region)}/accounts`, {
     headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
   });
   if (!resp.ok) throw new Error(`Failed to get Zoho accounts: ${await resp.text()}`);
@@ -49,9 +60,10 @@ async function getAccountId(accessToken) {
 }
 
 async function getRecentMessages(accessToken, accountId) {
+  const region = process.env.ZOHO_REGION || 'com';
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
 
-  const url = `https://mail.zoho.com/api/accounts/${accountId}/messages/view?limit=100&start=1`;
+  const url = `${zohoMailBase(region)}/accounts/${accountId}/messages/view?limit=100&start=1`;
   const resp = await fetch(url, {
     headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
   });
@@ -66,8 +78,9 @@ async function getRecentMessages(accessToken, accountId) {
 }
 
 async function getMessageContent(accessToken, accountId, folderId, messageId) {
+  const region = process.env.ZOHO_REGION || 'com';
   const resp = await fetch(
-    `https://mail.zoho.com/api/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content`,
+    `${zohoMailBase(region)}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content`,
     { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
   );
   if (!resp.ok) return null;
@@ -76,8 +89,9 @@ async function getMessageContent(accessToken, accountId, folderId, messageId) {
 }
 
 async function getAttachmentBuffer(accessToken, accountId, folderId, messageId, storeName) {
+  const region = process.env.ZOHO_REGION || 'com';
   const resp = await fetch(
-    `https://mail.zoho.com/api/accounts/${accountId}/folders/${folderId}/messages/${messageId}/attachments/${storeName}`,
+    `${zohoMailBase(region)}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/attachments/${storeName}`,
     { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
   );
   if (!resp.ok) return null;
@@ -179,10 +193,13 @@ app.get('/api/zoho/emails', async (req, res) => {
 // Exchange a Zoho authorization code for a refresh token (one-time setup)
 app.post('/api/zoho/exchange-token', async (req, res) => {
   try {
-    const { client_id, client_secret, code } = req.body || {};
+    const { client_id, client_secret, code, region } = req.body || {};
     if (!client_id || !client_secret || !code) {
       return res.status(400).json({ error: 'client_id, client_secret, and code are required.' });
     }
+
+    const safeRegion = (region || 'com').replace(/[^a-z.]/g, '');
+    const tokenUrl = zohoAuthBase(safeRegion);
 
     // Self Client does NOT use a redirect_uri — omitting it is required
     const params = new URLSearchParams({
@@ -192,7 +209,7 @@ app.post('/api/zoho/exchange-token', async (req, res) => {
       grant_type: 'authorization_code',
     });
 
-    const resp = await fetch('https://accounts.zoho.com/oauth/v2/token', {
+    const resp = await fetch(tokenUrl, {
       method: 'POST',
       body: params,
     });
@@ -206,7 +223,7 @@ app.post('/api/zoho/exchange-token', async (req, res) => {
       });
     }
 
-    res.json({ refresh_token: data.refresh_token });
+    res.json({ refresh_token: data.refresh_token, region: safeRegion });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
