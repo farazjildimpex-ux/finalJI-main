@@ -176,6 +176,73 @@ app.get('/api/zoho/emails', async (req, res) => {
   }
 });
 
+// Exchange a Zoho authorization code for a refresh token (one-time setup)
+app.post('/api/zoho/exchange-token', async (req, res) => {
+  try {
+    const { client_id, client_secret, code } = req.body || {};
+    if (!client_id || !client_secret || !code) {
+      return res.status(400).json({ error: 'client_id, client_secret, and code are required.' });
+    }
+
+    const params = new URLSearchParams({
+      code: code.trim(),
+      client_id: client_id.trim(),
+      client_secret: client_secret.trim(),
+      redirect_uri: 'https://www.zoho.com',
+      grant_type: 'authorization_code',
+    });
+
+    const resp = await fetch('https://accounts.zoho.com/oauth/v2/token', {
+      method: 'POST',
+      body: params,
+    });
+
+    const data = await resp.json();
+
+    if (!data.refresh_token) {
+      return res.status(400).json({
+        error: data.error_description || data.error || 'No refresh token returned. The code may have expired — generate a new one.',
+        raw: data,
+      });
+    }
+
+    res.json({ refresh_token: data.refresh_token });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test if Zoho credentials are working
+app.get('/api/zoho/test', async (req, res) => {
+  try {
+    if (!process.env.ZOHO_CLIENT_ID || !process.env.ZOHO_CLIENT_SECRET || !process.env.ZOHO_REFRESH_TOKEN) {
+      return res.status(200).json({
+        connected: false,
+        reason: 'missing_secrets',
+        message: 'ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, or ZOHO_REFRESH_TOKEN not set in Replit Secrets.',
+      });
+    }
+
+    const accessToken = await refreshZohoToken();
+    const accountId = await getAccountId(accessToken);
+
+    // Get a basic account info
+    const resp = await fetch(`https://mail.zoho.com/api/accounts/${accountId}`, {
+      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
+    });
+    const data = await resp.json();
+    const account = data.data || {};
+
+    res.json({
+      connected: true,
+      email: account.emailAddress || account.sendMailDetails?.[0]?.fromAddress || 'Connected',
+      accountId,
+    });
+  } catch (err) {
+    res.status(200).json({ connected: false, reason: 'error', message: err.message });
+  }
+});
+
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.listen(PORT, '0.0.0.0', () => {
