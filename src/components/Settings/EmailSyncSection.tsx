@@ -562,7 +562,12 @@ const EmailSyncSection: React.FC = () => {
                       {wizardError && (
                         <div className="flex gap-2 p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700">
                           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                          {wizardError}
+                          <div>
+                            <p className="font-bold mb-0.5">{wizardError}</p>
+                            <p className="text-red-600">
+                              Common fixes: ① The code expires in 10 minutes — go back to Zoho and generate a fresh code, then try again. ② Make sure your Client ID and Client Secret are correct (go back to Step 1 to re-enter them).
+                            </p>
+                          </div>
                         </div>
                       )}
 

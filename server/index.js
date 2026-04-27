@@ -184,11 +184,11 @@ app.post('/api/zoho/exchange-token', async (req, res) => {
       return res.status(400).json({ error: 'client_id, client_secret, and code are required.' });
     }
 
+    // Self Client does NOT use a redirect_uri — omitting it is required
     const params = new URLSearchParams({
       code: code.trim(),
       client_id: client_id.trim(),
       client_secret: client_secret.trim(),
-      redirect_uri: 'https://www.zoho.com',
       grant_type: 'authorization_code',
     });
 
