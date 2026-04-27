@@ -1,13 +1,25 @@
 import express from 'express';
 import cors from 'cors';
 import { createRequire } from 'module';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 const require = createRequire(import.meta.url);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const PORT = 3001;
+// In production, serve the built Vite frontend from /dist
+const isProd = process.env.NODE_ENV === 'production';
+if (isProd) {
+  const distPath = path.join(__dirname, '..', 'dist');
+  app.use(express.static(distPath));
+}
+
+// In production use PORT env var (Replit deployment), in dev use 3001
+const PORT = isProd ? (process.env.PORT || 3000) : 3001;
 
 // Region-aware Zoho base URLs
 // Supported: com (US/global), in (India), eu (Europe), com.au (Australia), jp (Japan)
@@ -262,6 +274,13 @@ app.get('/api/zoho/test', async (req, res) => {
 
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+// Catch-all: serve React frontend for any non-API route (client-side routing)
+if (isProd) {
+  app.get('*', (_req, res) => {
+    res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+  });
+}
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} (${isProd ? 'production' : 'development'})`);
 });

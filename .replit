@@ -8,9 +8,9 @@ stack = "BEST_EFFORT_FALLBACK"
 channel = "stable-25_05"
 
 [deployment]
-deploymentTarget = "static"
-run = ["node", "./dist/index.cjs"]
-build = ["npm", "run", "build"]
+deploymentTarget = "autoscale"
+run = ["sh", "-c", "NODE_ENV=production node server/index.js"]
+build = ["sh", "-c", "npm run build"]
 publicDir = "dist"
 
 [workflows]
