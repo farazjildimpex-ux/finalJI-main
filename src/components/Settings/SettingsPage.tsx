@@ -5,6 +5,7 @@ import { Database, Download, Upload, AlertCircle, HardDrive, Trash2, ChevronDown
 import { supabase } from '../../lib/supabaseClient';
 import { useNotifications } from '../../hooks/useNotifications';
 import { dialogService } from '../../lib/dialogService';
+import EmailSyncSection from './EmailSyncSection';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -205,6 +206,9 @@ const SettingsPage: React.FC = () => {
         </div>
         <p className="text-xs md:text-sm text-gray-600">System health and record maintenance</p>
       </div>
+
+      {/* Auto Invoice Sync from Zoho Mail */}
+      <EmailSyncSection />
 
       {/* Push Notifications */}
       <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
