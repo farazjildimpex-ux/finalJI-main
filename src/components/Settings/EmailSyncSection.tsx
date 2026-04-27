@@ -25,6 +25,16 @@ import {
 import type { SyncResult } from '../../lib/emailSync';
 
 const OPENROUTER_KEY_STORAGE = 'jild_openrouter_key';
+const OPENROUTER_MODEL_STORAGE = 'jild_openrouter_model';
+
+const FREE_MODELS = [
+  { value: 'openai/gpt-oss-20b:free',                label: 'OpenAI GPT OSS 20B (free) — recommended' },
+  { value: 'openai/gpt-oss-120b:free',               label: 'OpenAI GPT OSS 120B (free) — slower but smarter' },
+  { value: 'google/gemma-4-31b-it:free',             label: 'Google Gemma 4 31B (free)' },
+  { value: 'nvidia/nemotron-3-super-120b-a12b:free', label: 'NVIDIA Nemotron 120B (free)' },
+  { value: 'qwen/qwen3-next-80b-a3b-instruct:free',  label: 'Qwen 3 80B (free)' },
+  { value: 'google/gemma-4-26b-a4b-it:free',         label: 'Google Gemma 4 26B (free)' },
+];
 
 const ZOHO_REGIONS = [
   { value: 'in',     label: '🇮🇳  India',        hint: 'You sign in at mail.zoho.in or zoho.in' },
@@ -78,6 +88,9 @@ type ZohoStatus = 'unknown' | 'testing' | 'ok' | 'missing' | 'error';
 const EmailSyncSection: React.FC = () => {
   const [openRouterKey, setOpenRouterKey] = useState<string>(
     () => localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
+  );
+  const [selectedModel, setSelectedModel] = useState<string>(
+    () => localStorage.getItem(OPENROUTER_MODEL_STORAGE) || 'openai/gpt-oss-20b:free'
   );
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
@@ -169,8 +182,14 @@ const EmailSyncSection: React.FC = () => {
   const handleSaveKey = () => {
     if (!openRouterKey.trim()) return;
     localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
+    localStorage.setItem(OPENROUTER_MODEL_STORAGE, selectedModel);
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
+  };
+
+  const handleModelChange = (model: string) => {
+    setSelectedModel(model);
+    localStorage.setItem(OPENROUTER_MODEL_STORAGE, model);
   };
 
   // ── run email sync ───────────────────────────────────────────────────────
@@ -400,6 +419,20 @@ const EmailSyncSection: React.FC = () => {
                   className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
                   Get a free key at openrouter.ai <ExternalLink className="h-3 w-3" />
                 </a>
+                <div className="mt-2">
+                  <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
+                    AI Model <span className="text-gray-400 font-normal normal-case">(all are free — if one fails, switch to another)</span>
+                  </label>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => handleModelChange(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
+                  >
+                    {FREE_MODELS.map((m) => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 

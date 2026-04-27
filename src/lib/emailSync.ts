@@ -127,7 +127,7 @@ Return an empty "invoices" array if no invoices are found. Only include invoices
       'X-Title': 'JILD IMPEX Email Sync',
     },
     body: JSON.stringify({
-      model: 'google/gemini-2.0-flash-exp:free',
+      model: localStorage.getItem('jild_openrouter_model') || 'openai/gpt-oss-20b:free',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
     }),
