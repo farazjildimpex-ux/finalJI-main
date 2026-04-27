@@ -127,7 +127,7 @@ Return an empty "invoices" array if no invoices are found. Only include invoices
       'X-Title': 'JILD IMPEX Email Sync',
     },
     body: JSON.stringify({
-      model: 'anthropic/claude-3.5-sonnet',
+      model: 'google/gemini-2.0-flash-exp:free',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.1,
     }),
@@ -137,9 +137,9 @@ Return an empty "invoices" array if no invoices are found. Only include invoices
     let errMsg = 'AI analysis failed';
     try {
       const err = await resp.json();
-      errMsg = err.error?.message || errMsg;
+      errMsg = err.error?.message || err.error?.code || errMsg;
     } catch {}
-    throw new Error(errMsg);
+    throw new Error(`AI error: ${errMsg}. Check that your OpenRouter key is correct and has been saved.`);
   }
 
   const data = await resp.json();
