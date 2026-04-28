@@ -207,7 +207,7 @@ const SettingsPage: React.FC = () => {
         <p className="text-xs md:text-sm text-gray-600">System health and record maintenance</p>
       </div>
 
-      {/* Auto Invoice Sync from Zoho Mail */}
+      {/* Auto Invoice Sync from Gmail */}
       <EmailSyncSection />
 
       {/* Push Notifications */}

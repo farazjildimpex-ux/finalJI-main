@@ -8,7 +8,7 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Debit Notes** — Calculate commissions with currency conversion, export documents
 - **Contact Book** — Directory for business contacts and clients
 - **Journal & Reminders** — Daily entries with time-based push notification reminders
-- **Auto Invoice Sync** — Connects to Zoho Mail via IMAP, downloads PDF attachments, uses OpenRouter AI to extract invoice data, and upserts into Supabase
+- **Auto Invoice Sync** — Connects to Gmail via IMAP, downloads PDF attachments from the last 7 days, uses OpenRouter AI to extract invoice data, and upserts into Supabase
 - **PWA** — Service worker for offline support and push notifications
 
 ## Tech Stack
@@ -22,15 +22,12 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 ## Environment Variables (Secrets)
 - `VITE_SUPABASE_URL` — Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` — Supabase anonymous/public key
-- `ZOHO_CLIENT_ID` — Zoho API Console client ID (for Zoho Mail REST API)
-- `ZOHO_CLIENT_SECRET` — Zoho API Console client secret
-- `ZOHO_REFRESH_TOKEN` — Zoho long-lived refresh token
-- `ZOHO_REGION` — Zoho datacenter region (`in`, `com`, `eu`, etc.)
-- `ZOHO_IMAP_PASSWORD` — Zoho App-Specific Password for IMAP access (create in Zoho Account Security → App Passwords)
+- `GMAIL_USER` — Gmail address that receives forwarded invoices (e.g. `you@gmail.com`)
+- `GMAIL_APP_PASSWORD` — 16-character Google App Password (created at https://myaccount.google.com/apppasswords; requires 2-Step Verification)
 - Firebase variables are optional (set in `.env.example` for reference)
 
 ## Architecture: Auto Invoice Sync
-- **Email Access**: Uses IMAP (imapflow + mailparser) with a Zoho App-Specific Password to connect to `imap.zoho.{region}:993`. The Zoho REST API does not provide attachment metadata in its content endpoint, so IMAP is required.
+- **Email Access**: Uses IMAP (imapflow + mailparser) with a Google App Password to connect to `imap.gmail.com:993`. All Zoho invoices are forwarded to the configured Gmail address; this app reads them centrally from one inbox.
 - **PDF Parsing**: pdf-parse extracts text from PDF attachments
 - **AI Extraction**: OpenRouter API (user-supplied key, stored in localStorage) analyzes email body + PDF text to extract invoice fields
 - **Data Storage**: Supabase `invoices` table, upserted by invoice number

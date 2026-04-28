@@ -23,71 +23,16 @@ if (isProd) {
 // In production use PORT env var (Replit deployment), in dev use 3001
 const PORT = isProd ? (process.env.PORT || 3000) : 3001;
 
-// Region-aware Zoho base URLs
-// Supported: com (US/global), in (India), eu (Europe), com.au (Australia), jp (Japan)
-function zohoAuthBase(region = 'com') {
-  return `https://accounts.zoho.${region}/oauth/v2/token`;
-}
-function zohoMailBase(region = 'com') {
-  return `https://mail.zoho.${region}/api`;
-}
+const GMAIL_IMAP_HOST = 'imap.gmail.com';
+const GMAIL_IMAP_PORT = 993;
 
-async function refreshZohoToken() {
-  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_REGION } = process.env;
-  if (!ZOHO_CLIENT_ID || !ZOHO_CLIENT_SECRET || !ZOHO_REFRESH_TOKEN) {
-    throw new Error('ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, and ZOHO_REFRESH_TOKEN must be set as secrets.');
+function getGmailCredentials() {
+  const user = (process.env.GMAIL_USER || '').trim();
+  const pass = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, '');
+  if (!user || !pass) {
+    return { ok: false, reason: 'missing_secrets', user, pass: '' };
   }
-
-  const region = ZOHO_REGION || 'com';
-  const params = new URLSearchParams({
-    refresh_token: ZOHO_REFRESH_TOKEN,
-    client_id: ZOHO_CLIENT_ID,
-    client_secret: ZOHO_CLIENT_SECRET,
-    grant_type: 'refresh_token',
-  });
-
-  const resp = await fetch(zohoAuthBase(region), {
-    method: 'POST',
-    body: params,
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Zoho token refresh failed: ${text}`);
-  }
-
-  const data = await resp.json();
-  if (!data.access_token) throw new Error(`No access token returned: ${JSON.stringify(data)}`);
-  return data.access_token;
-}
-
-async function getAccountInfo(accessToken) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const resp = await fetch(`${zohoMailBase(region)}/accounts`, {
-    headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-  });
-  if (!resp.ok) throw new Error(`Failed to get Zoho accounts: ${await resp.text()}`);
-  const data = await resp.json();
-  const accounts = data.data;
-  if (!accounts || accounts.length === 0) throw new Error('No Zoho Mail accounts found.');
-  const acc = accounts[0];
-  // emailAddress is an array of objects; incomingUserName is the plaintext IMAP username
-  const email = acc.incomingUserName
-    || (Array.isArray(acc.emailAddress) ? acc.emailAddress.find((e) => e.isPrimary)?.mailId : null)
-    || acc.sendMailDetails?.[0]?.fromAddress
-    || acc.accountName
-    || null;
-  return { accountId: acc.accountId, email };
-}
-
-// Legacy alias for test endpoint
-async function getAccountId(accessToken) {
-  const info = await getAccountInfo(accessToken);
-  return info.accountId;
-}
-
-function zohoImapHost(region = 'com') {
-  return `imap.zoho.${region}`;
+  return { ok: true, user, pass };
 }
 
 function stripHtml(html) {
@@ -99,38 +44,39 @@ function stripHtml(html) {
     .trim();
 }
 
-async function fetchEmailsViaIMAP(accessToken, emailAddress) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const host = zohoImapHost(region);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-  const imapPassword = process.env.ZOHO_IMAP_PASSWORD;
-  if (!imapPassword) {
+async function openGmailClient() {
+  const creds = getGmailCredentials();
+  if (!creds.ok) {
     throw new Error(
-      'ZOHO_IMAP_PASSWORD is not set. ' +
-      'Please create a Zoho App-Specific Password at mail.zoho.com/zm/#settings/security ' +
-      'and add it as the ZOHO_IMAP_PASSWORD secret in your project.'
+      'Gmail is not configured. Add GMAIL_USER (your Gmail address) and GMAIL_APP_PASSWORD ' +
+      '(a 16-character Google App Password from https://myaccount.google.com/apppasswords) as Replit secrets.'
     );
   }
 
   const client = new ImapFlow({
-    host,
-    port: 993,
+    host: GMAIL_IMAP_HOST,
+    port: GMAIL_IMAP_PORT,
     secure: true,
-    auth: { user: emailAddress, pass: imapPassword },
+    auth: { user: creds.user, pass: creds.pass },
     logger: false,
     tls: { rejectUnauthorized: false },
   });
 
+  await client.connect();
+  return { client, email: creds.user };
+}
+
+async function fetchGmailEmailsViaIMAP() {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const { client, email } = await openGmailClient();
   const emails = [];
 
-  await client.connect();
   try {
     const lock = await client.getMailboxLock('INBOX');
     try {
       const since = sevenDaysAgo.toISOString().split('T')[0];
       const uids = await client.search({ since: new Date(since) });
-      console.log(`IMAP: found ${uids.length} messages since ${since}`);
+      console.log(`Gmail IMAP: found ${uids.length} messages since ${since} for ${email}`);
 
       // Process up to 30 most recent
       const subset = uids.slice(-30);
@@ -184,7 +130,7 @@ async function fetchEmailsViaIMAP(accessToken, emailAddress) {
             emails.push(emailData);
           }
         } catch (msgErr) {
-          console.error('IMAP message error for uid', uid, msgErr.message);
+          console.error('Gmail IMAP message error for uid', uid, msgErr.message);
         }
       }
     } finally {
@@ -194,30 +140,81 @@ async function fetchEmailsViaIMAP(accessToken, emailAddress) {
     await client.logout();
   }
 
-  return emails;
+  return { emails, email };
 }
 
-app.get('/api/zoho/emails', async (req, res) => {
+// ── /api/gmail/test ─────────────────────────────────────────────────────────
+// Quick existence check — does NOT connect to IMAP, just reports whether
+// the secrets are present. Used by the UI on page load.
+app.get('/api/gmail/test', async (_req, res) => {
   try {
-    const accessToken = await refreshZohoToken();
-    const { email } = await getAccountInfo(accessToken);
-    if (!email) throw new Error('Could not determine Zoho email address from account info');
-    console.log(`Fetching emails via IMAP for ${email}`);
-    const emails = await fetchEmailsViaIMAP(accessToken, email);
+    const creds = getGmailCredentials();
+    if (!creds.ok) {
+      return res.status(200).json({
+        connected: false,
+        reason: 'missing_secrets',
+        message: 'GMAIL_USER and/or GMAIL_APP_PASSWORD are not set in Replit Secrets.',
+      });
+    }
+    res.json({ connected: true, email: creds.user });
+  } catch (err) {
+    res.status(200).json({ connected: false, reason: 'error', message: err.message });
+  }
+});
+
+// ── /api/gmail/test-imap ────────────────────────────────────────────────────
+// Actually opens an IMAP connection and counts messages from the last 7 days.
+// This proves the App Password is correct.
+app.get('/api/gmail/test-imap', async (_req, res) => {
+  try {
+    const creds = getGmailCredentials();
+    if (!creds.ok) {
+      return res.json({ ok: false, error: 'GMAIL_USER and/or GMAIL_APP_PASSWORD are not set in Replit Secrets.' });
+    }
+
+    const client = new ImapFlow({
+      host: GMAIL_IMAP_HOST,
+      port: GMAIL_IMAP_PORT,
+      secure: true,
+      auth: { user: creds.user, pass: creds.pass },
+      logger: false,
+      tls: { rejectUnauthorized: false },
+    });
+
+    await client.connect();
+    const lock = await client.getMailboxLock('INBOX');
+    let count = 0;
+    try {
+      const uids = await client.search({ since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) });
+      count = uids.length;
+    } finally {
+      lock.release();
+    }
+    await client.logout();
+
+    res.json({ ok: true, email: creds.user, messagesLast7Days: count });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+// ── /api/gmail/emails ───────────────────────────────────────────────────────
+// Pulls full message bodies + parsed PDF attachments from the last 7 days.
+app.get('/api/gmail/emails', async (_req, res) => {
+  try {
+    const { emails } = await fetchGmailEmailsViaIMAP();
     res.json({ emails, total: emails.length });
   } catch (error) {
-    console.error('IMAP email fetch error:', error);
+    console.error('Gmail email fetch error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Debug endpoint — shows what IMAP fetches (subjects, attachment names)
-app.get('/api/zoho/debug-emails', async (req, res) => {
+// ── /api/gmail/debug-emails ─────────────────────────────────────────────────
+// Compact summary for debugging without flooding the response with full text.
+app.get('/api/gmail/debug-emails', async (_req, res) => {
   try {
-    const accessToken = await refreshZohoToken();
-    const { email } = await getAccountInfo(accessToken);
-    if (!email) throw new Error('Could not determine Zoho email address');
-    const emails = await fetchEmailsViaIMAP(accessToken, email);
+    const { emails } = await fetchGmailEmailsViaIMAP();
     const summary = emails.map((e) => ({
       subject: e.subject,
       from: e.from,
@@ -228,107 +225,6 @@ app.get('/api/zoho/debug-emails', async (req, res) => {
     res.json({ total: emails.length, emails: summary });
   } catch (err) {
     res.status(500).json({ error: err.message });
-  }
-});
-
-// Test IMAP connection
-app.get('/api/zoho/test-imap', async (req, res) => {
-  try {
-    const hasPassword = !!process.env.ZOHO_IMAP_PASSWORD;
-    if (!hasPassword) {
-      return res.json({ ok: false, error: 'ZOHO_IMAP_PASSWORD secret not set' });
-    }
-    const accessToken = await refreshZohoToken();
-    const { email } = await getAccountInfo(accessToken);
-    if (!email) return res.json({ ok: false, error: 'Could not determine email address' });
-
-    const region = process.env.ZOHO_REGION || 'com';
-    const client = new ImapFlow({
-      host: zohoImapHost(region),
-      port: 993,
-      secure: true,
-      auth: { user: email, pass: process.env.ZOHO_IMAP_PASSWORD },
-      logger: false,
-      tls: { rejectUnauthorized: false },
-    });
-    await client.connect();
-    const lock = await client.getMailboxLock('INBOX');
-    const uids = await client.search({ since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) });
-    lock.release();
-    await client.logout();
-    res.json({ ok: true, email, messagesLast7Days: uids.length });
-  } catch (err) {
-    res.json({ ok: false, error: err.message });
-  }
-});
-
-// Exchange a Zoho authorization code for a refresh token (one-time setup)
-app.post('/api/zoho/exchange-token', async (req, res) => {
-  try {
-    const { client_id, client_secret, code, region } = req.body || {};
-    if (!client_id || !client_secret || !code) {
-      return res.status(400).json({ error: 'client_id, client_secret, and code are required.' });
-    }
-
-    const safeRegion = (region || 'com').replace(/[^a-z.]/g, '');
-    const tokenUrl = zohoAuthBase(safeRegion);
-
-    // Self Client does NOT use a redirect_uri — omitting it is required
-    const params = new URLSearchParams({
-      code: code.trim(),
-      client_id: client_id.trim(),
-      client_secret: client_secret.trim(),
-      grant_type: 'authorization_code',
-    });
-
-    const resp = await fetch(tokenUrl, {
-      method: 'POST',
-      body: params,
-    });
-
-    const data = await resp.json();
-
-    if (!data.refresh_token) {
-      return res.status(400).json({
-        error: data.error_description || data.error || 'No refresh token returned. The code may have expired — generate a new one.',
-        raw: data,
-      });
-    }
-
-    res.json({ refresh_token: data.refresh_token, region: safeRegion });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Test if Zoho credentials are working
-app.get('/api/zoho/test', async (req, res) => {
-  try {
-    if (!process.env.ZOHO_CLIENT_ID || !process.env.ZOHO_CLIENT_SECRET || !process.env.ZOHO_REFRESH_TOKEN) {
-      return res.status(200).json({
-        connected: false,
-        reason: 'missing_secrets',
-        message: 'ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, or ZOHO_REFRESH_TOKEN not set in Replit Secrets.',
-      });
-    }
-
-    const accessToken = await refreshZohoToken();
-    const accountId = await getAccountId(accessToken);
-
-    // Get a basic account info
-    const resp = await fetch(`https://mail.zoho.com/api/accounts/${accountId}`, {
-      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-    });
-    const data = await resp.json();
-    const account = data.data || {};
-
-    res.json({
-      connected: true,
-      email: account.emailAddress || account.sendMailDetails?.[0]?.fromAddress || 'Connected',
-      accountId,
-    });
-  } catch (err) {
-    res.status(200).json({ connected: false, reason: 'error', message: err.message });
   }
 });
 

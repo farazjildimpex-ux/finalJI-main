@@ -29,10 +29,10 @@ export interface SyncResult {
   invoice: ExtractedInvoice;
 }
 
-export async function fetchZohoEmails(): Promise<{ emails: EmailData[]; total: number }> {
-  const resp = await fetch('/api/zoho/emails');
+export async function fetchGmailEmails(): Promise<{ emails: EmailData[]; total: number }> {
+  const resp = await fetch('/api/gmail/emails');
   if (!resp.ok) {
-    let errMsg = 'Failed to fetch emails from Zoho';
+    let errMsg = 'Failed to fetch emails from Gmail';
     try {
       const err = await resp.json();
       errMsg = err.error || errMsg;
@@ -234,7 +234,7 @@ export async function upsertInvoices(
 }
 
 export async function runEmailSync(openRouterKey: string): Promise<SyncResult[]> {
-  const { emails } = await fetchZohoEmails();
+  const { emails } = await fetchGmailEmails();
   if (emails.length === 0) return [];
 
   const { data: contracts } = await supabase.from('contracts').select('*');
