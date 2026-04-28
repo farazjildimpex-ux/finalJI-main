@@ -113,20 +113,44 @@ async function gmailFetch(url) {
 }
 
 // ─── Walk a Gmail message payload tree to extract body + attachments ───────
+// Robust against forwarded messages (message/rfc822 wrappers), missing
+// `filename` fields (read from Content-Disposition header instead), and
+// PDFs that arrive as application/octet-stream.
 function extractFromPayload(payload) {
   let bodyText = '';
   let bodyHtml = '';
   const attachments = [];
 
+  function getPartHeader(part, name) {
+    const h = (part.headers || []).find(
+      (x) => (x.name || '').toLowerCase() === name.toLowerCase()
+    );
+    return h?.value || '';
+  }
+
+  function filenameFromHeaders(part) {
+    // RFC 2183: Content-Disposition: attachment; filename="foo.pdf"
+    const disp = getPartHeader(part, 'Content-Disposition');
+    let m = disp.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    if (m) return decodeURIComponent(m[1].trim());
+    // RFC 2045: Content-Type: application/pdf; name="foo.pdf"
+    const ctype = getPartHeader(part, 'Content-Type');
+    m = ctype.match(/name\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    if (m) return decodeURIComponent(m[1].trim());
+    return '';
+  }
+
   function walk(part) {
     if (!part) return;
     const mime = (part.mimeType || '').toLowerCase();
-    const filename = part.filename || '';
+    const filename = part.filename || filenameFromHeaders(part);
 
-    if (part.body?.attachmentId && filename) {
+    // Treat as attachment if Gmail gave us an attachmentId — even when filename
+    // is missing or mimeType is generic (octet-stream is common for PDFs).
+    if (part.body?.attachmentId) {
       attachments.push({
         attachmentId: part.body.attachmentId,
-        filename,
+        filename: filename || `attachment-${attachments.length + 1}`,
         mimeType: mime,
         size: part.body.size || 0,
       });
@@ -141,6 +165,17 @@ function extractFromPayload(payload) {
   walk(payload);
   const body = bodyText || stripHtml(bodyHtml);
   return { body, attachments };
+}
+
+// Decide whether an attachment is something we can pass to the AI (PDF or text).
+function isUsableAttachment(att) {
+  const mime = (att.mimeType || '').toLowerCase();
+  const name = (att.filename || '').toLowerCase();
+  if (mime === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+  if (mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.csv')) return 'text';
+  // Gmail sometimes labels PDFs as octet-stream — trust the extension
+  if (mime === 'application/octet-stream' && name.endsWith('.pdf')) return 'pdf';
+  return null;
 }
 
 function getHeader(headers, name) {
@@ -158,7 +193,7 @@ async function fetchGmailEmailsViaAPI() {
   console.log(`Gmail API: found ${messages.length} messages with attachments in last 7 days`);
 
   const emails = [];
-  const pdfParse = require('pdf-parse');
+  const { PDFParse } = require('pdf-parse');
 
   for (const m of messages) {
     try {
@@ -176,11 +211,15 @@ async function fetchGmailEmailsViaAPI() {
         attachments: [],
       };
 
+      console.log(`  Email "${emailData.subject}" → ${attachments.length} attachment(s):`,
+        attachments.map((a) => `${a.filename} (${a.mimeType}, ${a.size}b)`).join(', ') || 'none');
+
       for (const att of attachments) {
-        const isPdf =
-          att.mimeType === 'application/pdf' || att.filename.toLowerCase().endsWith('.pdf');
-        const isText = att.mimeType.startsWith('text/');
-        if (!isPdf && !isText) continue;
+        const kind = isUsableAttachment(att);
+        if (!kind) {
+          console.log(`  ⊗ Skipped "${att.filename}" — unsupported type ${att.mimeType}`);
+          continue;
+        }
 
         try {
           const attResp = await gmailFetch(
@@ -188,8 +227,9 @@ async function fetchGmailEmailsViaAPI() {
           );
           const buf = Buffer.from(attResp.data, 'base64url');
 
-          if (isPdf && buf.length > 100) {
-            const pdf = await pdfParse(buf);
+          if (kind === 'pdf' && buf.length > 100) {
+            const parser = new PDFParse({ data: buf });
+            const pdf = await parser.getText();
             const text = (pdf.text || '').trim();
             console.log(`  ✓ PDF parsed: ${text.length} chars from "${att.filename}"`);
             if (text.length > 10) {
@@ -199,7 +239,7 @@ async function fetchGmailEmailsViaAPI() {
                 type: 'pdf',
               });
             }
-          } else if (isText) {
+          } else if (kind === 'text') {
             emailData.attachments.push({
               name: att.filename,
               text: buf.toString('utf8').slice(0, 4000),
