@@ -22,12 +22,15 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 ## Environment Variables (Secrets)
 - `VITE_SUPABASE_URL` — Supabase project URL
 - `VITE_SUPABASE_ANON_KEY` — Supabase anonymous/public key
-- `GMAIL_USER` — Gmail address that receives forwarded invoices (e.g. `you@gmail.com`)
-- `GMAIL_APP_PASSWORD` — 16-character Google App Password (created at https://myaccount.google.com/apppasswords; requires 2-Step Verification)
+- `GOOGLE_CLIENT_ID` — OAuth 2.0 Web Application Client ID from Google Cloud Console (Gmail API enabled)
+- `GOOGLE_CLIENT_SECRET` — OAuth 2.0 Client Secret matching the Client ID above
+- `GOOGLE_REFRESH_TOKEN` — long-lived refresh token obtained via the in-app `/api/google/oauth/start` flow (one-time)
 - Firebase variables are optional (set in `.env.example` for reference)
 
 ## Architecture: Auto Invoice Sync
-- **Email Access**: Uses IMAP (imapflow + mailparser) with a Google App Password to connect to `imap.gmail.com:993`. All Zoho invoices are forwarded to the configured Gmail address; this app reads them centrally from one inbox.
+- **Email Access**: Uses Gmail's official REST API with OAuth 2.0 (scope `gmail.readonly`). The app implements a self-contained OAuth flow at `/api/google/oauth/start` → Google consent → `/api/google/oauth/callback` which displays the refresh token for the user to save as a Replit secret. The server caches access tokens (1-hour TTL) and refreshes them automatically. Replit-managed Gmail connectors are paid-only, so manual OAuth was chosen.
+- **Why not App Passwords / IMAP**: Google App Passwords are unavailable on many Workspace and consumer accounts (page shows "not available for your account"). OAuth works on every Gmail/Workspace account.
+- **Redirect URI**: built dynamically from the request host (`x-forwarded-proto` + `x-forwarded-host`). Must be added verbatim to the OAuth client's "Authorized redirect URIs" list in Google Cloud — the UI exposes the exact value to copy. Add both the Replit dev domain and the production `.replit.app` domain when deployed.
 - **PDF Parsing**: pdf-parse extracts text from PDF attachments
 - **AI Extraction**: OpenRouter API (user-supplied key, stored in localStorage) analyzes email body + PDF text to extract invoice fields
 - **Data Storage**: Supabase `invoices` table, upserted by invoice number

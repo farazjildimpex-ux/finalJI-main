@@ -18,6 +18,8 @@ import {
   Key,
   Info,
   Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react';
 import type { SyncResult } from '../../lib/emailSync';
 
@@ -33,7 +35,6 @@ const FREE_MODELS = [
   { value: 'google/gemma-4-26b-a4b-it:free',         label: 'Google Gemma 4 26B (free)' },
 ];
 
-// ─── tiny helpers ──────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ action: SyncResult['action'] }> = ({ action }) => {
   if (action === 'created')
     return (
@@ -54,9 +55,25 @@ const StatusBadge: React.FC<{ action: SyncResult['action'] }> = ({ action }) => 
   );
 };
 
-type GmailStatus = 'unknown' | 'testing' | 'ok' | 'missing' | 'error';
+const CopyChip: React.FC<{ text: string }> = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }}
+      className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-bold rounded-md bg-white border border-gray-300 hover:bg-gray-50 transition-colors text-gray-600"
+    >
+      {copied ? <><Check className="h-3 w-3 text-emerald-600" /> Copied</> : <><Copy className="h-3 w-3" /> Copy</>}
+    </button>
+  );
+};
 
-// ─── main component ────────────────────────────────────────────────────────
+type GmailStatus = 'unknown' | 'testing' | 'ok' | 'missing' | 'error';
+type MissingMap = { GOOGLE_CLIENT_ID?: boolean; GOOGLE_CLIENT_SECRET?: boolean; GOOGLE_REFRESH_TOKEN?: boolean };
+
 const EmailSyncSection: React.FC = () => {
   const [openRouterKey, setOpenRouterKey] = useState<string>(
     () => localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
@@ -67,18 +84,16 @@ const EmailSyncSection: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
 
-  // Setup panel
   const [showSetup, setShowSetup] = useState(false);
 
-  // Connection status (secret-presence check)
   const [gmailStatus, setGmailStatus] = useState<GmailStatus>('unknown');
-  const [gmailEmail, setGmailEmail] = useState<string | null>(null);
+  const [missing, setMissing] = useState<MissingMap>({});
+  const [redirectUri, setRedirectUri] = useState<string>('');
 
-  // IMAP test status (actual login test)
   const [imapStatus, setImapStatus] = useState<'unknown' | 'testing' | 'ok' | 'error'>('unknown');
   const [imapInfo, setImapInfo] = useState<string | null>(null);
+  const [imapEmail, setImapEmail] = useState<string | null>(null);
 
-  // Sync state
   const [running, setRunning] = useState(false);
   const [stage, setStage] = useState<'idle' | 'fetching' | 'analyzing' | 'saving' | 'done' | 'error'>('idle');
   const [results, setResults] = useState<SyncResult[] | null>(null);
@@ -89,18 +104,17 @@ const EmailSyncSection: React.FC = () => {
   const updated = results?.filter((r) => r.action === 'updated').length ?? 0;
   const skipped = results?.filter((r) => r.action === 'skipped').length ?? 0;
 
-  // ── test that secrets are set ─────────────────────────────────────────────
   const testConnection = useCallback(async () => {
     setGmailStatus('testing');
-    setGmailEmail(null);
     try {
       const resp = await fetch('/api/gmail/test');
       const data = await resp.json();
       if (data.connected) {
         setGmailStatus('ok');
-        setGmailEmail(data.email || null);
+        setMissing({});
       } else if (data.reason === 'missing_secrets') {
         setGmailStatus('missing');
+        setMissing(data.missing || {});
       } else {
         setGmailStatus('error');
       }
@@ -109,7 +123,16 @@ const EmailSyncSection: React.FC = () => {
     }
   }, []);
 
-  // ── actually login via IMAP and count messages ────────────────────────────
+  const fetchRedirectUri = useCallback(async () => {
+    try {
+      const resp = await fetch('/api/google/oauth/redirect-uri');
+      const data = await resp.json();
+      if (data.redirectUri) setRedirectUri(data.redirectUri);
+    } catch {
+      setRedirectUri(`${window.location.origin}/api/google/oauth/callback`);
+    }
+  }, []);
+
   const testImapConnection = useCallback(async () => {
     setImapStatus('testing');
     setImapInfo(null);
@@ -118,12 +141,12 @@ const EmailSyncSection: React.FC = () => {
       const data = await resp.json();
       if (data.ok) {
         setImapStatus('ok');
-        setImapInfo(`${data.messagesLast7Days} message(s) found in the last 7 days`);
+        setImapEmail(data.email || null);
+        setImapInfo(`${data.messagesLast7Days} message(s) with attachments in the last 7 days`);
         setGmailStatus('ok');
-        setGmailEmail(data.email || null);
       } else {
         setImapStatus('error');
-        setImapInfo(data.error || 'Gmail IMAP connection failed');
+        setImapInfo(data.error || 'Gmail connection failed');
       }
     } catch (e: any) {
       setImapStatus('error');
@@ -131,9 +154,8 @@ const EmailSyncSection: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { testConnection(); }, [testConnection]);
+  useEffect(() => { testConnection(); fetchRedirectUri(); }, [testConnection, fetchRedirectUri]);
 
-  // ── save OpenRouter key ──────────────────────────────────────────────────
   const handleSaveKey = () => {
     if (!openRouterKey.trim()) return;
     localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
@@ -147,21 +169,15 @@ const EmailSyncSection: React.FC = () => {
     localStorage.setItem(OPENROUTER_MODEL_STORAGE, model);
   };
 
-  // ── run email sync ───────────────────────────────────────────────────────
+  const handleConnectGoogle = () => {
+    window.open('/api/google/oauth/start', '_blank', 'noopener,noreferrer');
+  };
+
   const handleSync = async () => {
-    if (!openRouterKey.trim()) {
-      setShowSetup(true);
-      return;
-    }
-    if (gmailStatus !== 'ok') {
-      setShowSetup(true);
-      return;
-    }
+    if (!openRouterKey.trim()) { setShowSetup(true); return; }
+    if (gmailStatus !== 'ok') { setShowSetup(true); return; }
     localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
-    setRunning(true);
-    setSyncError(null);
-    setResults(null);
-    setStage('fetching');
+    setRunning(true); setSyncError(null); setResults(null); setStage('fetching');
     try {
       const { fetchGmailEmails, analyzeEmailsWithAI, upsertInvoices } = await import('../../lib/emailSync');
       const { supabase } = await import('../../lib/supabaseClient');
@@ -192,7 +208,9 @@ const EmailSyncSection: React.FC = () => {
     : stage === 'saving' ? 'Saving invoices to database…'
     : '';
 
-  // ── render ───────────────────────────────────────────────────────────────
+  const hasClientCreds = !missing.GOOGLE_CLIENT_ID && !missing.GOOGLE_CLIENT_SECRET;
+  const needsRefresh = hasClientCreds && missing.GOOGLE_REFRESH_TOKEN;
+
   return (
     <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
 
@@ -217,7 +235,7 @@ const EmailSyncSection: React.FC = () => {
         </button>
       </div>
 
-      {/* Connection badge */}
+      {/* Status badges */}
       <div className="px-4 pb-4 flex items-center gap-3 flex-wrap">
         {gmailStatus === 'testing' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-500">
@@ -227,7 +245,7 @@ const EmailSyncSection: React.FC = () => {
         {gmailStatus === 'ok' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-700">
             <Wifi className="h-3.5 w-3.5" />
-            Gmail connected{gmailEmail && <span className="opacity-70">· {gmailEmail}</span>}
+            Gmail connected{imapEmail && <span className="opacity-70">· {imapEmail}</span>}
           </div>
         )}
         {(gmailStatus === 'missing' || gmailStatus === 'error' || gmailStatus === 'unknown') && (
@@ -243,7 +261,7 @@ const EmailSyncSection: React.FC = () => {
         )}
         {imapStatus === 'error' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700">
-            <AlertCircle className="h-3.5 w-3.5" /> Inbox login failed
+            <AlertCircle className="h-3.5 w-3.5" /> Gmail login failed
           </div>
         )}
         {gmailStatus !== 'testing' && (
@@ -269,7 +287,6 @@ const EmailSyncSection: React.FC = () => {
         </div>
       )}
 
-      {/* Sync error */}
       {stage === 'error' && syncError && (
         <div className="px-4 pb-4">
           <div className="flex gap-3 p-3 bg-red-50 border border-red-200 rounded-2xl">
@@ -282,7 +299,6 @@ const EmailSyncSection: React.FC = () => {
         </div>
       )}
 
-      {/* Sync results */}
       {stage === 'done' && results !== null && (
         <div className="px-4 pb-4 space-y-3">
           {results.length === 0 ? (
@@ -332,7 +348,7 @@ const EmailSyncSection: React.FC = () => {
         </div>
       )}
 
-      {/* ── Setup panel ────────────────────────────────────────────── */}
+      {/* Setup panel */}
       <div className="border-t border-gray-100">
         <button
           onClick={() => setShowSetup((v) => !v)}
@@ -399,7 +415,7 @@ const EmailSyncSection: React.FC = () => {
               </div>
             </div>
 
-            {/* ② Connect Gmail */}
+            {/* ② Connect Gmail via OAuth */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-black shrink-0">2</div>
@@ -407,17 +423,25 @@ const EmailSyncSection: React.FC = () => {
                   Connect Gmail
                   {gmailStatus === 'ok'
                     ? <span className="ml-2 text-emerald-600 font-semibold">✓ Connected</span>
-                    : <span className="ml-2 text-amber-600 font-normal">(one-time setup, ~3 minutes)</span>}
+                    : <span className="ml-2 text-amber-600 font-normal">(one-time setup)</span>}
                 </p>
               </div>
 
               {gmailStatus === 'ok' && imapStatus === 'ok' ? (
-                <div className="ml-7 flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                  <div>
-                    <p className="text-xs font-bold text-emerald-800">Gmail is connected — you're all set!</p>
-                    <p className="text-[11px] text-emerald-700 mt-0.5">You never need to repeat this. Click "Sync Now" any time.</p>
+                <div className="ml-7 space-y-2">
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-800">Gmail is connected — you're all set!</p>
+                      <p className="text-[11px] text-emerald-700 mt-0.5">{imapInfo}</p>
+                    </div>
                   </div>
+                  <button
+                    onClick={testImapConnection}
+                    className="text-[11px] text-gray-400 hover:text-gray-600 underline ml-1"
+                  >
+                    Re-test connection
+                  </button>
                 </div>
               ) : (
                 <div className="ml-7 space-y-4">
@@ -425,100 +449,209 @@ const EmailSyncSection: React.FC = () => {
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex gap-2">
                     <Sparkles className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-blue-800 leading-relaxed">
-                      <strong>One-time setup.</strong> You'll create a Google App Password (a special 16-character password just for this app),
-                      then save it as a Replit Secret. After that, just click "Sync Now" anytime.
+                      <strong>One-time setup using Google's official OAuth.</strong> You'll create a small Google Cloud project,
+                      paste 2 secrets, click "Connect Google", and you're done. Works for any Gmail or Workspace account.
                     </p>
                   </div>
 
-                  <ol className="space-y-3 text-[12px] text-gray-700 leading-relaxed">
-                    <li className="flex gap-2">
-                      <span className="font-black text-violet-600 shrink-0">①</span>
-                      <span>
-                        Make sure 2-Step Verification is ON for your Google account at{' '}
-                        <a href="https://myaccount.google.com/security" target="_blank" rel="noopener noreferrer"
-                          className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
-                          myaccount.google.com/security <ExternalLink className="h-3 w-3" />
-                        </a>{' '}
-                        (App Passwords only appear once 2-Step is enabled).
-                      </span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-black text-violet-600 shrink-0">②</span>
-                      <span>
-                        Open{' '}
-                        <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener noreferrer"
-                          className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
-                          myaccount.google.com/apppasswords <ExternalLink className="h-3 w-3" />
-                        </a>{' '}
-                        — name the app <em>"JILD Sync"</em> and click <strong>Create</strong>.
-                      </span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-black text-violet-600 shrink-0">③</span>
-                      <span>
-                        Google shows you a <strong>16-character password</strong> (e.g. <code className="px-1 bg-gray-100 rounded">abcd efgh ijkl mnop</code>).
-                        <strong> Copy it now</strong> — Google will not show it again.
-                      </span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-black text-violet-600 shrink-0">④</span>
-                      <span>
-                        In Replit, click the <strong>🔒 Secrets</strong> icon in the left sidebar and add <strong>two</strong> secrets:
-                        <div className="mt-2 space-y-1.5">
-                          <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                            <span className="font-mono text-[11px] font-bold text-gray-700 shrink-0">GMAIL_USER</span>
-                            <span className="text-[11px] text-gray-500">= your Gmail address (e.g. you@gmail.com)</span>
-                          </div>
-                          <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                            <span className="font-mono text-[11px] font-bold text-gray-700 shrink-0">GMAIL_APP_PASSWORD</span>
-                            <span className="text-[11px] text-gray-500">= the 16-character password you just copied (spaces are fine)</span>
-                          </div>
-                        </div>
-                      </span>
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="font-black text-violet-600 shrink-0">⑤</span>
-                      <span>
-                        Replit will restart the app automatically. Come back here and click the <strong>"Test Gmail Connection"</strong> button below.
-                      </span>
-                    </li>
-                  </ol>
+                  {/* ── Phase A: get OAuth credentials from Google Cloud ── */}
+                  <div className="space-y-3">
+                    <p className="text-[12px] font-black text-gray-700 uppercase tracking-wide">
+                      Phase A · Create OAuth credentials in Google Cloud
+                    </p>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={testImapConnection}
-                      disabled={imapStatus === 'testing'}
-                      className="flex items-center gap-2 px-3 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors"
-                    >
-                      {imapStatus === 'testing'
-                        ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Testing…</>
-                        : <><Wifi className="h-3.5 w-3.5" /> Test Gmail Connection</>
-                      }
-                    </button>
+                    <ol className="space-y-3 text-[12px] text-gray-700 leading-relaxed">
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">①</span>
+                        <span>
+                          Open{' '}
+                          <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer"
+                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
+                            Google Cloud Console <ExternalLink className="h-3 w-3" />
+                          </a>{' '}
+                          and create a new project (e.g. <em>"JILD Sync"</em>). Wait ~10 seconds for it to provision, then select it.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">②</span>
+                        <span>
+                          Go to{' '}
+                          <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer"
+                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
+                            Gmail API <ExternalLink className="h-3 w-3" />
+                          </a>{' '}
+                          and click <strong>Enable</strong>.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">③</span>
+                        <span>
+                          Open{' '}
+                          <a href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener noreferrer"
+                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
+                            OAuth consent screen <ExternalLink className="h-3 w-3" />
+                          </a>{' '}
+                          → choose <strong>External</strong> → fill in app name (<em>"JILD Sync"</em>), your email as support email and developer contact → save and continue through the steps.
+                          On the <strong>Test users</strong> step, click <strong>Add Users</strong> and add your own Gmail address. Save.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">④</span>
+                        <span>
+                          Open{' '}
+                          <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener noreferrer"
+                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
+                            Credentials <ExternalLink className="h-3 w-3" />
+                          </a>{' '}
+                          → <strong>Create Client</strong> → application type <strong>Web application</strong> → name it <em>"JILD Sync"</em>.
+                          <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                            <p className="text-[11px] font-black text-amber-800 mb-1">Under "Authorized redirect URIs", add this exact URL:</p>
+                            <div className="flex items-center gap-2 p-2 bg-white border border-amber-200 rounded-md">
+                              <code className="flex-1 text-[10px] font-mono text-gray-700 break-all select-all">
+                                {redirectUri || `${window.location.origin}/api/google/oauth/callback`}
+                              </code>
+                              <CopyChip text={redirectUri || `${window.location.origin}/api/google/oauth/callback`} />
+                            </div>
+                            <p className="text-[10px] text-amber-700 mt-1.5">
+                              ⚠️ Must match <em>exactly</em>, including <code>https://</code> and no trailing slash.
+                            </p>
+                          </div>
+                          Click <strong>Create</strong>. A popup shows your <strong>Client ID</strong> and <strong>Client Secret</strong>.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">⑤</span>
+                        <span>
+                          In Replit, click the <strong>🔒 Secrets</strong> icon and add these two secrets:
+                          <div className="mt-2 space-y-1.5">
+                            <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                              <code className="text-[11px] font-bold text-gray-700 shrink-0">GOOGLE_CLIENT_ID</code>
+                              <span className="text-[11px] text-gray-500">= the Client ID from Google (ends in <code className="bg-white px-1 rounded">.apps.googleusercontent.com</code>)</span>
+                            </div>
+                            <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                              <code className="text-[11px] font-bold text-gray-700 shrink-0">GOOGLE_CLIENT_SECRET</code>
+                              <span className="text-[11px] text-gray-500">= the Client Secret from Google (starts with <code className="bg-white px-1 rounded">GOCSPX-</code>)</span>
+                            </div>
+                          </div>
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">⑥</span>
+                        <span>
+                          The app restarts automatically. Click <strong>"Re-test"</strong> below — you should see "Client credentials saved" turn green, then move to Phase B.
+                        </span>
+                      </li>
+                    </ol>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={testConnection}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 transition-colors"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" /> Re-test secrets
+                      </button>
+                      {hasClientCreds && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Client credentials saved
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {imapStatus === 'ok' && (
-                    <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-emerald-800">Gmail connected — PDF attachments will be read automatically</p>
-                        {imapInfo && <p className="text-[11px] text-emerald-700 mt-0.5">{imapInfo}</p>}
-                      </div>
+                  {/* ── Phase B: OAuth dance ── */}
+                  <div className={`space-y-3 ${!hasClientCreds ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <p className="text-[12px] font-black text-gray-700 uppercase tracking-wide">
+                      Phase B · Authorise Gmail access
+                    </p>
+
+                    {!hasClientCreds && (
+                      <p className="text-[11px] text-gray-500 italic">Complete Phase A first to unlock this step.</p>
+                    )}
+
+                    <ol className="space-y-3 text-[12px] text-gray-700 leading-relaxed">
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">①</span>
+                        <span>
+                          Click the <strong>"Connect Google"</strong> button below — a new tab opens with Google's sign-in screen.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">②</span>
+                        <span>
+                          Sign in with the Gmail account you want to read invoices from.
+                          You'll see a warning <em>"Google hasn't verified this app"</em> — that's normal because you just made the app yourself.
+                          Click <strong>Advanced</strong> → <strong>Go to JILD Sync (unsafe)</strong>.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">③</span>
+                        <span>
+                          Approve the <strong>"Read your email"</strong> permission. Google redirects you back, and the page shows a long <strong>refresh token</strong>.
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">④</span>
+                        <span>
+                          Copy that token and add a third Replit secret:
+                          <div className="mt-2 flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                            <code className="text-[11px] font-bold text-gray-700 shrink-0">GOOGLE_REFRESH_TOKEN</code>
+                            <span className="text-[11px] text-gray-500">= the refresh token (starts with <code className="bg-white px-1 rounded">1//</code>)</span>
+                          </div>
+                        </span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-black text-violet-600 shrink-0">⑤</span>
+                        <span>
+                          Once saved, click <strong>"Test Gmail Connection"</strong> below. Green tick = done forever.
+                        </span>
+                      </li>
+                    </ol>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={handleConnectGoogle}
+                        disabled={!hasClientCreds}
+                        className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 disabled:opacity-40 transition-colors"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" /> Connect Google
+                      </button>
+                      <button
+                        onClick={testImapConnection}
+                        disabled={imapStatus === 'testing' || !hasClientCreds || needsRefresh}
+                        className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 disabled:opacity-40 transition-colors"
+                      >
+                        {imapStatus === 'testing'
+                          ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Testing…</>
+                          : <><Wifi className="h-3.5 w-3.5" /> Test Gmail Connection</>
+                        }
+                      </button>
                     </div>
-                  )}
-                  {imapStatus === 'error' && (
-                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-2xl">
-                      <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                      <div>
-                        <p className="text-xs font-bold text-red-700">Gmail connection failed</p>
-                        {imapInfo && <p className="text-[11px] text-red-600 mt-0.5">{imapInfo}</p>}
-                        <p className="text-[11px] text-red-600 mt-1">
-                          Common fixes: ① Make sure you used the App Password (16 chars), not your regular Google password.
-                          ② Confirm 2-Step Verification is enabled. ③ Check that GMAIL_USER is your full email address.
-                        </p>
+
+                    {imapStatus === 'ok' && (
+                      <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <div>
+                          <p className="text-xs font-bold text-emerald-800">
+                            Gmail connected{imapEmail && <> as {imapEmail}</>} — PDF attachments will be read automatically
+                          </p>
+                          {imapInfo && <p className="text-[11px] text-emerald-700 mt-0.5">{imapInfo}</p>}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                    {imapStatus === 'error' && (
+                      <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-2xl">
+                        <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-red-700">Gmail connection failed</p>
+                          {imapInfo && <p className="text-[11px] text-red-600 mt-0.5 break-words">{imapInfo}</p>}
+                          <p className="text-[11px] text-red-600 mt-1">
+                            Common fixes: ① Make sure all 3 secrets are saved correctly. ② If you re-ran the OAuth flow, generate a brand-new refresh token (revoke at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="underline">myaccount.google.com/permissions</a> first). ③ Confirm your Gmail address is added as a test user on the OAuth consent screen.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               )}
             </div>
