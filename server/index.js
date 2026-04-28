@@ -3,6 +3,8 @@ import cors from 'cors';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { ImapFlow } from 'imapflow';
+import { simpleParser } from 'mailparser';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -59,7 +61,7 @@ async function refreshZohoToken() {
   return data.access_token;
 }
 
-async function getAccountId(accessToken) {
+async function getAccountInfo(accessToken) {
   const region = process.env.ZOHO_REGION || 'com';
   const resp = await fetch(`${zohoMailBase(region)}/accounts`, {
     headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
@@ -68,47 +70,24 @@ async function getAccountId(accessToken) {
   const data = await resp.json();
   const accounts = data.data;
   if (!accounts || accounts.length === 0) throw new Error('No Zoho Mail accounts found.');
-  return accounts[0].accountId;
+  const acc = accounts[0];
+  // emailAddress is an array of objects; incomingUserName is the plaintext IMAP username
+  const email = acc.incomingUserName
+    || (Array.isArray(acc.emailAddress) ? acc.emailAddress.find((e) => e.isPrimary)?.mailId : null)
+    || acc.sendMailDetails?.[0]?.fromAddress
+    || acc.accountName
+    || null;
+  return { accountId: acc.accountId, email };
 }
 
-async function getRecentMessages(accessToken, accountId) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-  const url = `${zohoMailBase(region)}/accounts/${accountId}/messages/view?limit=100&start=1`;
-  const resp = await fetch(url, {
-    headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-  });
-  if (!resp.ok) throw new Error(`Failed to fetch messages: ${await resp.text()}`);
-  const data = await resp.json();
-  const messages = data.data || [];
-
-  return messages.filter((msg) => {
-    const ts = parseInt(msg.receivedTime, 10);
-    return ts >= sevenDaysAgo;
-  });
+// Legacy alias for test endpoint
+async function getAccountId(accessToken) {
+  const info = await getAccountInfo(accessToken);
+  return info.accountId;
 }
 
-async function getMessageContent(accessToken, accountId, folderId, messageId) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const resp = await fetch(
-    `${zohoMailBase(region)}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content`,
-    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-  );
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  return data.data || null;
-}
-
-async function getAttachmentBuffer(accessToken, accountId, folderId, messageId, storeName) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const resp = await fetch(
-    `${zohoMailBase(region)}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/attachments/${storeName}`,
-    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-  );
-  if (!resp.ok) return null;
-  const arrayBuf = await resp.arrayBuffer();
-  return Buffer.from(arrayBuf);
+function zohoImapHost(region = 'com') {
+  return `imap.zoho.${region}`;
 }
 
 function stripHtml(html) {
@@ -120,85 +99,166 @@ function stripHtml(html) {
     .trim();
 }
 
+async function fetchEmailsViaIMAP(accessToken, emailAddress) {
+  const region = process.env.ZOHO_REGION || 'com';
+  const host = zohoImapHost(region);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  const imapPassword = process.env.ZOHO_IMAP_PASSWORD;
+  if (!imapPassword) {
+    throw new Error(
+      'ZOHO_IMAP_PASSWORD is not set. ' +
+      'Please create a Zoho App-Specific Password at mail.zoho.com/zm/#settings/security ' +
+      'and add it as the ZOHO_IMAP_PASSWORD secret in your project.'
+    );
+  }
+
+  const client = new ImapFlow({
+    host,
+    port: 993,
+    secure: true,
+    auth: { user: emailAddress, pass: imapPassword },
+    logger: false,
+    tls: { rejectUnauthorized: false },
+  });
+
+  const emails = [];
+
+  await client.connect();
+  try {
+    const lock = await client.getMailboxLock('INBOX');
+    try {
+      const since = sevenDaysAgo.toISOString().split('T')[0];
+      const uids = await client.search({ since: new Date(since) });
+      console.log(`IMAP: found ${uids.length} messages since ${since}`);
+
+      // Process up to 30 most recent
+      const subset = uids.slice(-30);
+
+      for (const uid of subset) {
+        try {
+          const msg = await client.fetchOne(uid, { source: true });
+          if (!msg?.source) continue;
+
+          const parsed = await simpleParser(msg.source);
+          const pdfParse = require('pdf-parse');
+
+          const bodyText = parsed.text || stripHtml(parsed.html || '') || '';
+          const emailData = {
+            subject: parsed.subject || '',
+            from: parsed.from?.text || '',
+            date: (parsed.date || new Date()).toISOString(),
+            body: bodyText.slice(0, 8000),
+            attachments: [],
+          };
+
+          for (const att of parsed.attachments || []) {
+            const mime = (att.contentType || '').toLowerCase();
+            const name = att.filename || '';
+            console.log(`  Attachment: "${name}" mime="${mime}" size=${att.size}`);
+
+            if (mime === 'application/pdf' || name.toLowerCase().endsWith('.pdf')) {
+              try {
+                const buf = att.content;
+                if (buf && buf.length > 100) {
+                  const pdfData = await pdfParse(buf);
+                  const text = (pdfData.text || '').trim();
+                  console.log(`  ✓ PDF parsed: ${text.length} chars from "${name}"`);
+                  if (text.length > 10) {
+                    emailData.attachments.push({ name, text: text.slice(0, 8000), type: 'pdf' });
+                  }
+                }
+              } catch (pdfErr) {
+                console.error(`  PDF parse error for "${name}":`, pdfErr.message);
+              }
+            } else if (mime.startsWith('text/')) {
+              emailData.attachments.push({
+                name,
+                text: att.content.toString('utf8').slice(0, 4000),
+                type: 'text',
+              });
+            }
+          }
+
+          if (emailData.body.length > 10 || emailData.attachments.length > 0) {
+            emails.push(emailData);
+          }
+        } catch (msgErr) {
+          console.error('IMAP message error for uid', uid, msgErr.message);
+        }
+      }
+    } finally {
+      lock.release();
+    }
+  } finally {
+    await client.logout();
+  }
+
+  return emails;
+}
+
 app.get('/api/zoho/emails', async (req, res) => {
   try {
     const accessToken = await refreshZohoToken();
-    const accountId = await getAccountId(accessToken);
-    const messages = await getRecentMessages(accessToken, accountId);
-
-    const emailsWithContent = [];
-
-    for (const msg of messages.slice(0, 30)) {
-      try {
-        const content = await getMessageContent(accessToken, accountId, msg.folderId, msg.messageId);
-        if (!content) continue;
-
-        const bodyHtml = content.content || '';
-        const bodyText = stripHtml(bodyHtml);
-
-        const emailData = {
-          subject: msg.subject || '',
-          from: msg.fromAddress || '',
-          date: msg.receivedTime ? new Date(parseInt(msg.receivedTime, 10)).toISOString() : '',
-          body: bodyText.slice(0, 8000),
-          attachments: [],
-        };
-
-        if (content.attachments && Array.isArray(content.attachments)) {
-          for (const att of content.attachments) {
-            const mimeType = (att.mimeType || '').toLowerCase();
-            const name = att.attachmentName || '';
-
-            if (mimeType === 'application/pdf' || name.toLowerCase().endsWith('.pdf')) {
-              try {
-                const buf = await getAttachmentBuffer(
-                  accessToken, accountId, msg.folderId, msg.messageId, att.storeName || att.attachmentId
-                );
-                if (buf) {
-                  const pdfParse = require('pdf-parse');
-                  const pdfData = await pdfParse(buf);
-                  emailData.attachments.push({
-                    name,
-                    text: (pdfData.text || '').slice(0, 6000),
-                    type: 'pdf',
-                  });
-                }
-              } catch (pdfErr) {
-                console.error('PDF parse error for', name, pdfErr.message);
-              }
-            } else if (mimeType.startsWith('text/')) {
-              try {
-                const buf = await getAttachmentBuffer(
-                  accessToken, accountId, msg.folderId, msg.messageId, att.storeName || att.attachmentId
-                );
-                if (buf) {
-                  emailData.attachments.push({
-                    name,
-                    text: buf.toString('utf8').slice(0, 4000),
-                    type: 'text',
-                  });
-                }
-              } catch {}
-            }
-          }
-        }
-
-        const hasContent =
-          emailData.body.length > 10 ||
-          emailData.attachments.length > 0;
-
-        if (hasContent) {
-          emailsWithContent.push(emailData);
-        }
-      } catch (msgErr) {
-        console.error('Error processing message', msg.messageId, msgErr.message);
-      }
-    }
-
-    res.json({ emails: emailsWithContent, total: messages.length });
+    const { email } = await getAccountInfo(accessToken);
+    if (!email) throw new Error('Could not determine Zoho email address from account info');
+    console.log(`Fetching emails via IMAP for ${email}`);
+    const emails = await fetchEmailsViaIMAP(accessToken, email);
+    res.json({ emails, total: emails.length });
   } catch (error) {
-    console.error('Zoho error:', error);
+    console.error('IMAP email fetch error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug endpoint — shows what IMAP fetches (subjects, attachment names)
+app.get('/api/zoho/debug-emails', async (req, res) => {
+  try {
+    const accessToken = await refreshZohoToken();
+    const { email } = await getAccountInfo(accessToken);
+    if (!email) throw new Error('Could not determine Zoho email address');
+    const emails = await fetchEmailsViaIMAP(accessToken, email);
+    const summary = emails.map((e) => ({
+      subject: e.subject,
+      from: e.from,
+      date: e.date,
+      bodyLength: e.body.length,
+      attachments: e.attachments.map((a) => ({ name: a.name, type: a.type, chars: a.text.length })),
+    }));
+    res.json({ total: emails.length, emails: summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Test IMAP connection
+app.get('/api/zoho/test-imap', async (req, res) => {
+  try {
+    const hasPassword = !!process.env.ZOHO_IMAP_PASSWORD;
+    if (!hasPassword) {
+      return res.json({ ok: false, error: 'ZOHO_IMAP_PASSWORD secret not set' });
+    }
+    const accessToken = await refreshZohoToken();
+    const { email } = await getAccountInfo(accessToken);
+    if (!email) return res.json({ ok: false, error: 'Could not determine email address' });
+
+    const region = process.env.ZOHO_REGION || 'com';
+    const client = new ImapFlow({
+      host: zohoImapHost(region),
+      port: 993,
+      secure: true,
+      auth: { user: email, pass: process.env.ZOHO_IMAP_PASSWORD },
+      logger: false,
+      tls: { rejectUnauthorized: false },
+    });
+    await client.connect();
+    const lock = await client.getMailboxLock('INBOX');
+    const uids = await client.search({ since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) });
+    lock.release();
+    await client.logout();
+    res.json({ ok: true, email, messagesLast7Days: uids.length });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
   }
 });
 

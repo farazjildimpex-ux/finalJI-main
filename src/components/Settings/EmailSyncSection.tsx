@@ -111,6 +111,10 @@ const EmailSyncSection: React.FC = () => {
   const [zohoStatus, setZohoStatus] = useState<ZohoStatus>('unknown');
   const [zohoEmail, setZohoEmail] = useState<string | null>(null);
 
+  // IMAP connection status
+  const [imapStatus, setImapStatus] = useState<'unknown' | 'testing' | 'ok' | 'error'>('unknown');
+  const [imapInfo, setImapInfo] = useState<string | null>(null);
+
   // Sync state
   const [running, setRunning] = useState(false);
   const [stage, setStage] = useState<'idle' | 'fetching' | 'analyzing' | 'saving' | 'done' | 'error'>('idle');
@@ -122,7 +126,7 @@ const EmailSyncSection: React.FC = () => {
   const updated = results?.filter((r) => r.action === 'updated').length ?? 0;
   const skipped = results?.filter((r) => r.action === 'skipped').length ?? 0;
 
-  // ── test Zoho connection ─────────────────────────────────────────────────
+  // ── test Zoho API connection ──────────────────────────────────────────────
   const testConnection = useCallback(async () => {
     setZohoStatus('testing');
     setZohoEmail(null);
@@ -139,6 +143,26 @@ const EmailSyncSection: React.FC = () => {
       }
     } catch {
       setZohoStatus('error');
+    }
+  }, []);
+
+  // ── test IMAP connection ──────────────────────────────────────────────────
+  const testImapConnection = useCallback(async () => {
+    setImapStatus('testing');
+    setImapInfo(null);
+    try {
+      const resp = await fetch('/api/zoho/test-imap');
+      const data = await resp.json();
+      if (data.ok) {
+        setImapStatus('ok');
+        setImapInfo(`${data.messagesLast7Days} message(s) found in the last 7 days`);
+      } else {
+        setImapStatus('error');
+        setImapInfo(data.error || 'IMAP connection failed');
+      }
+    } catch (e: any) {
+      setImapStatus('error');
+      setImapInfo(e.message);
     }
   }, []);
 
@@ -283,6 +307,17 @@ const EmailSyncSection: React.FC = () => {
             {zohoStatus === 'missing' ? 'Zoho not set up yet' : 'Zoho not connected'}
           </div>
         )}
+        {/* IMAP badge */}
+        {imapStatus === 'ok' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-700">
+            <CheckCircle2 className="h-3.5 w-3.5" /> IMAP ready
+          </div>
+        )}
+        {imapStatus === 'error' && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700">
+            <AlertCircle className="h-3.5 w-3.5" /> IMAP not configured
+          </div>
+        )}
         {zohoStatus !== 'testing' && (
           <button onClick={testConnection} className="text-[11px] text-gray-400 hover:text-gray-600 underline">
             Re-test
@@ -378,7 +413,7 @@ const EmailSyncSection: React.FC = () => {
           <span className="flex items-center gap-2">
             <Key className="h-3.5 w-3.5 text-gray-400" />
             Setup &amp; Configuration
-            {zohoStatus !== 'ok' && (
+            {(zohoStatus !== 'ok' || imapStatus !== 'ok') && (
               <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-black rounded-full uppercase">Action needed</span>
             )}
           </span>
@@ -671,6 +706,102 @@ const EmailSyncSection: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* ③ IMAP App Password */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-black shrink-0">3</div>
+                <p className="text-xs font-bold text-gray-800">
+                  Enable IMAP Access
+                  {imapStatus === 'ok'
+                    ? <span className="ml-2 text-emerald-600 font-semibold">✓ Connected</span>
+                    : <span className="ml-2 text-amber-600 font-normal">(required for PDF attachments)</span>}
+                </p>
+              </div>
+
+              <div className="ml-7 space-y-3">
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex gap-2">
+                  <Info className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Zoho Mail requires an <strong>App-Specific Password</strong> to let this app read emails and download PDF attachments via IMAP.
+                    This is separate from your Zoho login password.
+                  </p>
+                </div>
+
+                <ol className="space-y-3 text-[12px] text-gray-700 leading-relaxed">
+                  <li className="flex gap-2">
+                    <span className="font-black text-violet-600 shrink-0">①</span>
+                    <span>
+                      Open{' '}
+                      <a href="https://accounts.zoho.in/accounts/security" target="_blank" rel="noopener noreferrer"
+                        className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
+                        Zoho Account Security <ExternalLink className="h-3 w-3" />
+                      </a>
+                      {' '}and sign in.
+                    </span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-black text-violet-600 shrink-0">②</span>
+                    <span>
+                      Scroll to <strong>"App Passwords"</strong> and click <strong>"Generate New Password"</strong>.
+                      Name it <em>"JILD Sync"</em> and click Generate.
+                    </span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-black text-violet-600 shrink-0">③</span>
+                    <span>
+                      Copy the generated password. In Replit, click the <strong>🔒 Secrets</strong> icon and add:
+                      <span className="ml-1 px-1.5 py-0.5 bg-gray-100 font-mono text-[11px] rounded">ZOHO_IMAP_PASSWORD</span>{' '}
+                      = <em>the password you just copied</em>.
+                    </span>
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-black text-violet-600 shrink-0">④</span>
+                    <span>
+                      Also make sure IMAP is enabled in Zoho Mail:{' '}
+                      <a href="https://mail.zoho.in/zm/#settings/mailaccount" target="_blank" rel="noopener noreferrer"
+                        className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
+                        Mail Settings → Mail Accounts <ExternalLink className="h-3 w-3" />
+                      </a>
+                      {' '}→ IMAP Access → Enable.
+                    </span>
+                  </li>
+                </ol>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={testImapConnection}
+                    disabled={imapStatus === 'testing'}
+                    className="flex items-center gap-2 px-3 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 disabled:opacity-50 transition-colors"
+                  >
+                    {imapStatus === 'testing'
+                      ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Testing…</>
+                      : <><Wifi className="h-3.5 w-3.5" /> Test IMAP Connection</>
+                    }
+                  </button>
+                </div>
+
+                {imapStatus === 'ok' && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-emerald-800">IMAP connected — PDF attachments will be read automatically</p>
+                      {imapInfo && <p className="text-[11px] text-emerald-700 mt-0.5">{imapInfo}</p>}
+                    </div>
+                  </div>
+                )}
+                {imapStatus === 'error' && (
+                  <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-2xl">
+                    <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-red-700">IMAP connection failed</p>
+                      {imapInfo && <p className="text-[11px] text-red-600 mt-0.5">{imapInfo}</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
           </div>
         )}
       </div>

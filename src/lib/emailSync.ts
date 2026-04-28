@@ -77,46 +77,44 @@ ${
     )
     .join('\n\n');
 
-  const prompt = `You are an AI data extraction assistant for JILD IMPEX, a leather import/export company based in Chennai, India. Your task is to extract invoice and shipping information from emails.
+  const knownContracts = contractsContext.map(c => c.contract_no).join(', ') || 'none yet';
 
-CONTRACTS IN OUR SYSTEM (use these to match contract numbers):
-${JSON.stringify(contractsContext, null, 2)}
+  const prompt = `You are a data extraction assistant for JILD IMPEX, a leather import/export company in Chennai, India.
 
-EMAILS TO ANALYZE:
+YOUR JOB: Read the email bodies and PDF attachment text below. Extract every invoice you find. ALWAYS extract an invoice if you see any invoice number, regardless of whether a contract number matches our system.
+
+KNOWN CONTRACT NUMBERS IN OUR SYSTEM (for reference only — do not skip invoices if they don't match):
+${knownContracts}
+
+EMAILS AND ATTACHMENTS TO ANALYZE:
 ${emailsText}
 
-INSTRUCTIONS:
-1. Find all invoices mentioned across all emails and attachments.
-2. For each invoice, match it to the correct contract_no from our system. Contract numbers typically appear on invoices/emails explicitly. Match exactly as in our system.
-3. Extract line items: for each color/shade, extract its grade/selection (e.g., First, Second, AB, BC) and quantity in sqft.
-4. Look for Airway Bill (AWB) or Bill of Lading (BL/BOL) numbers and their dates.
-5. An AWB/BL in an email can be linked to the invoice mentioned in the same email or attachment.
-6. "selection" is the leather grade (First, Second, Third, AB, BC, etc.).
-7. Quantities are in square feet (sqft). Extract only the numeric value.
-8. invoice_value should be numeric only (no currency symbols).
-9. Dates must be in YYYY-MM-DD format or null.
-10. If the same invoice appears in multiple emails, merge the information and prefer the most complete data.
+EXTRACTION RULES:
+1. ALWAYS extract an invoice if you can find any invoice number (INV, Invoice No, Commercial Invoice, etc.).
+2. contract_numbers: Look for any contract/order/PO number mentioned alongside the invoice. It may appear as "Contract No", "CJV", "Order No", "PO No", etc. Extract whatever is written — even if it's not in our system list.
+3. line_items: Extract leather colors/shades with their grades and square footage. "Selection" or grade can be anything: TR, TRR, First, Second, AB, BC, A/B, etc. — extract exactly as written.
+4. Quantities: May be in sqft, sq.ft, square feet, pieces, pcs, nos — extract the number AND note the unit in the quantity field (e.g. "10848.70 sqft" or "1666 pcs").
+5. invoice_value: Extract the total amount as a number string. No currency symbols.
+6. bill_type: "Airway Bill" if you see AWB/Airway Bill, "Bill of Lading" if you see B/L or Bill of Lading, "" if neither.
+7. Dates: Convert to YYYY-MM-DD format. If only month/year, use the 1st of that month.
+8. If no invoice is found at all, return an empty invoices array.
 
-Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 {
   "invoices": [
     {
-      "invoice_number": "string",
+      "invoice_number": "exact invoice number as written",
       "invoice_date": "YYYY-MM-DD or null",
-      "contract_numbers": ["array of matched contract_no values from our system"],
-      "line_items": [
-        {"color": "string", "selection": "string", "quantity": "string"}
-      ],
-      "invoice_value": "string",
+      "contract_numbers": ["contract/order numbers found — can be anything"],
+      "line_items": [{"color": "color name", "selection": "grade/type as written", "quantity": "number and unit"}],
+      "invoice_value": "numeric amount only",
       "bill_type": "Airway Bill" or "Bill of Lading" or "",
-      "bill_number": "string",
+      "bill_number": "AWB or B/L number",
       "shipping_date": "YYYY-MM-DD or null",
-      "notes": "string"
+      "notes": "any other relevant info"
     }
   ]
-}
-
-Return an empty "invoices" array if no invoices are found. Only include invoices with at least an invoice_number.`;
+}`;
 
   const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
