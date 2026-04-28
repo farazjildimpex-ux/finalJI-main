@@ -43,7 +43,16 @@ function getOAuthCreds() {
 }
 
 function buildRedirectUri(req) {
-  // Honour standard reverse-proxy headers (Replit terminates TLS upstream)
+  // Replit's Vite dev proxy rewrites the Host header to "localhost:3001" before
+  // forwarding to this server, so request headers are unreliable. Prefer the
+  // REPLIT_DOMAINS env var, which is the actual public hostname the user's
+  // browser sees. In production this still reflects the live deployment domain.
+  const replitDomain = (process.env.REPLIT_DOMAINS || '').split(',')[0].trim();
+  if (replitDomain) {
+    return `https://${replitDomain}/api/google/oauth/callback`;
+  }
+
+  // Fallback: derive from request headers (used in unit tests / non-Replit hosts)
   const protoHeader = (req.headers['x-forwarded-proto'] || '').toString().split(',')[0].trim();
   const host = (req.headers['x-forwarded-host'] || req.get('host') || '').toString();
   const protocol = protoHeader || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https');
