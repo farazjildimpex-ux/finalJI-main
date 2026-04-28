@@ -3,9 +3,22 @@ import cors from 'cors';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { initReplitSecretWatcher, refreshSecretsNow } from './replitSecrets.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Pick up Replit secrets that were added after this process started, and watch
+// for further changes — so users never need to restart the workflow after
+// editing secrets in the Replit UI.
+initReplitSecretWatcher({
+  onChange: () => {
+    // Drop any cached Google access token so the next call uses the new
+    // client_id/secret/refresh_token combo.
+    cachedAccessToken = null;
+    cachedAccessTokenExpiry = 0;
+  },
+});
 
 const app = express();
 app.use(cors());
@@ -356,7 +369,10 @@ app.get('/api/google/oauth/redirect-uri', (req, res) => {
 
 // ─── /api/gmail/test ──────────────────────────────────────────────────────
 // Reports which secrets are present (does NOT call Google).
+// Force-refreshes from the Replit secrets file first so newly-added secrets
+// are picked up immediately without restarting the workflow.
 app.get('/api/gmail/test', (_req, res) => {
+  refreshSecretsNow();
   const { clientId, clientSecret, refreshToken } = getOAuthCreds();
   if (!clientId || !clientSecret || !refreshToken) {
     return res.json({
@@ -377,6 +393,9 @@ app.get('/api/gmail/test', (_req, res) => {
 // (Path kept for backward UI compat.)
 app.get('/api/gmail/test-imap', async (_req, res) => {
   try {
+    refreshSecretsNow();
+    cachedAccessToken = null;
+    cachedAccessTokenExpiry = 0;
     const token = await getAccessToken();
     const profileResp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
       headers: { Authorization: `Bearer ${token}` },
