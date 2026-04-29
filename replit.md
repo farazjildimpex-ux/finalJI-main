@@ -28,12 +28,23 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - Firebase variables are optional (set in `.env.example` for reference)
 
 ## Architecture: Auto Invoice Sync
-- **Email Access**: Uses Gmail's official REST API with OAuth 2.0 (scope `gmail.readonly`). The app implements a self-contained OAuth flow at `/api/google/oauth/start` → Google consent → `/api/google/oauth/callback` which displays the refresh token for the user to save as a Replit secret. The server caches access tokens (1-hour TTL) and refreshes them automatically. Replit-managed Gmail connectors are paid-only, so manual OAuth was chosen.
-- **Why not App Passwords / IMAP**: Google App Passwords are unavailable on many Workspace and consumer accounts (page shows "not available for your account"). OAuth works on every Gmail/Workspace account.
-- **Redirect URI**: built dynamically from the request host (`x-forwarded-proto` + `x-forwarded-host`). Must be added verbatim to the OAuth client's "Authorized redirect URIs" list in Google Cloud — the UI exposes the exact value to copy. Add both the Replit dev domain and the production `.replit.app` domain when deployed.
-- **PDF Parsing**: pdf-parse extracts text from PDF attachments
-- **AI Extraction**: OpenRouter API (user-supplied key, stored in localStorage) analyzes email body + PDF text to extract invoice fields
-- **Data Storage**: Supabase `invoices` table, upserted by invoice number
+- **Email Access**: Uses Gmail's official REST API with OAuth 2.0 (scope `gmail.readonly`). The app implements a self-contained OAuth flow at `/api/google/oauth/start` → Google consent → `/api/google/oauth/callback` which displays the refresh token for the user to save as an env var. Access tokens (1-hour TTL) are cached and refreshed automatically. Replit-managed Gmail connectors are paid-only, so manual OAuth was chosen.
+- **Why not App Passwords / IMAP**: Google App Passwords are unavailable on many Workspace and consumer accounts. OAuth works on every Gmail/Workspace account.
+- **PDF Parsing**: `pdf-parse` v2 (`new PDFParse({ data }).getText()`) — note: v2 has a class-based API, NOT a function call.
+- **Attachment walker**: `extractFromPayload` handles forwarded emails (message/rfc822), missing `filename` fields (read from Content-Disposition header), and PDFs labelled `application/octet-stream`. Belt-and-suspenders sanitizers in `src/lib/emailSync.ts` strip header-label colors (COL/SHADE/etc.) and unit suffixes (sqft/pcs) from AI output.
+- **AI Extraction**: OpenRouter API (user-supplied key, stored in localStorage) analyzes email body + PDF text to extract invoice fields. Notes are always saved blank for manual entry.
+- **Data Storage**: Supabase `invoices` table, upserted by invoice number.
+
+## Architecture: Dual Hosting (Replit dev + Netlify production)
+The backend exists in two parallel implementations sharing identical logic:
+- **Local Replit dev**: `server/index.js` (Express on port 3001, proxied by Vite). `server/replitSecrets.js` watches `/run/replit/env/latest.json` for live secret updates without workflow restarts. Redirect URI uses `REPLIT_DOMAINS` env var.
+- **Netlify production**: `netlify/functions/*.mjs` (one file per `/api/*` endpoint). Shared logic in `netlify/functions/_lib.mjs`. Routing in `netlify.toml` maps `/api/*` → `/.netlify/functions/*`. Redirect URI uses Netlify's `URL` / `DEPLOY_PRIME_URL` env var. `pdf-parse` is marked `external_node_modules` so its `pdf.worker.mjs` worker file isn't broken by esbuild bundling. PDF-parsing functions are configured for 26s timeout (Pro tier) — on Free tier they default to 10s.
+
+### Required Netlify environment variables
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Netlify env vars take effect on next build only — must trigger a redeploy after editing them. The `/api/gmail/test` endpoint reflects this (no live watcher in production).
+
+### Required Google Cloud config for Netlify
+Add `https://<your-site>.netlify.app/api/google/oauth/callback` to the OAuth client's "Authorized redirect URIs" list. Keep the Replit dev URI listed too if you want OAuth to work locally during development.
 
 ## Running
 ```
