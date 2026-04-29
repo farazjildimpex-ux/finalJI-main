@@ -47,41 +47,24 @@ export async function analyzeEmailsWithAI(
   contracts: Contract[],
   openRouterKey: string
 ): Promise<ExtractedInvoice[]> {
-  const emailsText = emails
-    .map(
-      (e, i) =>
-        `=== EMAIL ${i + 1} ===
-Subject: ${e.subject}
-From: ${e.from}
-Date: ${e.date}
-Body:
-${e.body}
-${
-  e.attachments.length > 0
-    ? e.attachments
-        .map((a) => `--- Attachment: ${a.name} ---\n${a.text}`)
-        .join('\n')
-    : ''
-}`
-    )
-    .join('\n\n');
-
   const knownContracts = contracts.map(c => c.contract_no).join(', ') || 'none yet';
 
   const prompt = `You are a data extraction assistant for JILD IMPEX.
-Read the email bodies and PDF text below. Extract every invoice found.
+Read the email bodies and PDF text provided. Extract every invoice found.
 
 KNOWN CONTRACTS (for reference): ${knownContracts}
 
-EXTRACTION RULES:
-1. contract_numbers: This MUST be an array of strings. If an invoice belongs to multiple contracts (e.g. "CJV/001, CJV/002"), extract them as separate items in the array: ["CJV/001", "CJV/002"].
-2. Clean all contract numbers: Remove extra spaces and ensure they match the format of our known contracts.
+CRITICAL EXTRACTION RULES:
+1. contract_numbers: This MUST be a JSON array of strings. 
+   - If an invoice belongs to multiple contracts (e.g. "CJV/001 & CJV/002"), you MUST return: ["CJV/001", "CJV/002"].
+   - Even if there is only one contract, it MUST be an array: ["CJV/001"].
+2. Clean all contract numbers: Remove extra spaces, slashes, or symbols and ensure they match the format of our known contracts exactly.
 3. line_items: Extract color, selection, quantity (sqft), and pieces.
 4. invoice_value: Numeric total only.
 5. bill_type: "Airway Bill" or "Bill of Lading".
 6. notes: Always return "".
 
-Return ONLY valid JSON:
+Return ONLY valid JSON in this format:
 {
   "invoices": [
     {
@@ -98,6 +81,10 @@ Return ONLY valid JSON:
   ]
 }`;
 
+  const emailsText = emails
+    .map((e, i) => `=== EMAIL ${i + 1} ===\nSubject: ${e.subject}\nFrom: ${e.from}\nDate: ${e.date}\nBody:\n${e.body}\n${e.attachments.map(a => `--- Attachment: ${a.name} ---\n${a.text}`).join('\n')}`)
+    .join('\n\n');
+
   const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -108,7 +95,7 @@ Return ONLY valid JSON:
     },
     body: JSON.stringify({
       model: localStorage.getItem('jild_openrouter_model') || 'openai/gpt-oss-20b:free',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content: prompt + "\n\nDATA TO ANALYZE:\n" + emailsText }],
       temperature: 0.1,
     }),
   });
