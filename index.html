@@ -36,8 +36,36 @@
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((registration) => {
               console.log('SW registered');
+
+              // When a new SW is found, ask it to activate immediately so the
+              // installed PWA picks up new builds without requiring the user
+              // to fully close and reopen the app.
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                });
+              });
+
+              // Check for updates each time the PWA regains focus / starts.
+              if (document.visibilityState === 'visible') registration.update();
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') registration.update();
+              });
             })
             .catch((err) => console.warn('SW registration failed:', err));
+
+          // Reload the page exactly once when the new SW takes control,
+          // so the freshly-deployed bundle hashes are loaded from the network.
+          let reloaded = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (reloaded) return;
+            reloaded = true;
+            window.location.reload();
+          });
         });
       }
     </script>

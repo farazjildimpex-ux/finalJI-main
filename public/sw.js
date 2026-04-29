@@ -1,95 +1,138 @@
-const CACHE_NAME = 'jild-impex-v8';
-const RUNTIME_CACHE = 'jild-impex-runtime-v8';
+// JILD IMPEX service worker.
+// Strategy:
+//   - HTML navigations  → network-first, fall back to cached shell only when offline.
+//   - Hashed JS/CSS     → cache-first (immutable, content-hashed by Vite).
+//   - Other static      → stale-while-revalidate.
+// Pre-caching `/index.html` is intentionally avoided — its <script> tags point
+// at hashed bundles that disappear on every deploy, which is what caused the
+// installed PWA to launch into a blank screen after each Netlify build.
 
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/manifest.json'
+const APP_VERSION = 'v10-2026-04-29';
+const STATIC_CACHE = `jild-static-${APP_VERSION}`;
+const RUNTIME_CACHE = `jild-runtime-${APP_VERSION}`;
+
+const STATIC_ASSETS = [
+  '/manifest.json',
+  '/favicon.svg',
+  '/icon-192.png',
+  '/icon-512.png',
 ];
 
-const SKIP_CACHE_URLS = [
+const SKIP_HOSTS = [
   'supabase.co',
   'googleapis.com',
   'firebaseio.com',
   'fcm.googleapis.com',
-  'api/',
-  'functions/'
+  'openrouter.ai',
+  'generativelanguage.googleapis.com',
 ];
+const SKIP_PATHS = ['/api/', '/.netlify/'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch((err) => {
-        console.warn('SW: Some assets failed to cache', err);
-      });
-    })
+    caches.open(STATIC_CACHE)
+      .then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {}))
+      .then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    caches.keys()
+      .then((names) => Promise.all(
+        names
+          .filter((n) => n !== STATIC_CACHE && n !== RUNTIME_CACHE)
+          .map((n) => caches.delete(n))
+      ))
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-function shouldSkipCache(url) {
-  return SKIP_CACHE_URLS.some(skipUrl => url.includes(skipUrl));
+function shouldBypass(url) {
+  if (SKIP_HOSTS.some((h) => url.hostname.includes(h))) return true;
+  if (SKIP_PATHS.some((p) => url.pathname.startsWith(p))) return true;
+  return false;
 }
 
 self.addEventListener('fetch', (event) => {
-  const { request } = event;
-  const url = new URL(request.url);
+  const req = event.request;
+  if (req.method !== 'GET') return;
 
-  if (request.method !== 'GET' || shouldSkipCache(url.href)) {
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+
+  // Don't intercept cross-origin or API/auth traffic.
+  if (url.origin !== self.location.origin) return;
+  if (shouldBypass(url)) return;
+
+  const accept = req.headers.get('accept') || '';
+  const isHtml = req.mode === 'navigate' || accept.includes('text/html');
+
+  // ── HTML pages ── network-first, never serve a stale shell when online.
+  if (isHtml) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          // Save a fresh copy so offline launches still boot the SPA shell.
+          if (res && res.status === 200 && res.type === 'basic') {
+            const clone = res.clone();
+            caches.open(RUNTIME_CACHE).then((c) => c.put('/index.html', clone));
+          }
+          return res;
+        })
+        .catch(async () => {
+          const cached = await caches.match('/index.html', { cacheName: RUNTIME_CACHE });
+          if (cached) return cached;
+          return new Response(
+            '<!doctype html><html><head><meta charset="utf-8"><title>Offline</title>' +
+            '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+            '<style>body{font-family:-apple-system,sans-serif;padding:2rem;text-align:center;color:#334155}</style>' +
+            '</head><body><h2>You\'re offline</h2>' +
+            '<p>Reconnect and reopen JILD IMPEX.</p></body></html>',
+            { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          );
+        })
+    );
     return;
   }
 
-  if (request.url.includes('/assets/') || request.url.endsWith('.js') || request.url.endsWith('.css')) {
+  // ── Vite hashed bundles ── cache-first (immutable filenames).
+  if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
-      caches.match(request).then((response) => {
-        if (response) return response;
-        return fetch(request).then((response) => {
-          if (response && response.status === 200) {
-            const responseToCache = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, responseToCache);
-            });
+      caches.match(req).then((cached) => {
+        if (cached) return cached;
+        return fetch(req).then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(RUNTIME_CACHE).then((c) => c.put(req, clone));
           }
-          return response;
+          return res;
         });
-      }).catch(() => caches.match('/index.html'))
+        // Note: no HTML fallback here — returning HTML for a failed JS
+        // request causes a parse error and a blank screen.
+      })
     );
-  } else {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200 && response.type !== 'error') {
-            const responseToCache = response.clone();
-            caches.open(RUNTIME_CACHE).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return response;
-        })
-        .catch(() => {
-          return caches.match(request).then((response) => {
-            return response || caches.match('/index.html');
-          });
-        })
-    );
+    return;
   }
+
+  // ── Other static (icons, manifest, fonts) ── stale-while-revalidate.
+  event.respondWith(
+    caches.match(req).then((cached) => {
+      const networkFetch = fetch(req)
+        .then((res) => {
+          if (res && res.status === 200) {
+            const clone = res.clone();
+            caches.open(RUNTIME_CACHE).then((c) => c.put(req, clone));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || networkFetch;
+    })
+  );
 });
 
+// ── Push notifications (unchanged) ─────────────────────────────────────
 self.addEventListener('push', (event) => {
   if (!event.data) return;
   let data = {};
@@ -104,7 +147,6 @@ self.addEventListener('push', (event) => {
     tag: data.data?.tag || 'jild-notification',
     data: { url: targetUrl, ...data.data },
     requireInteraction: false,
-    // No actions — keeps notification clean and avoids Chrome's "Unsubscribe" row
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -116,7 +158,6 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Navigate any existing window (PWA standalone or browser tab)
       for (const client of clientList) {
         if ('navigate' in client && 'focus' in client) {
           return client.navigate(targetUrl).then((c) => c ? c.focus() : client.focus());
@@ -125,12 +166,6 @@ self.addEventListener('notificationclick', (event) => {
       return clients.openWindow(targetUrl);
     })
   );
-});
-
-self.addEventListener('sync', (event) => {
-  if (event.tag === 'sync-data') {
-    event.waitUntil(Promise.resolve());
-  }
 });
 
 self.addEventListener('message', (event) => {
