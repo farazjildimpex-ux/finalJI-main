@@ -13,7 +13,7 @@ export interface ExtractedInvoice {
   invoice_number: string;
   invoice_date: string | null;
   contract_numbers: string[];
-  line_items: { color: string; selection: string; quantity: string }[];
+  line_items: { color: string; selection: string; quantity: string; pieces: string }[];
   invoice_value: string;
   bill_type: 'Airway Bill' | 'Bill of Lading' | '';
   bill_number: string;
@@ -29,10 +29,10 @@ export interface SyncResult {
   invoice: ExtractedInvoice;
 }
 
-export async function fetchZohoEmails(): Promise<{ emails: EmailData[]; total: number }> {
-  const resp = await fetch('/api/zoho/emails');
+export async function fetchGmailEmails(): Promise<{ emails: EmailData[]; total: number }> {
+  const resp = await fetch('/api/gmail/emails');
   if (!resp.ok) {
-    let errMsg = 'Failed to fetch emails from Zoho';
+    let errMsg = 'Failed to fetch emails from Gmail';
     try {
       const err = await resp.json();
       errMsg = err.error || errMsg;
@@ -77,46 +77,48 @@ ${
     )
     .join('\n\n');
 
-  const prompt = `You are an AI data extraction assistant for JILD IMPEX, a leather import/export company based in Chennai, India. Your task is to extract invoice and shipping information from emails.
+  const knownContracts = contractsContext.map(c => c.contract_no).join(', ') || 'none yet';
 
-CONTRACTS IN OUR SYSTEM (use these to match contract numbers):
-${JSON.stringify(contractsContext, null, 2)}
+  const prompt = `You are a data extraction assistant for JILD IMPEX, a leather import/export company in Chennai, India.
 
-EMAILS TO ANALYZE:
+YOUR JOB: Read the email bodies and PDF attachment text below. Extract every invoice you find. ALWAYS extract an invoice if you see any invoice number, regardless of whether a contract number matches our system.
+
+KNOWN CONTRACT NUMBERS IN OUR SYSTEM (for reference only — do not skip invoices if they don't match):
+${knownContracts}
+
+EMAILS AND ATTACHMENTS TO ANALYZE:
 ${emailsText}
 
-INSTRUCTIONS:
-1. Find all invoices mentioned across all emails and attachments.
-2. For each invoice, match it to the correct contract_no from our system. Contract numbers typically appear on invoices/emails explicitly. Match exactly as in our system.
-3. Extract line items: for each color/shade, extract its grade/selection (e.g., First, Second, AB, BC) and quantity in sqft.
-4. Look for Airway Bill (AWB) or Bill of Lading (BL/BOL) numbers and their dates.
-5. An AWB/BL in an email can be linked to the invoice mentioned in the same email or attachment.
-6. "selection" is the leather grade (First, Second, Third, AB, BC, etc.).
-7. Quantities are in square feet (sqft). Extract only the numeric value.
-8. invoice_value should be numeric only (no currency symbols).
-9. Dates must be in YYYY-MM-DD format or null.
-10. If the same invoice appears in multiple emails, merge the information and prefer the most complete data.
+EXTRACTION RULES:
+1. ALWAYS extract an invoice if you can find any invoice number (INV, Invoice No, Commercial Invoice, etc.).
+2. contract_numbers: Look for any contract/order/PO number mentioned alongside the invoice. It may appear as "Contract No", "CJV", "Order No", "PO No", etc. Extract whatever is written — even if it's not in our system list.
+3. line_items: Extract leather colors/shades with their grades, square footage AND piece count from the DATA ROWS of the invoice table — NOT from the column headers.
+   - "color": the ACTUAL colour name as written in the data row (e.g. "Beige", "Tan", "Dark Brown", "Cognac", "Black", "Olive"). NEVER output column-header abbreviations like "COL", "COLOR", "SHADE", "DESCRIPTION", "ITEM" — those are header labels, not data. If the data row is genuinely blank, leave color as "" — do NOT invent a value or copy the header.
+   - "selection": grade as written (TR, TRR, First, Second, AB, BC, A/B, etc.).
+   - "quantity": ONLY the numeric square-footage value, no units. The UI already appends "sqft". Examples: "10848.70", "1666". Never "10848.70 sqft". Strip commas (e.g. "10,848.70" → "10848.70").
+   - "pieces": ONLY the integer count of leather pieces/skins for this row, no units. Look for columns labelled "Pieces", "Pcs", "Nos", "No. of Pieces", "Qty (Pcs)", "Skins", or similar. Examples: "1666", "240". Never "1666 pcs" or "240 nos". Strip commas. If the invoice does not list a piece count for this row, leave it as "".
+5. invoice_value: Extract the total amount as a number string. No currency symbols.
+6. bill_type: "Airway Bill" if you see AWB/Airway Bill, "Bill of Lading" if you see B/L or Bill of Lading, "" if neither.
+7. Dates: Convert to YYYY-MM-DD format. If only month/year, use the 1st of that month.
+8. notes: ALWAYS return an empty string "". The user fills this manually. Do NOT add summaries, observations, or "any other info".
+9. If no invoice is found at all, return an empty invoices array.
 
-Return ONLY a valid JSON object in this exact format (no markdown, no code blocks):
+Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 {
   "invoices": [
     {
-      "invoice_number": "string",
+      "invoice_number": "exact invoice number as written",
       "invoice_date": "YYYY-MM-DD or null",
-      "contract_numbers": ["array of matched contract_no values from our system"],
-      "line_items": [
-        {"color": "string", "selection": "string", "quantity": "string"}
-      ],
-      "invoice_value": "string",
+      "contract_numbers": ["contract/order numbers found — can be anything"],
+      "line_items": [{"color": "color name", "selection": "grade/type as written", "quantity": "sqft number only", "pieces": "piece count integer or empty"}],
+      "invoice_value": "numeric amount only",
       "bill_type": "Airway Bill" or "Bill of Lading" or "",
-      "bill_number": "string",
+      "bill_number": "AWB or B/L number",
       "shipping_date": "YYYY-MM-DD or null",
-      "notes": "string"
+      "notes": ""
     }
   ]
-}
-
-Return an empty "invoices" array if no invoices are found. Only include invoices with at least an invoice_number.`;
+}`;
 
   const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -183,19 +185,48 @@ export async function upsertInvoices(
 
       if (fetchErr) throw fetchErr;
 
+      const HEADER_LABELS = new Set(['col', 'color', 'colour', 'shade', 'description', 'item', 'sl', 'sl no', 'sr no', 's.no']);
+      const sanitizeColor = (raw: string) => {
+        const v = (raw || '').trim();
+        if (!v) return '';
+        return HEADER_LABELS.has(v.toLowerCase()) ? '' : v;
+      };
+      const sanitizeQty = (raw: string) =>
+        (raw || '')
+          .toString()
+          .replace(/,/g, '')
+          .replace(/\b(sq\.?\s*ft\.?|square\s*feet|sqft|pcs?|nos|pieces?|skins?)\b/gi, '')
+          .trim();
+      const sanitizePieces = (raw: string) => {
+        const cleaned = (raw || '')
+          .toString()
+          .replace(/,/g, '')
+          .replace(/\b(pcs?|nos|pieces?|skins?|qty)\b/gi, '')
+          .trim();
+        const m = cleaned.match(/-?\d+(?:\.\d+)?/);
+        return m ? m[0] : '';
+      };
+
+      const cleanedLineItems = (inv.line_items || [])
+        .map((i) => ({
+          color: sanitizeColor(i.color),
+          selection: (i.selection || '').trim(),
+          quantity: sanitizeQty(i.quantity),
+          pieces: sanitizePieces((i as any).pieces),
+        }))
+        .filter((i) => i.color || i.selection || i.quantity || i.pieces);
+
       const payload: Partial<Invoice> & { user_id: string } = {
         user_id: userId,
         invoice_number: inv.invoice_number.trim(),
         invoice_date: inv.invoice_date || null,
         contract_numbers: (inv.contract_numbers || []).filter((c) => c.trim()),
-        line_items: (inv.line_items || []).filter(
-          (i) => i.color || i.selection || i.quantity
-        ),
+        line_items: cleanedLineItems,
         invoice_value: inv.invoice_value || '',
         bill_type: (inv.bill_type as Invoice['bill_type']) || '',
         bill_number: inv.bill_number || '',
         shipping_date: inv.shipping_date || null,
-        notes: inv.notes || '',
+        notes: '',
         price_adjustment: '',
       };
 
@@ -236,7 +267,7 @@ export async function upsertInvoices(
 }
 
 export async function runEmailSync(openRouterKey: string): Promise<SyncResult[]> {
-  const { emails } = await fetchZohoEmails();
+  const { emails } = await fetchGmailEmails();
   if (emails.length === 0) return [];
 
   const { data: contracts } = await supabase.from('contracts').select('*');

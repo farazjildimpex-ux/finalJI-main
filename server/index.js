@@ -3,112 +3,60 @@ import cors from 'cors';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { initReplitSecretWatcher, refreshSecretsNow } from './replitSecrets.js';
 
 const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Pick up Replit secrets that were added after this process started, and watch
+// for further changes — so users never need to restart the workflow after
+// editing secrets in the Replit UI.
+initReplitSecretWatcher({
+  onChange: () => {
+    // Drop any cached Google access token so the next call uses the new
+    // client_id/secret/refresh_token combo.
+    cachedAccessToken = null;
+    cachedAccessTokenExpiry = 0;
+  },
+});
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// In production, serve the built Vite frontend from /dist
 const isProd = process.env.NODE_ENV === 'production';
 if (isProd) {
   const distPath = path.join(__dirname, '..', 'dist');
   app.use(express.static(distPath));
 }
 
-// In production use PORT env var (Replit deployment), in dev use 3001
 const PORT = isProd ? (process.env.PORT || 3000) : 3001;
 
-// Region-aware Zoho base URLs
-// Supported: com (US/global), in (India), eu (Europe), com.au (Australia), jp (Japan)
-function zohoAuthBase(region = 'com') {
-  return `https://accounts.zoho.${region}/oauth/v2/token`;
-}
-function zohoMailBase(region = 'com') {
-  return `https://mail.zoho.${region}/api`;
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+
+function getOAuthCreds() {
+  return {
+    clientId: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
+    refreshToken: (process.env.GOOGLE_REFRESH_TOKEN || '').trim(),
+  };
 }
 
-async function refreshZohoToken() {
-  const { ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, ZOHO_REFRESH_TOKEN, ZOHO_REGION } = process.env;
-  if (!ZOHO_CLIENT_ID || !ZOHO_CLIENT_SECRET || !ZOHO_REFRESH_TOKEN) {
-    throw new Error('ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, and ZOHO_REFRESH_TOKEN must be set as secrets.');
+function buildRedirectUri(req) {
+  // Replit's Vite dev proxy rewrites the Host header to "localhost:3001" before
+  // forwarding to this server, so request headers are unreliable. Prefer the
+  // REPLIT_DOMAINS env var, which is the actual public hostname the user's
+  // browser sees. In production this still reflects the live deployment domain.
+  const replitDomain = (process.env.REPLIT_DOMAINS || '').split(',')[0].trim();
+  if (replitDomain) {
+    return `https://${replitDomain}/api/google/oauth/callback`;
   }
 
-  const region = ZOHO_REGION || 'com';
-  const params = new URLSearchParams({
-    refresh_token: ZOHO_REFRESH_TOKEN,
-    client_id: ZOHO_CLIENT_ID,
-    client_secret: ZOHO_CLIENT_SECRET,
-    grant_type: 'refresh_token',
-  });
-
-  const resp = await fetch(zohoAuthBase(region), {
-    method: 'POST',
-    body: params,
-  });
-
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Zoho token refresh failed: ${text}`);
-  }
-
-  const data = await resp.json();
-  if (!data.access_token) throw new Error(`No access token returned: ${JSON.stringify(data)}`);
-  return data.access_token;
-}
-
-async function getAccountId(accessToken) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const resp = await fetch(`${zohoMailBase(region)}/accounts`, {
-    headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-  });
-  if (!resp.ok) throw new Error(`Failed to get Zoho accounts: ${await resp.text()}`);
-  const data = await resp.json();
-  const accounts = data.data;
-  if (!accounts || accounts.length === 0) throw new Error('No Zoho Mail accounts found.');
-  return accounts[0].accountId;
-}
-
-async function getRecentMessages(accessToken, accountId) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-
-  const url = `${zohoMailBase(region)}/accounts/${accountId}/messages/view?limit=100&start=1`;
-  const resp = await fetch(url, {
-    headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-  });
-  if (!resp.ok) throw new Error(`Failed to fetch messages: ${await resp.text()}`);
-  const data = await resp.json();
-  const messages = data.data || [];
-
-  return messages.filter((msg) => {
-    const ts = parseInt(msg.receivedTime, 10);
-    return ts >= sevenDaysAgo;
-  });
-}
-
-async function getMessageContent(accessToken, accountId, folderId, messageId) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const resp = await fetch(
-    `${zohoMailBase(region)}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/content`,
-    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-  );
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  return data.data || null;
-}
-
-async function getAttachmentBuffer(accessToken, accountId, folderId, messageId, storeName) {
-  const region = process.env.ZOHO_REGION || 'com';
-  const resp = await fetch(
-    `${zohoMailBase(region)}/accounts/${accountId}/folders/${folderId}/messages/${messageId}/attachments/${storeName}`,
-    { headers: { Authorization: `Zoho-oauthtoken ${accessToken}` } }
-  );
-  if (!resp.ok) return null;
-  const arrayBuf = await resp.arrayBuffer();
-  return Buffer.from(arrayBuf);
+  // Fallback: derive from request headers (used in unit tests / non-Replit hosts)
+  const protoHeader = (req.headers['x-forwarded-proto'] || '').toString().split(',')[0].trim();
+  const host = (req.headers['x-forwarded-host'] || req.get('host') || '').toString();
+  const protocol = protoHeader || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https');
+  return `${protocol}://${host}/api/google/oauth/callback`;
 }
 
 function stripHtml(html) {
@@ -120,161 +68,437 @@ function stripHtml(html) {
     .trim();
 }
 
-app.get('/api/zoho/emails', async (req, res) => {
-  try {
-    const accessToken = await refreshZohoToken();
-    const accountId = await getAccountId(accessToken);
-    const messages = await getRecentMessages(accessToken, accountId);
+// ─── Access-token cache (Google issues 1-hour tokens) ──────────────────────
+let cachedAccessToken = null;
+let cachedAccessTokenExpiry = 0;
 
-    const emailsWithContent = [];
+async function getAccessToken() {
+  const { clientId, clientSecret, refreshToken } = getOAuthCreds();
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(
+      'Google OAuth is not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN in Replit Secrets.'
+    );
+  }
+  if (cachedAccessToken && Date.now() < cachedAccessTokenExpiry) return cachedAccessToken;
 
-    for (const msg of messages.slice(0, 30)) {
-      try {
-        const content = await getMessageContent(accessToken, accountId, msg.folderId, msg.messageId);
-        if (!content) continue;
+  const resp = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    cachedAccessToken = null;
+    throw new Error(`Google token refresh failed (${resp.status}): ${text}`);
+  }
+  const data = await resp.json();
+  cachedAccessToken = data.access_token;
+  cachedAccessTokenExpiry = Date.now() + ((data.expires_in || 3600) - 300) * 1000;
+  return cachedAccessToken;
+}
 
-        const bodyHtml = content.content || '';
-        const bodyText = stripHtml(bodyHtml);
+async function gmailFetch(url) {
+  const token = await getAccessToken();
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Gmail API error (${resp.status}): ${text}`);
+  }
+  return resp.json();
+}
 
-        const emailData = {
-          subject: msg.subject || '',
-          from: msg.fromAddress || '',
-          date: msg.receivedTime ? new Date(parseInt(msg.receivedTime, 10)).toISOString() : '',
-          body: bodyText.slice(0, 8000),
-          attachments: [],
-        };
+// ─── Walk a Gmail message payload tree to extract body + attachments ───────
+// Robust against forwarded messages (message/rfc822 wrappers), missing
+// `filename` fields (read from Content-Disposition header instead), and
+// PDFs that arrive as application/octet-stream.
+function extractFromPayload(payload) {
+  let bodyText = '';
+  let bodyHtml = '';
+  const attachments = [];
 
-        if (content.attachments && Array.isArray(content.attachments)) {
-          for (const att of content.attachments) {
-            const mimeType = (att.mimeType || '').toLowerCase();
-            const name = att.attachmentName || '';
+  function getPartHeader(part, name) {
+    const h = (part.headers || []).find(
+      (x) => (x.name || '').toLowerCase() === name.toLowerCase()
+    );
+    return h?.value || '';
+  }
 
-            if (mimeType === 'application/pdf' || name.toLowerCase().endsWith('.pdf')) {
-              try {
-                const buf = await getAttachmentBuffer(
-                  accessToken, accountId, msg.folderId, msg.messageId, att.storeName || att.attachmentId
-                );
-                if (buf) {
-                  const pdfParse = require('pdf-parse');
-                  const pdfData = await pdfParse(buf);
-                  emailData.attachments.push({
-                    name,
-                    text: (pdfData.text || '').slice(0, 6000),
-                    type: 'pdf',
-                  });
-                }
-              } catch (pdfErr) {
-                console.error('PDF parse error for', name, pdfErr.message);
-              }
-            } else if (mimeType.startsWith('text/')) {
-              try {
-                const buf = await getAttachmentBuffer(
-                  accessToken, accountId, msg.folderId, msg.messageId, att.storeName || att.attachmentId
-                );
-                if (buf) {
-                  emailData.attachments.push({
-                    name,
-                    text: buf.toString('utf8').slice(0, 4000),
-                    type: 'text',
-                  });
-                }
-              } catch {}
-            }
-          }
-        }
+  function filenameFromHeaders(part) {
+    // RFC 2183: Content-Disposition: attachment; filename="foo.pdf"
+    const disp = getPartHeader(part, 'Content-Disposition');
+    let m = disp.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    if (m) return decodeURIComponent(m[1].trim());
+    // RFC 2045: Content-Type: application/pdf; name="foo.pdf"
+    const ctype = getPartHeader(part, 'Content-Type');
+    m = ctype.match(/name\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+    if (m) return decodeURIComponent(m[1].trim());
+    return '';
+  }
 
-        const hasContent =
-          emailData.body.length > 10 ||
-          emailData.attachments.length > 0;
+  function walk(part) {
+    if (!part) return;
+    const mime = (part.mimeType || '').toLowerCase();
+    const filename = part.filename || filenameFromHeaders(part);
 
-        if (hasContent) {
-          emailsWithContent.push(emailData);
-        }
-      } catch (msgErr) {
-        console.error('Error processing message', msg.messageId, msgErr.message);
-      }
+    // Treat as attachment if Gmail gave us an attachmentId — even when filename
+    // is missing or mimeType is generic (octet-stream is common for PDFs).
+    if (part.body?.attachmentId) {
+      attachments.push({
+        attachmentId: part.body.attachmentId,
+        filename: filename || `attachment-${attachments.length + 1}`,
+        mimeType: mime,
+        size: part.body.size || 0,
+      });
+    } else if (part.body?.data) {
+      const decoded = Buffer.from(part.body.data, 'base64url').toString('utf8');
+      if (mime === 'text/plain') bodyText = bodyText || decoded;
+      else if (mime === 'text/html') bodyHtml = bodyHtml || decoded;
     }
+    if (part.parts) part.parts.forEach(walk);
+  }
 
-    res.json({ emails: emailsWithContent, total: messages.length });
-  } catch (error) {
-    console.error('Zoho error:', error);
-    res.status(500).json({ error: error.message });
+  walk(payload);
+  const body = bodyText || stripHtml(bodyHtml);
+  return { body, attachments };
+}
+
+// Decide whether an attachment is something we can pass to the AI (PDF or text).
+function isUsableAttachment(att) {
+  const mime = (att.mimeType || '').toLowerCase();
+  const name = (att.filename || '').toLowerCase();
+  if (mime === 'application/pdf' || name.endsWith('.pdf')) return 'pdf';
+  if (mime.startsWith('text/') || name.endsWith('.txt') || name.endsWith('.csv')) return 'text';
+  // Gmail sometimes labels PDFs as octet-stream — trust the extension
+  if (mime === 'application/octet-stream' && name.endsWith('.pdf')) return 'pdf';
+  return null;
+}
+
+function getHeader(headers, name) {
+  const h = (headers || []).find((x) => (x.name || '').toLowerCase() === name.toLowerCase());
+  return h?.value || '';
+}
+
+async function fetchGmailEmailsViaAPI() {
+  // Search for messages with attachments from last 7 days
+  const query = encodeURIComponent('has:attachment newer_than:7d');
+  const list = await gmailFetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=30`
+  );
+  const messages = list.messages || [];
+  console.log(`Gmail API: found ${messages.length} messages with attachments in last 7 days`);
+
+  const emails = [];
+  const { PDFParse } = require('pdf-parse');
+
+  for (const m of messages) {
+    try {
+      const msg = await gmailFetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`
+      );
+      const headers = msg.payload?.headers || [];
+      const { body, attachments } = extractFromPayload(msg.payload);
+
+      const emailData = {
+        subject: getHeader(headers, 'Subject'),
+        from: getHeader(headers, 'From'),
+        date: new Date(parseInt(msg.internalDate || '0', 10) || Date.now()).toISOString(),
+        body: (body || '').slice(0, 8000),
+        attachments: [],
+      };
+
+      console.log(`  Email "${emailData.subject}" → ${attachments.length} attachment(s):`,
+        attachments.map((a) => `${a.filename} (${a.mimeType}, ${a.size}b)`).join(', ') || 'none');
+
+      for (const att of attachments) {
+        const kind = isUsableAttachment(att);
+        if (!kind) {
+          console.log(`  ⊗ Skipped "${att.filename}" — unsupported type ${att.mimeType}`);
+          continue;
+        }
+
+        try {
+          const attResp = await gmailFetch(
+            `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}/attachments/${att.attachmentId}`
+          );
+          const buf = Buffer.from(attResp.data, 'base64url');
+
+          if (kind === 'pdf' && buf.length > 100) {
+            const parser = new PDFParse({ data: buf });
+            const pdf = await parser.getText();
+            const text = (pdf.text || '').trim();
+            console.log(`  ✓ PDF parsed: ${text.length} chars from "${att.filename}"`);
+            if (text.length > 10) {
+              emailData.attachments.push({
+                name: att.filename,
+                text: text.slice(0, 8000),
+                type: 'pdf',
+              });
+            }
+          } else if (kind === 'text') {
+            emailData.attachments.push({
+              name: att.filename,
+              text: buf.toString('utf8').slice(0, 4000),
+              type: 'text',
+            });
+          }
+        } catch (attErr) {
+          console.error(`  Attachment fetch error for "${att.filename}":`, attErr.message);
+        }
+      }
+
+      if (emailData.body.length > 10 || emailData.attachments.length > 0) {
+        emails.push(emailData);
+      }
+    } catch (msgErr) {
+      console.error('Gmail API message error for', m.id, msgErr.message);
+    }
+  }
+
+  return { emails };
+}
+
+// ─── Helpers for the OAuth callback HTML ───────────────────────────────────
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function renderSuccessPage(refreshToken) {
+  const token = escapeHtml(refreshToken);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gmail connected!</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 16px; background: #f9fafb; color: #1f2937; }
+  .card { background: #fff; border-radius: 24px; padding: 28px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .check { font-size: 44px; margin-bottom: 4px; }
+  h1 { font-size: 22px; margin: 0 0 6px; color: #047857; }
+  p.lead { color: #4b5563; margin: 0 0 18px; }
+  .secret { background: #f3f4f6; padding: 14px; border-radius: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; word-break: break-all; margin: 10px 0 4px; border: 1px solid #e5e7eb; user-select: all; }
+  button { background: #7c3aed; color: white; border: none; padding: 10px 18px; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 13px; }
+  button:hover { background: #6d28d9; }
+  button.copied { background: #059669; }
+  .step { display: flex; gap: 12px; margin: 14px 0; align-items: flex-start; }
+  .num { background: #7c3aed; color: white; border-radius: 999px; min-width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 11px; flex-shrink: 0; }
+  code { background: #ede9fe; color: #5b21b6; padding: 2px 6px; border-radius: 6px; font-size: 12px; font-family: ui-monospace, monospace; font-weight: 600; }
+  .footer { color: #6b7280; font-size: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e5e7eb; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="check">✅</div>
+    <h1>Gmail connected!</h1>
+    <p class="lead">Save the refresh token below as a Replit secret — that's the last step.</p>
+
+    <div class="step">
+      <span class="num">1</span>
+      <div style="flex:1">
+        <strong>Copy your refresh token</strong>
+        <div class="secret" id="token">${token}</div>
+        <button onclick="copyToken()" id="copyBtn">📋 Copy refresh token</button>
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="num">2</span>
+      <div>In your app, click the <strong>🔒 Secrets</strong> icon in the left sidebar and add a new secret:<br>
+        <div style="margin-top:6px"><code>GOOGLE_REFRESH_TOKEN</code> = <em>paste the token above</em></div>
+      </div>
+    </div>
+
+    <div class="step">
+      <span class="num">3</span>
+      <div>Close this tab. Back in the app, click <strong>"Test Gmail Connection"</strong>. You're done!</div>
+    </div>
+
+    <p class="footer">This token never expires. The app will use it to read your Gmail messages from the last 7 days when you click <strong>Sync Now</strong>. Revoke any time at <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>.</p>
+  </div>
+  <script>
+    function copyToken() {
+      const text = document.getElementById('token').innerText;
+      navigator.clipboard.writeText(text).then(function() {
+        const b = document.getElementById('copyBtn');
+        b.innerText = '✓ Copied!';
+        b.classList.add('copied');
+        setTimeout(function(){ b.innerText = '📋 Copy refresh token'; b.classList.remove('copied'); }, 2200);
+      });
+    }
+  </script>
+</body>
+</html>`;
+}
+
+function renderErrorPage(title, detail) {
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
+<style>body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:20px;color:#1f2937}
+.card{background:#fef2f2;border:1px solid #fecaca;border-radius:16px;padding:20px}
+h1{color:#b91c1c;margin:0 0 8px;font-size:20px}
+pre{background:#fff;border:1px solid #e5e7eb;padding:12px;border-radius:8px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:break-word}</style>
+</head><body><div class="card"><h1>${escapeHtml(title)}</h1><pre>${escapeHtml(detail)}</pre><p>Close this tab and try again.</p></div></body></html>`;
+}
+
+// ─── /api/google/oauth/start ──────────────────────────────────────────────
+// Redirects to Google's consent screen.
+app.get('/api/google/oauth/start', (req, res) => {
+  const { clientId } = getOAuthCreds();
+  if (!clientId) {
+    return res.status(400).send(renderErrorPage('Missing GOOGLE_CLIENT_ID',
+      'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Replit Secrets, then try again.'));
+  }
+  const redirectUri = buildRedirectUri(req);
+  const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+  url.searchParams.set('client_id', clientId);
+  url.searchParams.set('redirect_uri', redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', GMAIL_SCOPE);
+  url.searchParams.set('access_type', 'offline');
+  url.searchParams.set('prompt', 'consent');
+  url.searchParams.set('include_granted_scopes', 'true');
+  res.redirect(url.toString());
+});
+
+// ─── /api/google/oauth/callback ───────────────────────────────────────────
+// Google redirects here with ?code=... — exchange for refresh_token, render success page.
+app.get('/api/google/oauth/callback', async (req, res) => {
+  const { code, error } = req.query;
+  if (error) return res.status(400).send(renderErrorPage('Google sign-in cancelled', String(error)));
+  if (!code) return res.status(400).send(renderErrorPage('Missing code parameter', 'No authorization code returned by Google.'));
+
+  const { clientId, clientSecret } = getOAuthCreds();
+  if (!clientId || !clientSecret) {
+    return res.status(400).send(renderErrorPage(
+      'OAuth credentials missing',
+      'GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET are not set in Replit Secrets.'
+    ));
+  }
+
+  const redirectUri = buildRedirectUri(req);
+  try {
+    const resp = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'content-type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const text = await resp.text();
+    if (!resp.ok) {
+      return res.status(500).send(renderErrorPage(`Token exchange failed (${resp.status})`, text));
+    }
+    const data = JSON.parse(text);
+    if (!data.refresh_token) {
+      return res.status(500).send(renderErrorPage(
+        'No refresh token returned',
+        'Google only issues a refresh token on the FIRST consent. Revoke this app at https://myaccount.google.com/permissions, then try again.'
+      ));
+    }
+    res.send(renderSuccessPage(data.refresh_token));
+  } catch (err) {
+    res.status(500).send(renderErrorPage('Unexpected error', err.message));
   }
 });
 
-// Exchange a Zoho authorization code for a refresh token (one-time setup)
-app.post('/api/zoho/exchange-token', async (req, res) => {
+// ─── /api/google/oauth/redirect-uri ───────────────────────────────────────
+// Returns the exact redirect URI the UI must show the user to add in Google Cloud.
+app.get('/api/google/oauth/redirect-uri', (req, res) => {
+  res.json({ redirectUri: buildRedirectUri(req) });
+});
+
+// ─── /api/gmail/test ──────────────────────────────────────────────────────
+// Reports which secrets are present (does NOT call Google).
+// Force-refreshes from the Replit secrets file first so newly-added secrets
+// are picked up immediately without restarting the workflow.
+app.get('/api/gmail/test', (_req, res) => {
+  refreshSecretsNow();
+  const { clientId, clientSecret, refreshToken } = getOAuthCreds();
+  if (!clientId || !clientSecret || !refreshToken) {
+    return res.json({
+      connected: false,
+      reason: 'missing_secrets',
+      missing: {
+        GOOGLE_CLIENT_ID: !clientId,
+        GOOGLE_CLIENT_SECRET: !clientSecret,
+        GOOGLE_REFRESH_TOKEN: !refreshToken,
+      },
+    });
+  }
+  res.json({ connected: true });
+});
+
+// ─── /api/gmail/test-imap ─────────────────────────────────────────────────
+// Actually calls Google to verify credentials and count last-7-days mail.
+// (Path kept for backward UI compat.)
+app.get('/api/gmail/test-imap', async (_req, res) => {
   try {
-    const { client_id, client_secret, code, region } = req.body || {};
-    if (!client_id || !client_secret || !code) {
-      return res.status(400).json({ error: 'client_id, client_secret, and code are required.' });
-    }
-
-    const safeRegion = (region || 'com').replace(/[^a-z.]/g, '');
-    const tokenUrl = zohoAuthBase(safeRegion);
-
-    // Self Client does NOT use a redirect_uri — omitting it is required
-    const params = new URLSearchParams({
-      code: code.trim(),
-      client_id: client_id.trim(),
-      client_secret: client_secret.trim(),
-      grant_type: 'authorization_code',
+    refreshSecretsNow();
+    cachedAccessToken = null;
+    cachedAccessTokenExpiry = 0;
+    const token = await getAccessToken();
+    const profileResp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/profile', {
+      headers: { Authorization: `Bearer ${token}` },
     });
-
-    const resp = await fetch(tokenUrl, {
-      method: 'POST',
-      body: params,
-    });
-
-    const data = await resp.json();
-
-    if (!data.refresh_token) {
-      return res.status(400).json({
-        error: data.error_description || data.error || 'No refresh token returned. The code may have expired — generate a new one.',
-        raw: data,
-      });
+    if (!profileResp.ok) {
+      const t = await profileResp.text();
+      return res.json({ ok: false, error: `Gmail API error (${profileResp.status}): ${t}` });
     }
+    const profile = await profileResp.json();
 
-    res.json({ refresh_token: data.refresh_token, region: safeRegion });
+    const query = encodeURIComponent('has:attachment newer_than:7d');
+    const list = await gmailFetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=100`
+    );
+    const count = (list.messages || []).length;
+
+    res.json({ ok: true, email: profile.emailAddress, messagesLast7Days: count });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+// ─── /api/gmail/emails ────────────────────────────────────────────────────
+app.get('/api/gmail/emails', async (_req, res) => {
+  try {
+    const result = await fetchGmailEmailsViaAPI();
+    res.json({ ...result, total: result.emails.length });
+  } catch (err) {
+    console.error('Gmail email fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── /api/gmail/debug-emails ──────────────────────────────────────────────
+app.get('/api/gmail/debug-emails', async (_req, res) => {
+  try {
+    const { emails } = await fetchGmailEmailsViaAPI();
+    res.json({
+      total: emails.length,
+      emails: emails.map((e) => ({
+        subject: e.subject,
+        from: e.from,
+        date: e.date,
+        bodyLength: e.body.length,
+        attachments: e.attachments.map((a) => ({ name: a.name, type: a.type, chars: a.text.length })),
+      })),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Test if Zoho credentials are working
-app.get('/api/zoho/test', async (req, res) => {
-  try {
-    if (!process.env.ZOHO_CLIENT_ID || !process.env.ZOHO_CLIENT_SECRET || !process.env.ZOHO_REFRESH_TOKEN) {
-      return res.status(200).json({
-        connected: false,
-        reason: 'missing_secrets',
-        message: 'ZOHO_CLIENT_ID, ZOHO_CLIENT_SECRET, or ZOHO_REFRESH_TOKEN not set in Replit Secrets.',
-      });
-    }
-
-    const accessToken = await refreshZohoToken();
-    const accountId = await getAccountId(accessToken);
-
-    // Get a basic account info
-    const resp = await fetch(`https://mail.zoho.com/api/accounts/${accountId}`, {
-      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
-    });
-    const data = await resp.json();
-    const account = data.data || {};
-
-    res.json({
-      connected: true,
-      email: account.emailAddress || account.sendMailDetails?.[0]?.fromAddress || 'Connected',
-      accountId,
-    });
-  } catch (err) {
-    res.status(200).json({ connected: false, reason: 'error', message: err.message });
-  }
-});
-
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
-// Catch-all: serve React frontend for any non-API route (client-side routing)
 if (isProd) {
   app.get('*', (_req, res) => {
     res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));

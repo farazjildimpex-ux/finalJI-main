@@ -1,0 +1,64 @@
+# Netlify build & functions configuration for JILD IMPEX Office App.
+# Frontend: Vite static build → /dist
+# Backend:  Netlify Functions in /netlify/functions, exposed under /api/*
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[functions]
+  node_bundler = "esbuild"
+  # pdf-parse ships a worker file (pdf.worker.mjs) that esbuild can't bundle
+  # cleanly. Mark it external so Netlify resolves it from node_modules at runtime.
+  external_node_modules = ["pdf-parse"]
+
+# ─── API routing ──────────────────────────────────────────────────────────
+# Map every /api/* path the frontend calls to its Netlify Function.
+# Status 200 = rewrite (URL doesn't change in the browser); status 301/302 = redirect.
+
+[[redirects]]
+  from = "/api/google/oauth/start"
+  to = "/.netlify/functions/google-oauth-start"
+  status = 200
+
+[[redirects]]
+  from = "/api/google/oauth/callback"
+  to = "/.netlify/functions/google-oauth-callback"
+  status = 200
+
+[[redirects]]
+  from = "/api/google/oauth/redirect-uri"
+  to = "/.netlify/functions/google-oauth-redirect-uri"
+  status = 200
+
+[[redirects]]
+  from = "/api/gmail/test"
+  to = "/.netlify/functions/gmail-test"
+  status = 200
+
+[[redirects]]
+  from = "/api/gmail/test-imap"
+  to = "/.netlify/functions/gmail-test-imap"
+  status = 200
+
+[[redirects]]
+  from = "/api/gmail/emails"
+  to = "/.netlify/functions/gmail-emails"
+  status = 200
+
+[[redirects]]
+  from = "/api/gmail/debug-emails"
+  to = "/.netlify/functions/gmail-debug-emails"
+  status = 200
+
+# ─── SPA fallback ─────────────────────────────────────────────────────────
+# Anything that isn't an API call or a real file should serve index.html so
+# react-router can take over. This MUST be the last redirect.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

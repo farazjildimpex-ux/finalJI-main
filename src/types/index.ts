@@ -227,6 +227,7 @@ export interface InvoiceLineItem {
   color: string;
   selection: string;
   quantity: string;
+  pieces: string;
 }
 
 export interface Invoice {
