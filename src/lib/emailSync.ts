@@ -30,11 +30,9 @@ export interface SyncResult {
 }
 
 export async function fetchGmailEmails(): Promise<{ emails: EmailData[]; total: number }> {
-  // Note: The endpoint name remains /api/gmail/emails for frontend compatibility, 
-  // but the backend has been updated to fetch from Zoho.
   const resp = await fetch('/api/gmail/emails');
   if (!resp.ok) {
-    let errMsg = 'Failed to fetch emails from Zoho';
+    let errMsg = 'Failed to fetch emails from Gmail';
     try {
       const err = await resp.json();
       errMsg = err.error || errMsg;
@@ -139,7 +137,6 @@ export async function upsertInvoices(
     if (!inv.invoice_number?.trim()) continue;
 
     try {
-      // Clean contract numbers to ensure they match exactly (Uppercase, trimmed)
       const cleanedContracts = (inv.contract_numbers || [])
         .map(c => c.trim().toUpperCase())
         .filter(c => c.length > 0);
