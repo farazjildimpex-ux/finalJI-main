@@ -26,13 +26,15 @@ import type { SyncResult } from '../../lib/emailSync';
 const OPENROUTER_KEY_STORAGE = 'jild_openrouter_key';
 const OPENROUTER_MODEL_STORAGE = 'jild_openrouter_model';
 
+// Vision-capable models are listed first because scanned/image PDFs need OCR.
+// Text-only models will only see the filename and email body for image PDFs.
 const FREE_MODELS = [
-  { value: 'openai/gpt-oss-20b:free',                label: 'OpenAI GPT OSS 20B (free) — recommended' },
-  { value: 'openai/gpt-oss-120b:free',               label: 'OpenAI GPT OSS 120B (free) — slower but smarter' },
-  { value: 'google/gemma-4-31b-it:free',             label: 'Google Gemma 4 31B (free)' },
-  { value: 'nvidia/nemotron-3-super-120b-a12b:free', label: 'NVIDIA Nemotron 120B (free)' },
-  { value: 'qwen/qwen3-next-80b-a3b-instruct:free',  label: 'Qwen 3 80B (free)' },
-  { value: 'google/gemma-4-26b-a4b-it:free',         label: 'Google Gemma 4 26B (free)' },
+  { value: 'google/gemini-2.0-flash-exp:free',          label: 'Gemini 2.0 Flash (free) — reads scanned PDFs · recommended' },
+  { value: 'google/gemini-2.5-flash-lite-preview-09-2025:free', label: 'Gemini 2.5 Flash Lite (free) — reads scanned PDFs' },
+  { value: 'meta-llama/llama-3.2-11b-vision-instruct:free', label: 'Llama 3.2 11B Vision (free) — reads images' },
+  { value: 'qwen/qwen2.5-vl-72b-instruct:free',         label: 'Qwen 2.5 VL 72B (free) — reads images' },
+  { value: 'openai/gpt-oss-20b:free',                   label: 'OpenAI GPT OSS 20B (free) — text PDFs only' },
+  { value: 'openai/gpt-oss-120b:free',                  label: 'OpenAI GPT OSS 120B (free) — text PDFs only' },
 ];
 
 const StatusBadge: React.FC<{ action: SyncResult['action'] }> = ({ action }) => {
@@ -78,9 +80,18 @@ const EmailSyncSection: React.FC = () => {
   const [openRouterKey, setOpenRouterKey] = useState<string>(
     () => localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
   );
-  const [selectedModel, setSelectedModel] = useState<string>(
-    () => localStorage.getItem(OPENROUTER_MODEL_STORAGE) || 'openai/gpt-oss-20b:free'
-  );
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    const saved = localStorage.getItem(OPENROUTER_MODEL_STORAGE);
+    // The old text-only default couldn't read scanned PDFs. Auto-upgrade
+    // anyone still on it to the new vision-capable default.
+    const OLD_DEFAULTS = ['openai/gpt-oss-20b:free', 'openai/gpt-oss-120b:free'];
+    if (!saved || OLD_DEFAULTS.includes(saved)) {
+      const next = 'google/gemini-2.0-flash-exp:free';
+      localStorage.setItem(OPENROUTER_MODEL_STORAGE, next);
+      return next;
+    }
+    return saved;
+  });
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
 

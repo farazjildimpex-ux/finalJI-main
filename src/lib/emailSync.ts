@@ -6,7 +6,14 @@ export interface EmailData {
   from: string;
   date: string;
   body: string;
-  attachments: { name: string; text: string; type: string }[];
+  attachments: {
+    name: string;
+    text: string;
+    type: string;
+    /** Base64-encoded raw PDF, present only when text extraction failed (image PDF). */
+    dataBase64?: string;
+    mimeType?: string;
+  }[];
 }
 
 export interface ExtractedInvoice {
@@ -54,21 +61,26 @@ export async function fetchGmailEmails(): Promise<{ emails: EmailData[]; total: 
 
 function buildPrompt(knownContracts: string): string {
   return `You are a data extraction assistant for JILD IMPEX.
-Read the email body and PDF text provided. Extract every invoice found.
+Read the email body AND every attached PDF (some are scanned/image PDFs — read them visually).
+Extract every invoice found.
 
-KNOWN CONTRACTS (for reference): ${knownContracts}
+KNOWN CONTRACTS (for reference, match exactly when possible): ${knownContracts}
 
 CRITICAL EXTRACTION RULES:
-1. contract_numbers: This MUST be a JSON array of strings.
-   - If an invoice belongs to multiple contracts (e.g. "CJV/001 & CJV/002"), you MUST return: ["CJV/001", "CJV/002"].
-   - Even if there is only one contract, it MUST be an array: ["CJV/001"].
-2. Clean all contract numbers: Remove extra spaces, slashes, or symbols and ensure they match the format of our known contracts exactly.
-3. line_items: Extract color, selection, quantity (sqft), and pieces.
-4. invoice_value: Numeric total only.
+1. invoice_number: The invoice number printed inside the PDF (e.g. "1119/25-26/EX" or "1119"). Do NOT prepend or merge contract codes (e.g. "CJV") into the invoice number. The filename may say "CJV INV - 1119" but the actual invoice_number is just "1119" or "1119/25-26/EX" as written on the document.
+2. contract_numbers: MUST be a JSON array of strings.
+   - Look inside the invoice/packing list — contracts are usually listed under "CONTRACT NO." or beside each line item (e.g. "CJV-885", "CJV-886", "CJV-887"). Return every distinct contract number.
+   - If an invoice covers multiple contracts you MUST return them all: ["CJV-885","CJV-886","CJV-887"].
+   - Even with one contract, return an array: ["CJV-885"].
+   - Normalise format: trim spaces, keep the separator the company uses (typically a hyphen or slash), and match the format of the known contracts list above.
+3. line_items: Extract color, selection, quantity (sqft), and pieces from the invoice line table.
+4. invoice_value: Numeric total only (no currency symbol).
 5. bill_type: "Airway Bill" or "Bill of Lading".
 6. notes: Always return "".
 
-Return ONLY valid JSON in this format:
+If you genuinely cannot find an invoice in the provided data, return {"invoices": []}. Do not guess or fabricate numbers from the filename alone.
+
+Return ONLY valid JSON in this exact shape:
 {
   "invoices": [
     {
@@ -86,9 +98,11 @@ Return ONLY valid JSON in this format:
 }`;
 }
 
-function emailToText(e: EmailData): string {
+function emailHeaderText(e: EmailData): string {
   return `Subject: ${e.subject}\nFrom: ${e.from}\nDate: ${e.date}\nBody:\n${e.body}\n${
-    e.attachments.map(a => `--- Attachment: ${a.name} ---\n${a.text}`).join('\n')
+    e.attachments
+      .map((a) => `--- Attachment: ${a.name} (${a.type}) ---\n${a.text || '[no extractable text — see attached PDF file]'}`)
+      .join('\n')
   }`;
 }
 
@@ -97,8 +111,41 @@ async function callOpenRouter(
   contracts: Contract[],
   openRouterKey: string
 ): Promise<ExtractedInvoice[]> {
-  const knownContracts = contracts.map(c => c.contract_no).join(', ') || 'none yet';
+  const knownContracts = contracts.map((c) => c.contract_no).join(', ') || 'none yet';
   const prompt = buildPrompt(knownContracts);
+
+  const model = localStorage.getItem('jild_openrouter_model') || 'google/gemini-2.0-flash-exp:free';
+
+  // Build OpenAI-style multipart message: text part + every PDF that came with
+  // base64 data (server only attaches data when text extraction failed).
+  const contentParts: any[] = [
+    { type: 'text', text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) },
+  ];
+
+  let needsFileParser = false;
+  for (const a of email.attachments) {
+    if (a.dataBase64 && a.type === 'pdf') {
+      needsFileParser = true;
+      contentParts.push({
+        type: 'file',
+        file: {
+          filename: a.name,
+          file_data: `data:${a.mimeType || 'application/pdf'};base64,${a.dataBase64}`,
+        },
+      });
+    }
+  }
+
+  const body: any = {
+    model,
+    messages: [{ role: 'user', content: contentParts }],
+    temperature: 0.1,
+  };
+  // When at least one PDF needs OCR, ask OpenRouter's file-parser plugin to
+  // hand the PDF to the model natively (Gemini & GPT-4o read PDFs directly).
+  if (needsFileParser) {
+    body.plugins = [{ id: 'file-parser', pdf: { engine: 'native' } }];
+  }
 
   const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
     method: 'POST',
@@ -108,20 +155,26 @@ async function callOpenRouter(
       'HTTP-Referer': window.location.origin,
       'X-Title': 'JILD IMPEX Email Sync',
     },
-    body: JSON.stringify({
-      model: localStorage.getItem('jild_openrouter_model') || 'openai/gpt-oss-20b:free',
-      messages: [{ role: 'user', content: prompt + '\n\nDATA TO ANALYZE:\n' + emailToText(email) }],
-      temperature: 0.1,
-    }),
+    body: JSON.stringify(body),
   });
 
-  if (!resp.ok) throw new Error(`AI request failed (${resp.status}). Check your OpenRouter key or try a different model.`);
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.text()).slice(0, 300); } catch {}
+    throw new Error(`AI request failed (${resp.status}). ${detail || 'Check your OpenRouter key or try a different model.'}`);
+  }
 
   const data = await resp.json();
   const content = data.choices?.[0]?.message?.content || '';
 
   try {
-    const jsonStr = content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+    // Some models wrap JSON in code fences or include surrounding prose — pull
+    // out the first {...} block as a fallback.
+    let jsonStr = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    if (!jsonStr.startsWith('{')) {
+      const m = jsonStr.match(/\{[\s\S]*\}/);
+      if (m) jsonStr = m[0];
+    }
     const parsed = JSON.parse(jsonStr);
     return Array.isArray(parsed.invoices) ? parsed.invoices : [];
   } catch {

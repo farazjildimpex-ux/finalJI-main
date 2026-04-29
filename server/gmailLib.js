@@ -197,17 +197,31 @@ export async function fetchGmailEmailsViaAPI() {
           const buf = Buffer.from(attResp.data, 'base64url');
 
           if (kind === 'pdf' && buf.length > 100) {
-            const parser = new PDFParse({ data: buf });
-            const pdf = await parser.getText();
-            const text = (pdf.text || '').trim();
-            console.log(`  ✓ PDF parsed: ${text.length} chars from "${att.filename}"`);
-            if (text.length > 10) {
-              emailData.attachments.push({
-                name: att.filename,
-                text: text.slice(0, 8000),
-                type: 'pdf',
-              });
+            let text = '';
+            try {
+              const parser = new PDFParse({ data: buf });
+              const pdf = await parser.getText();
+              text = (pdf.text || '').trim();
+            } catch (parseErr) {
+              console.warn(`  ⚠ PDF text extract failed for "${att.filename}": ${parseErr.message}`);
             }
+            // If pdf-parse got little/no text, the PDF is scanned/image-based.
+            // Include the raw PDF (base64) so the AI can OCR it via the
+            // OpenRouter file-parser plugin. Cap at ~6 MB to keep requests sane.
+            const needsOcr = text.length < 200;
+            const dataBase64 = needsOcr && buf.length <= 6 * 1024 * 1024
+              ? buf.toString('base64')
+              : null;
+            console.log(
+              `  ✓ PDF "${att.filename}" → ${text.length} chars` +
+              (needsOcr ? ` (image PDF, ${dataBase64 ? `attaching ${(buf.length/1024).toFixed(0)} KB for OCR` : 'too large for OCR'})` : '')
+            );
+            emailData.attachments.push({
+              name: att.filename,
+              text: text.slice(0, 8000),
+              type: 'pdf',
+              ...(dataBase64 ? { dataBase64, mimeType: 'application/pdf' } : {}),
+            });
           } else if (kind === 'text') {
             emailData.attachments.push({
               name: att.filename,
