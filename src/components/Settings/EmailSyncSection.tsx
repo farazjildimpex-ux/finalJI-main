@@ -21,7 +21,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react';
-import type { SyncResult } from '../../lib/emailSync';
+import type { SyncResult, EmailScanResult } from '../../lib/emailSync';
 
 const OPENROUTER_KEY_STORAGE = 'jild_openrouter_key';
 const OPENROUTER_MODEL_STORAGE = 'jild_openrouter_model';
@@ -108,6 +108,7 @@ const EmailSyncSection: React.FC = () => {
   const [running, setRunning] = useState(false);
   const [stage, setStage] = useState<'idle' | 'fetching' | 'analyzing' | 'saving' | 'done' | 'error'>('idle');
   const [results, setResults] = useState<SyncResult[] | null>(null);
+  const [scans, setScans] = useState<EmailScanResult[] | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [showResults, setShowResults] = useState(false);
 
@@ -197,18 +198,19 @@ const EmailSyncSection: React.FC = () => {
     if (!openRouterKey.trim()) { setShowSetup(true); return; }
     if (gmailStatus !== 'ok') { setShowSetup(true); return; }
     localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
-    setRunning(true); setSyncError(null); setResults(null); setStage('fetching');
+    setRunning(true); setSyncError(null); setResults(null); setScans(null); setStage('fetching');
     try {
       const { fetchGmailEmails, syncEmailsWithLog } = await import('../../lib/emailSync');
       const { supabase } = await import('../../lib/supabaseClient');
       const { emails } = await fetchGmailEmails();
-      if (emails.length === 0) { setResults([]); setStage('done'); setShowResults(true); return; }
+      if (emails.length === 0) { setResults([]); setScans([]); setStage('done'); setShowResults(true); return; }
       setStage('analyzing');
       const { data: contracts } = await supabase.from('contracts').select('*');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be signed in.');
-      const scans = await syncEmailsWithLog(emails, contracts || [], openRouterKey.trim(), user.id);
-      const syncResults = scans.flatMap((s) => s.results);
+      const scanResults = await syncEmailsWithLog(emails, contracts || [], openRouterKey.trim(), user.id);
+      const syncResults = scanResults.flatMap((s) => s.results);
+      setScans(scanResults);
       setResults(syncResults);
       setStage('done');
       setShowResults(true);
@@ -322,9 +324,50 @@ const EmailSyncSection: React.FC = () => {
       {stage === 'done' && results !== null && (
         <div className="px-4 pb-4 space-y-3">
           {results.length === 0 ? (
-            <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-200">
-              <Info className="h-4 w-4 text-gray-400 shrink-0" />
-              <p className="text-xs text-gray-600">No invoices found in emails from the last 7 days.</p>
+            <div className="space-y-2">
+              {(() => {
+                const errored = scans?.filter((s) => s.status === 'error') ?? [];
+                const empties = scans?.filter((s) => s.status === 'no_invoices') ?? [];
+                return (
+                  <>
+                    {errored.length > 0 && (
+                      <div className="p-3 bg-red-50 rounded-2xl border border-red-200 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+                          <p className="text-xs font-bold text-red-700">
+                            AI couldn't read {errored.length} email{errored.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                          {errored.map((s, i) => (
+                            <div key={i} className="bg-white border border-red-100 rounded-lg p-2">
+                              <p className="text-[11px] font-semibold text-gray-800 truncate">{s.email.subject || '(no subject)'}</p>
+                              <p className="text-[10px] text-red-600 mt-0.5 break-words">{s.errorMessage}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className="text-[10px] text-red-600 leading-relaxed">
+                          Try a different model in Setup &amp; Configuration below. Vision-capable models (Gemini, Llama Vision, Qwen VL) are needed for scanned PDFs.
+                        </p>
+                      </div>
+                    )}
+                    {empties.length > 0 && errored.length === 0 && (
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-200">
+                        <Info className="h-4 w-4 text-gray-400 shrink-0" />
+                        <p className="text-xs text-gray-600">
+                          Scanned {empties.length} email{empties.length !== 1 ? 's' : ''} — AI didn't find any invoice data inside.
+                        </p>
+                      </div>
+                    )}
+                    {!errored.length && !empties.length && (
+                      <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-2xl border border-gray-200">
+                        <Info className="h-4 w-4 text-gray-400 shrink-0" />
+                        <p className="text-xs text-gray-600">No invoices found in emails from the last 7 days.</p>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <>
