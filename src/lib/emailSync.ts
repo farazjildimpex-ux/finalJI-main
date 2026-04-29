@@ -92,12 +92,15 @@ ${emailsText}
 EXTRACTION RULES:
 1. ALWAYS extract an invoice if you can find any invoice number (INV, Invoice No, Commercial Invoice, etc.).
 2. contract_numbers: Look for any contract/order/PO number mentioned alongside the invoice. It may appear as "Contract No", "CJV", "Order No", "PO No", etc. Extract whatever is written — even if it's not in our system list.
-3. line_items: Extract leather colors/shades with their grades and square footage. "Selection" or grade can be anything: TR, TRR, First, Second, AB, BC, A/B, etc. — extract exactly as written.
-4. Quantities: May be in sqft, sq.ft, square feet, pieces, pcs, nos — extract the number AND note the unit in the quantity field (e.g. "10848.70 sqft" or "1666 pcs").
+3. line_items: Extract leather colors/shades with their grades and square footage from the DATA ROWS of the invoice table — NOT from the column headers.
+   - "color": the ACTUAL colour name as written in the data row (e.g. "Beige", "Tan", "Dark Brown", "Cognac", "Black", "Olive"). NEVER output column-header abbreviations like "COL", "COLOR", "SHADE", "DESCRIPTION", "ITEM" — those are header labels, not data. If the data row is genuinely blank, leave color as "" — do NOT invent a value or copy the header.
+   - "selection": grade as written (TR, TRR, First, Second, AB, BC, A/B, etc.).
+   - "quantity": ONLY the numeric value, no units. The UI already appends "sqft". Examples: "10848.70", "1666". Never "10848.70 sqft" or "1666 pcs". Strip commas (e.g. "10,848.70" → "10848.70").
 5. invoice_value: Extract the total amount as a number string. No currency symbols.
 6. bill_type: "Airway Bill" if you see AWB/Airway Bill, "Bill of Lading" if you see B/L or Bill of Lading, "" if neither.
 7. Dates: Convert to YYYY-MM-DD format. If only month/year, use the 1st of that month.
-8. If no invoice is found at all, return an empty invoices array.
+8. notes: ALWAYS return an empty string "". The user fills this manually. Do NOT add summaries, observations, or "any other info".
+9. If no invoice is found at all, return an empty invoices array.
 
 Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 {
@@ -111,7 +114,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       "bill_type": "Airway Bill" or "Bill of Lading" or "",
       "bill_number": "AWB or B/L number",
       "shipping_date": "YYYY-MM-DD or null",
-      "notes": "any other relevant info"
+      "notes": ""
     }
   ]
 }`;
@@ -181,19 +184,38 @@ export async function upsertInvoices(
 
       if (fetchErr) throw fetchErr;
 
+      const HEADER_LABELS = new Set(['col', 'color', 'colour', 'shade', 'description', 'item', 'sl', 'sl no', 'sr no', 's.no']);
+      const sanitizeColor = (raw: string) => {
+        const v = (raw || '').trim();
+        if (!v) return '';
+        return HEADER_LABELS.has(v.toLowerCase()) ? '' : v;
+      };
+      const sanitizeQty = (raw: string) =>
+        (raw || '')
+          .toString()
+          .replace(/,/g, '')
+          .replace(/\b(sq\.?\s*ft\.?|square\s*feet|sqft|pcs?|nos|pieces?)\b/gi, '')
+          .trim();
+
+      const cleanedLineItems = (inv.line_items || [])
+        .map((i) => ({
+          color: sanitizeColor(i.color),
+          selection: (i.selection || '').trim(),
+          quantity: sanitizeQty(i.quantity),
+        }))
+        .filter((i) => i.color || i.selection || i.quantity);
+
       const payload: Partial<Invoice> & { user_id: string } = {
         user_id: userId,
         invoice_number: inv.invoice_number.trim(),
         invoice_date: inv.invoice_date || null,
         contract_numbers: (inv.contract_numbers || []).filter((c) => c.trim()),
-        line_items: (inv.line_items || []).filter(
-          (i) => i.color || i.selection || i.quantity
-        ),
+        line_items: cleanedLineItems,
         invoice_value: inv.invoice_value || '',
         bill_type: (inv.bill_type as Invoice['bill_type']) || '',
         bill_number: inv.bill_number || '',
         shipping_date: inv.shipping_date || null,
-        notes: inv.notes || '',
+        notes: '',
         price_adjustment: '',
       };
 

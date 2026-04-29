@@ -156,6 +156,15 @@ const EmailSyncSection: React.FC = () => {
 
   useEffect(() => { testConnection(); fetchRedirectUri(); }, [testConnection, fetchRedirectUri]);
 
+  // Once /api/gmail/test reports all 3 secrets present, run the live Gmail
+  // verification automatically so the "Action needed" badge clears without the
+  // user having to remember to press the test button.
+  useEffect(() => {
+    if (gmailStatus === 'ok' && imapStatus === 'unknown') {
+      testImapConnection();
+    }
+  }, [gmailStatus, imapStatus, testImapConnection]);
+
   const handleSaveKey = () => {
     if (!openRouterKey.trim()) return;
     localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
