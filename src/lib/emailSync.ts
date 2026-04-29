@@ -106,6 +106,67 @@ function emailHeaderText(e: EmailData): string {
   }`;
 }
 
+// ─── Provider: Google AI Studio (direct Gemini API) ─────────────────────
+// Google's free tier on aistudio.google.com gives 1,500 requests/day and
+// reads PDFs natively. Recommended over OpenRouter for free use.
+async function callGoogleGemini(
+  email: EmailData,
+  contracts: Contract[],
+  apiKey: string
+): Promise<ExtractedInvoice[]> {
+  const knownContracts = contracts.map((c) => c.contract_no).join(', ') || 'none yet';
+  const prompt = buildPrompt(knownContracts);
+  const model = localStorage.getItem('jild_google_model') || 'gemini-2.0-flash';
+
+  const parts: any[] = [
+    { text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) },
+  ];
+  for (const a of email.attachments) {
+    if (a.dataBase64 && a.type === 'pdf') {
+      parts.push({
+        inline_data: {
+          mime_type: a.mimeType || 'application/pdf',
+          data: a.dataBase64,
+        },
+      });
+    }
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
+    }),
+  });
+
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.text()).slice(0, 400); } catch {}
+    throw new Error(`Google Gemini request failed (${resp.status}). ${detail || 'Check your API key.'}`);
+  }
+
+  const data = await resp.json();
+  const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+  try {
+    let jsonStr = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    if (!jsonStr.startsWith('{')) {
+      const m = jsonStr.match(/\{[\s\S]*\}/);
+      if (m) jsonStr = m[0];
+    }
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed.invoices) ? parsed.invoices : [];
+  } catch {
+    throw new Error('Gemini returned data in an unexpected format. Raw: ' + content.slice(0, 200));
+  }
+}
+
 async function callOpenRouter(
   email: EmailData,
   contracts: Contract[],
@@ -249,10 +310,17 @@ async function recordScan(scan: EmailScanResult, userId: string): Promise<void> 
   }
 }
 
+export type AIProvider = 'google' | 'openrouter';
+
+export interface AICredentials {
+  provider: AIProvider;
+  apiKey: string;
+}
+
 export async function syncEmailsWithLog(
   emails: EmailData[],
   contracts: Contract[],
-  openRouterKey: string,
+  credentials: AICredentials,
   userId: string,
   onProgress?: (i: number, total: number) => void
 ): Promise<EmailScanResult[]> {
@@ -267,7 +335,9 @@ export async function syncEmailsWithLog(
     let errorMessage: string | undefined;
 
     try {
-      extracted = await callOpenRouter(email, contracts, openRouterKey);
+      extracted = credentials.provider === 'google'
+        ? await callGoogleGemini(email, contracts, credentials.apiKey)
+        : await callOpenRouter(email, contracts, credentials.apiKey);
       if (extracted.length === 0) {
         status = 'no_invoices';
       } else {

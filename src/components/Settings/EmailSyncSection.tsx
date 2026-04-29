@@ -25,11 +25,22 @@ import type { SyncResult, EmailScanResult } from '../../lib/emailSync';
 
 const OPENROUTER_KEY_STORAGE = 'jild_openrouter_key';
 const OPENROUTER_MODEL_STORAGE = 'jild_openrouter_model';
+const GOOGLE_KEY_STORAGE = 'jild_google_key';
+const GOOGLE_MODEL_STORAGE = 'jild_google_model';
+const PROVIDER_STORAGE = 'jild_ai_provider';
 
-// Vision-capable models are listed first because scanned/image PDFs need OCR.
-// Text-only models will only see the filename and email body for image PDFs.
-const FREE_MODELS = [
-  { value: 'google/gemini-2.0-flash-exp:free',          label: 'Gemini 2.0 Flash (free) — reads scanned PDFs · recommended' },
+type Provider = 'google' | 'openrouter';
+
+// Direct Google AI Studio models — free tier: 1,500 requests/day, native PDF reading.
+const GOOGLE_MODELS = [
+  { value: 'gemini-2.0-flash',      label: 'Gemini 2.0 Flash — fast, reads PDFs · recommended' },
+  { value: 'gemini-2.5-flash',      label: 'Gemini 2.5 Flash — newer, reads PDFs' },
+  { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite — lighter, faster' },
+];
+
+// OpenRouter free models. Vision-capable ones go first.
+const OPENROUTER_MODELS = [
+  { value: 'google/gemini-2.0-flash-exp:free',          label: 'Gemini 2.0 Flash (free) — reads scanned PDFs' },
   { value: 'google/gemini-2.5-flash-lite-preview-09-2025:free', label: 'Gemini 2.5 Flash Lite (free) — reads scanned PDFs' },
   { value: 'meta-llama/llama-3.2-11b-vision-instruct:free', label: 'Llama 3.2 11B Vision (free) — reads images' },
   { value: 'qwen/qwen2.5-vl-72b-instruct:free',         label: 'Qwen 2.5 VL 72B (free) — reads images' },
@@ -77,13 +88,20 @@ type GmailStatus = 'unknown' | 'testing' | 'ok' | 'missing' | 'error';
 type MissingMap = { GOOGLE_CLIENT_ID?: boolean; GOOGLE_CLIENT_SECRET?: boolean; GOOGLE_REFRESH_TOKEN?: boolean };
 
 const EmailSyncSection: React.FC = () => {
+  const [provider, setProvider] = useState<Provider>(
+    () => (localStorage.getItem(PROVIDER_STORAGE) as Provider) || 'google'
+  );
+  const [googleKey, setGoogleKey] = useState<string>(
+    () => localStorage.getItem(GOOGLE_KEY_STORAGE) || ''
+  );
+  const [googleModel, setGoogleModel] = useState<string>(
+    () => localStorage.getItem(GOOGLE_MODEL_STORAGE) || 'gemini-2.0-flash'
+  );
   const [openRouterKey, setOpenRouterKey] = useState<string>(
     () => localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
   );
   const [selectedModel, setSelectedModel] = useState<string>(() => {
     const saved = localStorage.getItem(OPENROUTER_MODEL_STORAGE);
-    // The old text-only default couldn't read scanned PDFs. Auto-upgrade
-    // anyone still on it to the new vision-capable default.
     const OLD_DEFAULTS = ['openai/gpt-oss-20b:free', 'openai/gpt-oss-120b:free'];
     if (!saved || OLD_DEFAULTS.includes(saved)) {
       const next = 'google/gemini-2.0-flash-exp:free';
@@ -94,6 +112,8 @@ const EmailSyncSection: React.FC = () => {
   });
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
+
+  const activeKey = provider === 'google' ? googleKey : openRouterKey;
 
   const [showSetup, setShowSetup] = useState(false);
 
@@ -178,9 +198,15 @@ const EmailSyncSection: React.FC = () => {
   }, [gmailStatus, imapStatus, testImapConnection]);
 
   const handleSaveKey = () => {
-    if (!openRouterKey.trim()) return;
-    localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
-    localStorage.setItem(OPENROUTER_MODEL_STORAGE, selectedModel);
+    if (provider === 'google') {
+      if (!googleKey.trim()) return;
+      localStorage.setItem(GOOGLE_KEY_STORAGE, googleKey.trim());
+      localStorage.setItem(GOOGLE_MODEL_STORAGE, googleModel);
+    } else {
+      if (!openRouterKey.trim()) return;
+      localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
+      localStorage.setItem(OPENROUTER_MODEL_STORAGE, selectedModel);
+    }
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   };
@@ -190,14 +216,28 @@ const EmailSyncSection: React.FC = () => {
     localStorage.setItem(OPENROUTER_MODEL_STORAGE, model);
   };
 
+  const handleGoogleModelChange = (model: string) => {
+    setGoogleModel(model);
+    localStorage.setItem(GOOGLE_MODEL_STORAGE, model);
+  };
+
+  const handleProviderChange = (next: Provider) => {
+    setProvider(next);
+    localStorage.setItem(PROVIDER_STORAGE, next);
+    setKeySaved(false);
+  };
+
   const handleConnectGoogle = () => {
     window.open('/api/google/oauth/start', '_blank', 'noopener,noreferrer');
   };
 
   const handleSync = async () => {
-    if (!openRouterKey.trim()) { setShowSetup(true); return; }
+    const key = activeKey.trim();
+    if (!key) { setShowSetup(true); return; }
     if (gmailStatus !== 'ok') { setShowSetup(true); return; }
-    localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
+    if (provider === 'google') localStorage.setItem(GOOGLE_KEY_STORAGE, key);
+    else localStorage.setItem(OPENROUTER_KEY_STORAGE, key);
+
     setRunning(true); setSyncError(null); setResults(null); setScans(null); setStage('fetching');
     try {
       const { fetchGmailEmails, syncEmailsWithLog } = await import('../../lib/emailSync');
@@ -208,7 +248,12 @@ const EmailSyncSection: React.FC = () => {
       const { data: contracts } = await supabase.from('contracts').select('*');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be signed in.');
-      const scanResults = await syncEmailsWithLog(emails, contracts || [], openRouterKey.trim(), user.id);
+      const scanResults = await syncEmailsWithLog(
+        emails,
+        contracts || [],
+        { provider, apiKey: key },
+        user.id,
+      );
       const syncResults = scanResults.flatMap((s) => s.results);
       setScans(scanResults);
       setResults(syncResults);
@@ -430,51 +475,132 @@ const EmailSyncSection: React.FC = () => {
         {showSetup && (
           <div className="px-4 pb-5 space-y-5">
 
-            {/* ① OpenRouter key */}
+            {/* ① AI Provider + Key */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-black shrink-0">1</div>
-                <p className="text-xs font-bold text-gray-800">OpenRouter AI Key</p>
+                <p className="text-xs font-bold text-gray-800">AI Provider &amp; Key</p>
                 {keySaved && <span className="text-[11px] text-emerald-600 font-bold">✓ Saved!</span>}
               </div>
-              <div className="ml-7 space-y-1.5">
-                <div className="flex gap-2">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={openRouterKey}
-                    onChange={(e) => { setOpenRouterKey(e.target.value); setKeySaved(false); }}
-                    placeholder="sk-or-..."
-                    className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-gray-50"
-                  />
-                  <button onClick={() => setShowKey((v) => !v)} className="px-3 py-2 text-xs border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">
-                    {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+
+              <div className="ml-7 space-y-3">
+                {/* Provider toggle */}
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-xl">
+                  <button
+                    onClick={() => handleProviderChange('google')}
+                    className={`px-3 py-2 text-[11px] font-bold rounded-lg transition-colors ${
+                      provider === 'google' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    Google AI Studio
+                    <span className="block text-[9px] font-normal text-emerald-600 mt-0.5">Free · 1,500/day · recommended</span>
                   </button>
                   <button
-                    onClick={handleSaveKey}
-                    disabled={!openRouterKey.trim()}
-                    className={`px-3 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 ${keySaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                    onClick={() => handleProviderChange('openrouter')}
+                    className={`px-3 py-2 text-[11px] font-bold rounded-lg transition-colors ${
+                      provider === 'openrouter' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
                   >
-                    {keySaved ? '✓ Saved' : 'Save'}
+                    OpenRouter
+                    <span className="block text-[9px] font-normal text-gray-500 mt-0.5">Free models, limited quota</span>
                   </button>
                 </div>
-                <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
-                  Get a free key at openrouter.ai <ExternalLink className="h-3 w-3" />
-                </a>
-                <div className="mt-2">
-                  <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
-                    AI Model <span className="text-gray-400 font-normal normal-case">(all are free — if one fails, switch to another)</span>
-                  </label>
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => handleModelChange(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
-                  >
-                    {FREE_MODELS.map((m) => (
-                      <option key={m.value} value={m.value}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
+
+                {/* Google AI Studio block */}
+                {provider === 'google' && (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        value={googleKey}
+                        onChange={(e) => { setGoogleKey(e.target.value); setKeySaved(false); }}
+                        placeholder="AIzaSy..."
+                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-gray-50"
+                      />
+                      <button onClick={() => setShowKey((v) => !v)} className="px-3 py-2 text-xs border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">
+                        {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={handleSaveKey}
+                        disabled={!googleKey.trim()}
+                        className={`px-3 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 ${keySaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                      >
+                        {keySaved ? '✓ Saved' : 'Save'}
+                      </button>
+                    </div>
+                    <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
+                      Get a free Gemini API key at aistudio.google.com <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <div className="mt-2">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">Gemini Model</label>
+                      <select
+                        value={googleModel}
+                        onChange={(e) => handleGoogleModelChange(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
+                      >
+                        {GOOGLE_MODELS.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="p-2 bg-emerald-50 border border-emerald-100 rounded-lg">
+                      <p className="text-[10px] text-emerald-800 leading-relaxed">
+                        <strong>Why this is recommended:</strong> Google's free tier gives you 1,500 invoice extractions per day,
+                        reads scanned PDFs natively, and has no rate-sharing with other users. The key starts with <code className="bg-white px-1 rounded">AIzaSy</code>.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* OpenRouter block */}
+                {provider === 'openrouter' && (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        value={openRouterKey}
+                        onChange={(e) => { setOpenRouterKey(e.target.value); setKeySaved(false); }}
+                        placeholder="sk-or-..."
+                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-gray-50"
+                      />
+                      <button onClick={() => setShowKey((v) => !v)} className="px-3 py-2 text-xs border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">
+                        {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={handleSaveKey}
+                        disabled={!openRouterKey.trim()}
+                        className={`px-3 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 ${keySaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                      >
+                        {keySaved ? '✓ Saved' : 'Save'}
+                      </button>
+                    </div>
+                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
+                      Get a free key at openrouter.ai <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <div className="mt-2">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
+                        AI Model <span className="text-gray-400 font-normal normal-case">(if one fails, switch to another)</span>
+                      </label>
+                      <select
+                        value={selectedModel}
+                        onChange={(e) => handleModelChange(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
+                      >
+                        {OPENROUTER_MODELS.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="p-2 bg-amber-50 border border-amber-100 rounded-lg">
+                      <p className="text-[10px] text-amber-800 leading-relaxed">
+                        <strong>Heads up:</strong> OpenRouter's free Gemini models share a low daily quota across all users
+                        and may return errors. Switch to <strong>Google AI Studio</strong> above for a much higher free limit.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
