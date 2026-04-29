@@ -85,15 +85,30 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('invoices')
-        .select('*')
-        .contains('contract_numbers', [contractNumber])
-        .order('invoice_date', { ascending: false })
-        .order('created_at', { ascending: false });
+      // Email-sync stores contract numbers uppercased in the array, so we
+      // try both the raw and the upper-cased form to match either shape.
+      const raw = contractNumber.trim();
+      const upper = raw.toUpperCase();
+      const variants = upper === raw ? [raw] : [raw, upper];
 
-      if (fetchError) throw fetchError;
-      setInvoices((data || []) as Invoice[]);
+      const all: Invoice[] = [];
+      const seen = new Set<string>();
+      for (const v of variants) {
+        const { data, error: fetchError } = await supabase
+          .from('invoices')
+          .select('*')
+          .contains('contract_numbers', [v])
+          .order('invoice_date', { ascending: false })
+          .order('created_at', { ascending: false });
+        if (fetchError) throw fetchError;
+        for (const inv of (data || []) as Invoice[]) {
+          if (!seen.has(inv.id)) {
+            seen.add(inv.id);
+            all.push(inv);
+          }
+        }
+      }
+      setInvoices(all);
     } catch (err: any) {
       console.error('Error fetching invoices:', err);
       setError(err?.message || 'Failed to load invoices');
