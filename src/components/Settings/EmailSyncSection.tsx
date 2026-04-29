@@ -188,7 +188,7 @@ const EmailSyncSection: React.FC = () => {
     localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
     setRunning(true); setSyncError(null); setResults(null); setStage('fetching');
     try {
-      const { fetchGmailEmails, analyzeEmailsWithAI, upsertInvoices } = await import('../../lib/emailSync');
+      const { fetchGmailEmails, syncEmailsWithLog } = await import('../../lib/emailSync');
       const { supabase } = await import('../../lib/supabaseClient');
       const { emails } = await fetchGmailEmails();
       if (emails.length === 0) { setResults([]); setStage('done'); setShowResults(true); return; }
@@ -196,13 +196,13 @@ const EmailSyncSection: React.FC = () => {
       const { data: contracts } = await supabase.from('contracts').select('*');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('You must be signed in.');
-      const extracted = await analyzeEmailsWithAI(emails, contracts || [], openRouterKey.trim());
-      if (extracted.length === 0) { setResults([]); setStage('done'); setShowResults(true); return; }
-      setStage('saving');
-      const syncResults = await upsertInvoices(extracted, user.id);
+      const scans = await syncEmailsWithLog(emails, contracts || [], openRouterKey.trim(), user.id);
+      const syncResults = scans.flatMap((s) => s.results);
       setResults(syncResults);
       setStage('done');
       setShowResults(true);
+      // Refresh history list after a sync run.
+      window.dispatchEvent(new Event('jild-email-scan-log-refresh'));
     } catch (err: any) {
       setSyncError(err?.message || 'Unknown error.');
       setStage('error');

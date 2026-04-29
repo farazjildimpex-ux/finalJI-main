@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabaseClient';
 import { useNotifications } from '../../hooks/useNotifications';
 import { dialogService } from '../../lib/dialogService';
 import EmailSyncSection from './EmailSyncSection';
+import EmailScanHistory from './EmailScanHistory';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -209,6 +210,9 @@ const SettingsPage: React.FC = () => {
 
       {/* Auto Invoice Sync from Gmail */}
       <EmailSyncSection />
+
+      {/* Scanned email history */}
+      <EmailScanHistory />
 
       {/* Push Notifications */}
       <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
