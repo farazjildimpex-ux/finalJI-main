@@ -13,7 +13,7 @@ export interface ExtractedInvoice {
   invoice_number: string;
   invoice_date: string | null;
   contract_numbers: string[];
-  line_items: { color: string; selection: string; quantity: string }[];
+  line_items: { color: string; selection: string; quantity: string; pieces: string }[];
   invoice_value: string;
   bill_type: 'Airway Bill' | 'Bill of Lading' | '';
   bill_number: string;
@@ -92,10 +92,11 @@ ${emailsText}
 EXTRACTION RULES:
 1. ALWAYS extract an invoice if you can find any invoice number (INV, Invoice No, Commercial Invoice, etc.).
 2. contract_numbers: Look for any contract/order/PO number mentioned alongside the invoice. It may appear as "Contract No", "CJV", "Order No", "PO No", etc. Extract whatever is written — even if it's not in our system list.
-3. line_items: Extract leather colors/shades with their grades and square footage from the DATA ROWS of the invoice table — NOT from the column headers.
+3. line_items: Extract leather colors/shades with their grades, square footage AND piece count from the DATA ROWS of the invoice table — NOT from the column headers.
    - "color": the ACTUAL colour name as written in the data row (e.g. "Beige", "Tan", "Dark Brown", "Cognac", "Black", "Olive"). NEVER output column-header abbreviations like "COL", "COLOR", "SHADE", "DESCRIPTION", "ITEM" — those are header labels, not data. If the data row is genuinely blank, leave color as "" — do NOT invent a value or copy the header.
    - "selection": grade as written (TR, TRR, First, Second, AB, BC, A/B, etc.).
-   - "quantity": ONLY the numeric value, no units. The UI already appends "sqft". Examples: "10848.70", "1666". Never "10848.70 sqft" or "1666 pcs". Strip commas (e.g. "10,848.70" → "10848.70").
+   - "quantity": ONLY the numeric square-footage value, no units. The UI already appends "sqft". Examples: "10848.70", "1666". Never "10848.70 sqft". Strip commas (e.g. "10,848.70" → "10848.70").
+   - "pieces": ONLY the integer count of leather pieces/skins for this row, no units. Look for columns labelled "Pieces", "Pcs", "Nos", "No. of Pieces", "Qty (Pcs)", "Skins", or similar. Examples: "1666", "240". Never "1666 pcs" or "240 nos". Strip commas. If the invoice does not list a piece count for this row, leave it as "".
 5. invoice_value: Extract the total amount as a number string. No currency symbols.
 6. bill_type: "Airway Bill" if you see AWB/Airway Bill, "Bill of Lading" if you see B/L or Bill of Lading, "" if neither.
 7. Dates: Convert to YYYY-MM-DD format. If only month/year, use the 1st of that month.
@@ -109,7 +110,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       "invoice_number": "exact invoice number as written",
       "invoice_date": "YYYY-MM-DD or null",
       "contract_numbers": ["contract/order numbers found — can be anything"],
-      "line_items": [{"color": "color name", "selection": "grade/type as written", "quantity": "number and unit"}],
+      "line_items": [{"color": "color name", "selection": "grade/type as written", "quantity": "sqft number only", "pieces": "piece count integer or empty"}],
       "invoice_value": "numeric amount only",
       "bill_type": "Airway Bill" or "Bill of Lading" or "",
       "bill_number": "AWB or B/L number",
@@ -194,16 +195,26 @@ export async function upsertInvoices(
         (raw || '')
           .toString()
           .replace(/,/g, '')
-          .replace(/\b(sq\.?\s*ft\.?|square\s*feet|sqft|pcs?|nos|pieces?)\b/gi, '')
+          .replace(/\b(sq\.?\s*ft\.?|square\s*feet|sqft|pcs?|nos|pieces?|skins?)\b/gi, '')
           .trim();
+      const sanitizePieces = (raw: string) => {
+        const cleaned = (raw || '')
+          .toString()
+          .replace(/,/g, '')
+          .replace(/\b(pcs?|nos|pieces?|skins?|qty)\b/gi, '')
+          .trim();
+        const m = cleaned.match(/-?\d+(?:\.\d+)?/);
+        return m ? m[0] : '';
+      };
 
       const cleanedLineItems = (inv.line_items || [])
         .map((i) => ({
           color: sanitizeColor(i.color),
           selection: (i.selection || '').trim(),
           quantity: sanitizeQty(i.quantity),
+          pieces: sanitizePieces((i as any).pieces),
         }))
-        .filter((i) => i.color || i.selection || i.quantity);
+        .filter((i) => i.color || i.selection || i.quantity || i.pieces);
 
       const payload: Partial<Invoice> & { user_id: string } = {
         user_id: userId,

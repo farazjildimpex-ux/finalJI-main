@@ -23,7 +23,7 @@ const createEmptyInvoice = (contractNumber: string): Invoice => ({
   invoice_number: '',
   invoice_date: new Date().toISOString().split('T')[0],
   contract_numbers: [contractNumber],
-  line_items: [{ color: '', selection: '', quantity: '' }],
+  line_items: [{ color: '', selection: '', quantity: '', pieces: '' }],
   price_adjustment: '',
   invoice_value: '',
   notes: '',
@@ -206,14 +206,14 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
   };
 
   const addLineItem = () => {
-    setEditingInvoice((prev) => prev ? { ...prev, line_items: [...prev.line_items, { color: '', selection: '', quantity: '' }] } : prev);
+    setEditingInvoice((prev) => prev ? { ...prev, line_items: [...prev.line_items, { color: '', selection: '', quantity: '', pieces: '' }] } : prev);
   };
 
   const removeLineItem = (index: number) => {
     setEditingInvoice((prev) => {
       if (!prev) return prev;
       const list = prev.line_items.filter((_, i) => i !== index);
-      return { ...prev, line_items: list.length ? list : [{ color: '', selection: '', quantity: '' }] };
+      return { ...prev, line_items: list.length ? list : [{ color: '', selection: '', quantity: '', pieces: '' }] };
     });
   };
 
@@ -225,22 +225,24 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
   };
 
   const computeColorTotals = (items: InvoiceLineItem[]) => {
-    const map: Record<string, { display: string; total: number }> = {};
+    const map: Record<string, { display: string; total: number; pieces: number }> = {};
     items.forEach((item) => {
       const raw = (item.color || '').trim();
       if (!raw) return;
       const key = raw.toLowerCase();
       const qty = parseQuantity(item.quantity);
-      if (Number.isNaN(qty)) return;
-      if (!map[key]) map[key] = { display: raw, total: 0 };
-      map[key].total += qty;
+      const pcs = parseQuantity(item.pieces);
+      if (Number.isNaN(qty) && Number.isNaN(pcs)) return;
+      if (!map[key]) map[key] = { display: raw, total: 0, pieces: 0 };
+      if (!Number.isNaN(qty)) map[key].total += qty;
+      if (!Number.isNaN(pcs)) map[key].pieces += pcs;
     });
     return map;
   };
 
   const getLineShare = (
     item: InvoiceLineItem,
-    totals: Record<string, { display: string; total: number }>
+    totals: Record<string, { display: string; total: number; pieces: number }>
   ) => {
     const raw = (item.color || '').trim();
     if (!raw) return null;
@@ -278,17 +280,18 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
         <FormSection title="Line Items">
           <div className="px-4 sm:px-6 py-4 space-y-3">
             <div className="overflow-x-auto no-scrollbar">
-              <div className="min-w-[600px] space-y-2">
-                <div className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 px-1 text-xs font-bold text-gray-500 uppercase tracking-wide">
+              <div className="min-w-[720px] space-y-2">
+                <div className="grid grid-cols-[1fr_1fr_1fr_110px_40px] gap-3 px-1 text-xs font-bold text-gray-500 uppercase tracking-wide">
                   <div>Color</div>
                   <div>Selection</div>
                   <div>Quantity (sqft)</div>
+                  <div>Pieces</div>
                   <div></div>
                 </div>
                 {editingInvoice.line_items.map((item, idx) => {
                   const share = getLineShare(item, editorTotals);
                   return (
-                    <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_40px] gap-3 items-start">
+                    <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_110px_40px] gap-3 items-start">
                       <input type="text" placeholder="Color" value={item.color} onChange={(e) => updateLineItem(idx, 'color', e.target.value)} className={formInputClass} />
                       <input type="text" placeholder="Selection" value={item.selection} onChange={(e) => updateLineItem(idx, 'selection', e.target.value)} className={formInputClass} />
                       <div>
@@ -302,6 +305,10 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                           </div>
                         )}
                       </div>
+                      <div className="relative">
+                        <input type="text" inputMode="numeric" placeholder="0" value={item.pieces} onChange={(e) => updateLineItem(idx, 'pieces', e.target.value)} className={`${formInputClass} pr-10`} />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 uppercase">pcs</span>
+                      </div>
                       <button type="button" onClick={() => removeLineItem(idx)} className="text-gray-400 hover:text-red-600 p-1 mt-1"><Trash2 className="h-4 w-4" /></button>
                     </div>
                   );
@@ -313,7 +320,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
               <div className="flex flex-wrap gap-2 mt-2">
                 {Object.values(editorTotals).map(total => (
                   <div key={total.display} className="px-2 py-1 bg-blue-50 border border-blue-100 rounded text-[10px] font-bold text-blue-700 uppercase">
-                    Total {total.display}: {total.total.toLocaleString()} sqft
+                    Total {total.display}: {total.total.toLocaleString()} sqft{total.pieces > 0 ? ` · ${total.pieces.toLocaleString()} pcs` : ''}
                   </div>
                 ))}
               </div>
@@ -398,6 +405,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                     <th className="text-left py-2">Color</th>
                     <th className="text-left py-2">Selection</th>
                     <th className="text-right py-2">Quantity</th>
+                    <th className="text-right py-2">Pieces</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -413,6 +421,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                             <div className="text-[10px] font-bold text-blue-600 uppercase">{share.toFixed(2)}% of {item.color}</div>
                           )}
                         </td>
+                        <td className="py-3 text-right font-bold text-gray-900">{item.pieces ? `${item.pieces} pcs` : '—'}</td>
                       </tr>
                     );
                   })}
@@ -425,7 +434,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
                 {Object.values(viewTotals).map(total => (
                   <div key={total.display} className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-bold text-gray-700 shadow-sm">
                     <span className="text-blue-600 uppercase mr-1">{total.display}:</span>
-                    {total.total.toLocaleString()} sqft
+                    {total.total.toLocaleString()} sqft{total.pieces > 0 ? ` · ${total.pieces.toLocaleString()} pcs` : ''}
                   </div>
                 ))}
               </div>
