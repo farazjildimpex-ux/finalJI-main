@@ -133,12 +133,17 @@ const ApprovalsPage: React.FC = () => {
     }
   };
 
-  const handleApprovePending = async (item: PendingItem) => {
+  /**
+   * Approve the pending invoice. `edited` lets the modal pass back the
+   * user's edits — when called from the row-level Approve button we just
+   * use the original extracted values.
+   */
+  const handleApprovePending = async (item: PendingItem, edited?: ExtractedInvoice) => {
     if (!user) return;
     setBusyKey(item.key);
     setError(null);
     try {
-      const result = await approveExtractedInvoice(item.invoice, user.id);
+      const result = await approveExtractedInvoice(edited || item.invoice, user.id);
       if (!result.ok) throw new Error(result.error);
       setDetailsItem(null);
       await load();
@@ -146,6 +151,54 @@ const ApprovalsPage: React.FC = () => {
       setError(e?.message || 'Failed to approve');
     } finally {
       setBusyKey(null);
+    }
+  };
+
+  /**
+   * Save edits to an approved invoice row.
+   */
+  const handleSaveApproved = async (
+    inv: Invoice,
+    patch: Partial<Invoice>,
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!inv.id) return { ok: false, error: 'Missing invoice id' };
+
+    // Same date guard as approveExtractedInvoice — Postgres won't take ''.
+    const cleanDate = (v: any): string | null => {
+      if (!v) return null;
+      const t = String(v).trim();
+      if (!t) return null;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+      const d = new Date(t);
+      return Number.isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    };
+    const cleanBillType = (v: any) => {
+      const t = String(v || '').trim();
+      return t === 'Airway Bill' || t === 'Bill of Lading' ? t : null;
+    };
+
+    const payload: Record<string, unknown> = { ...patch };
+    if ('invoice_date' in payload)  payload.invoice_date  = cleanDate(payload.invoice_date);
+    if ('shipping_date' in payload) payload.shipping_date = cleanDate(payload.shipping_date);
+    if ('bill_type' in payload)     payload.bill_type     = cleanBillType(payload.bill_type);
+    if ('contract_numbers' in payload) {
+      payload.contract_numbers = ((payload.contract_numbers as string[]) || [])
+        .map((c) => String(c).trim().toUpperCase())
+        .filter(Boolean);
+    }
+
+    setBusyId(inv.id);
+    try {
+      const { error: err } = await supabase.from('invoices').update(payload).eq('id', inv.id);
+      if (err) throw err;
+      await load();
+      return { ok: true };
+    } catch (e: any) {
+      const msg = e?.message || 'Failed to save changes';
+      setError(msg);
+      return { ok: false, error: msg };
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -494,7 +547,7 @@ const ApprovalsPage: React.FC = () => {
         <PendingDetailsModal
           item={detailsItem}
           onClose={() => setDetailsItem(null)}
-          onApprove={() => handleApprovePending(detailsItem)}
+          onApprove={(edited) => handleApprovePending(detailsItem, edited)}
           onDiscard={() => handleDiscardPending(detailsItem)}
           onOpenContract={openContractByNumber}
           busy={busyKey === detailsItem.key}
@@ -507,6 +560,8 @@ const ApprovalsPage: React.FC = () => {
           invoice={detailsApproved}
           onClose={() => setDetailsApproved(null)}
           onOpenContract={openContractByNumber}
+          onSave={(patch) => handleSaveApproved(detailsApproved, patch)}
+          busy={busyId === detailsApproved.id}
         />
       )}
     </div>
@@ -520,16 +575,67 @@ const ApprovalsPage: React.FC = () => {
 interface PendingDetailsModalProps {
   item: PendingItem;
   onClose: () => void;
-  onApprove: () => void;
+  onApprove: (edited: ExtractedInvoice) => void;
   onDiscard: () => void;
   onOpenContract: (contractNo: string) => void;
   busy: boolean;
 }
 
+/**
+ * Editable review modal for a pending (auto-extracted) invoice. The user
+ * can fix any field the AI got wrong before pressing Approve & save —
+ * what gets inserted into the `invoices` table is exactly what they see.
+ */
 const PendingDetailsModal: React.FC<PendingDetailsModalProps> = ({
   item, onClose, onApprove, onDiscard, onOpenContract, busy,
 }) => {
-  const inv = item.invoice;
+  const [draft, setDraft] = useState<ExtractedInvoice>(() => normalizeExtracted(item.invoice));
+  const [contractsText, setContractsText] = useState<string>(
+    (item.invoice.contract_numbers || []).join(', '),
+  );
+
+  // Reset draft if the modal is opened on a different item.
+  useEffect(() => {
+    setDraft(normalizeExtracted(item.invoice));
+    setContractsText((item.invoice.contract_numbers || []).join(', '));
+  }, [item.key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setField = <K extends keyof ExtractedInvoice>(key: K, value: ExtractedInvoice[K]) =>
+    setDraft((d) => ({ ...d, [key]: value }));
+
+  const updateLineItem = (
+    i: number,
+    key: 'color' | 'selection' | 'quantity' | 'pieces',
+    value: string,
+  ) =>
+    setDraft((d) => {
+      const next = [...(d.line_items || [])];
+      next[i] = { ...next[i], [key]: value };
+      return { ...d, line_items: next };
+    });
+
+  const addLineItem = () =>
+    setDraft((d) => ({
+      ...d,
+      line_items: [...(d.line_items || []), { color: '', selection: '', quantity: '', pieces: '' }],
+    }));
+
+  const removeLineItem = (i: number) =>
+    setDraft((d) => ({
+      ...d,
+      line_items: (d.line_items || []).filter((_, idx) => idx !== i),
+    }));
+
+  const handleApprove = () => {
+    // Push the edited contract list back into the draft right before save.
+    const cleanedContracts = contractsText
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    onApprove({ ...draft, contract_numbers: cleanedContracts });
+  };
+
+  const canApprove = !!draft.invoice_number?.trim() && !busy;
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
@@ -541,10 +647,10 @@ const PendingDetailsModal: React.FC<PendingDetailsModalProps> = ({
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-wider text-amber-600">
-              Awaiting approval
+              Awaiting approval · Editable
             </p>
             <h2 className="text-lg font-black text-slate-900 truncate">
-              {inv.invoice_number || '(no invoice number)'}
+              {draft.invoice_number || '(no invoice number)'}
             </h2>
             <p className="text-[11px] text-slate-500 mt-0.5">
               Extracted from email · {item.scannedAt ? new Date(item.scannedAt).toLocaleString() : '—'}
@@ -561,101 +667,167 @@ const PendingDetailsModal: React.FC<PendingDetailsModalProps> = ({
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Source email */}
-          <Section icon={<Mail className="h-3.5 w-3.5" />} title="Source email">
+          {/* Source email — read-only */}
+          <Section icon={<Mail className="h-3.5 w-3.5" />} title="Source email (read-only)">
             <Field label="Subject" value={item.emailSubject} />
             <Field label="From" value={item.emailFrom || '—'} />
           </Section>
 
-          {/* Invoice basics */}
+          {/* Invoice basics — editable */}
           <Section icon={<Hash className="h-3.5 w-3.5" />} title="Invoice basics">
-            <Field label="Invoice number" value={inv.invoice_number || '—'} mono />
-            <Field
-              label="Invoice date"
-              value={inv.invoice_date ? new Date(inv.invoice_date).toLocaleDateString() : '—'}
+            <EditField
+              label="Invoice number"
+              value={draft.invoice_number}
+              onChange={(v) => setField('invoice_number', v)}
+              required
+              mono
             />
-            <Field
+            <EditField
+              label="Invoice date"
+              type="date"
+              value={toDateInputValue(draft.invoice_date)}
+              onChange={(v) => setField('invoice_date', v || null)}
+            />
+            <EditField
               label="Invoice value"
-              value={inv.invoice_value || '—'}
-              icon={<DollarSign className="h-3 w-3" />}
+              value={draft.invoice_value}
+              onChange={(v) => setField('invoice_value', v)}
+              placeholder="e.g. USD 12,500"
             />
           </Section>
 
-          {/* Linked contracts */}
+          {/* Linked contracts — editable */}
           <Section icon={<FileText className="h-3.5 w-3.5" />} title="Linked contracts">
-            {inv.contract_numbers?.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {inv.contract_numbers.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => onOpenContract(c)}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 transition"
-                  >
-                    <FileText className="h-3 w-3" /> {c}
-                    <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-                  </button>
-                ))}
+            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+              Comma-separated contract numbers
+            </label>
+            <input
+              type="text"
+              value={contractsText}
+              onChange={(e) => setContractsText(e.target.value)}
+              placeholder="JI-2025-001, JI-2025-002"
+              className="w-full px-3 py-2 text-[12px] font-semibold rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+            {contractsText.trim() ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {contractsText
+                  .split(/[,\n]/)
+                  .map((c) => c.trim())
+                  .filter(Boolean)
+                  .map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => onOpenContract(c)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 transition"
+                    >
+                      <FileText className="h-3 w-3" /> {c}
+                      <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                    </button>
+                  ))}
               </div>
             ) : (
-              <p className="text-[11px] text-amber-600 inline-flex items-center gap-1">
-                <AlertCircle className="h-3 w-3" /> No contract linked — approving will save without a contract reference.
+              <p className="mt-2 text-[11px] text-amber-600 inline-flex items-center gap-1">
+                <AlertCircle className="h-3 w-3" /> Saving without a contract reference.
               </p>
             )}
           </Section>
 
-          {/* Shipping */}
+          {/* Shipping — editable */}
           <Section icon={<Truck className="h-3.5 w-3.5" />} title="Shipping">
-            <Field label="Bill type" value={inv.bill_type || '—'} />
-            <Field label="Bill / AWB number" value={inv.bill_number || '—'} mono />
-            <Field
+            <div className="space-y-2">
+              <label className="block text-[10px] font-bold text-slate-500">Bill type</label>
+              <select
+                value={draft.bill_type || ''}
+                onChange={(e) => setField('bill_type', e.target.value as ExtractedInvoice['bill_type'])}
+                className="w-full px-3 py-2 text-[12px] font-semibold rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
+              >
+                <option value="">— None —</option>
+                <option value="Airway Bill">Airway Bill</option>
+                <option value="Bill of Lading">Bill of Lading</option>
+              </select>
+            </div>
+            <EditField
+              label="Bill / AWB number"
+              value={draft.bill_number}
+              onChange={(v) => setField('bill_number', v)}
+              mono
+            />
+            <EditField
               label="Shipping date"
-              value={inv.shipping_date ? new Date(inv.shipping_date).toLocaleDateString() : '—'}
+              type="date"
+              value={toDateInputValue(draft.shipping_date)}
+              onChange={(v) => setField('shipping_date', v || null)}
             />
           </Section>
 
-          {/* Line items */}
-          <Section icon={<Package className="h-3.5 w-3.5" />} title={`Line items (${inv.line_items?.length || 0})`}>
-            {inv.line_items?.length ? (
-              <div className="overflow-x-auto -mx-5 px-5">
-                <table className="w-full text-[11px]">
-                  <thead>
-                    <tr className="text-left text-slate-500 uppercase text-[10px] font-bold border-b border-slate-200">
-                      <th className="py-2 pr-3">Color</th>
-                      <th className="py-2 pr-3">Selection</th>
-                      <th className="py-2 pr-3">Qty</th>
-                      <th className="py-2">Pieces</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {inv.line_items.map((li, i) => (
-                      <tr key={i} className="border-b border-slate-100 last:border-0">
-                        <td className="py-2 pr-3 font-semibold text-slate-800">{li.color || '—'}</td>
-                        <td className="py-2 pr-3 text-slate-700">{li.selection || '—'}</td>
-                        <td className="py-2 pr-3 text-slate-700">{li.quantity || '—'}</td>
-                        <td className="py-2 text-slate-700">{li.pieces || '—'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Line items — editable */}
+          <Section icon={<Package className="h-3.5 w-3.5" />} title={`Line items (${draft.line_items?.length || 0})`}>
+            {draft.line_items?.length ? (
+              <div className="space-y-2">
+                {draft.line_items.map((li, i) => (
+                  <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
+                    <input
+                      placeholder="Color"
+                      value={li.color || ''}
+                      onChange={(e) => updateLineItem(i, 'color', e.target.value)}
+                      className="col-span-3 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <input
+                      placeholder="Selection"
+                      value={li.selection || ''}
+                      onChange={(e) => updateLineItem(i, 'selection', e.target.value)}
+                      className="col-span-4 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <input
+                      placeholder="Qty"
+                      value={li.quantity || ''}
+                      onChange={(e) => updateLineItem(i, 'quantity', e.target.value)}
+                      className="col-span-2 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <input
+                      placeholder="Pieces"
+                      value={li.pieces || ''}
+                      onChange={(e) => updateLineItem(i, 'pieces', e.target.value)}
+                      className="col-span-2 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(i)}
+                      className="col-span-1 inline-flex items-center justify-center text-slate-400 hover:text-red-600"
+                      aria-label="Remove line"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             ) : (
-              <p className="text-[11px] text-slate-500">No line items extracted.</p>
+              <p className="text-[11px] text-slate-500">No line items.</p>
             )}
+            <button
+              type="button"
+              onClick={addLineItem}
+              className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800"
+            >
+              + Add line item
+            </button>
           </Section>
 
-          {/* Notes */}
-          {inv.notes ? (
-            <Section icon={<StickyNote className="h-3.5 w-3.5" />} title="Notes">
-              <p className="text-[12px] text-slate-700 whitespace-pre-wrap">{inv.notes}</p>
-            </Section>
-          ) : null}
+          {/* Notes — editable */}
+          <Section icon={<StickyNote className="h-3.5 w-3.5" />} title="Notes">
+            <textarea
+              value={draft.notes || ''}
+              onChange={(e) => setField('notes', e.target.value)}
+              rows={3}
+              placeholder="Any extra context…"
+              className="w-full px-3 py-2 text-[12px] rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+            />
+          </Section>
 
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-[11px] text-amber-800">
-            <p className="font-bold mb-0.5">Review carefully before approving.</p>
-            <p>
-              These exact values will be inserted into your <span className="font-semibold">invoices</span> table.
-              Approving cannot be undone in one click — you'll have to delete the invoice manually if it's wrong.
-            </p>
+            <p className="font-bold mb-0.5">Edit anything that's wrong, then approve.</p>
+            <p>The exact values shown here are what get inserted into your invoices table.</p>
           </div>
         </div>
 
@@ -669,8 +841,8 @@ const PendingDetailsModal: React.FC<PendingDetailsModalProps> = ({
             <X className="h-4 w-4" /> Discard
           </button>
           <button
-            onClick={onApprove}
-            disabled={busy}
+            onClick={handleApprove}
+            disabled={!canApprove}
             className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 active:scale-95 transition"
           >
             <CheckCircle2 className="h-4 w-4" />
@@ -683,21 +855,97 @@ const PendingDetailsModal: React.FC<PendingDetailsModalProps> = ({
 };
 
 /* ---------------------------------------------------------------------- */
-/*  Modal: approved invoice — read-only summary                           */
+/*  Modal: approved invoice — editable                                    */
 /* ---------------------------------------------------------------------- */
 
 interface ApprovedDetailsModalProps {
   invoice: Invoice;
   onClose: () => void;
   onOpenContract: (contractNo: string) => void;
+  onSave: (patch: Partial<Invoice>) => Promise<{ ok: boolean; error?: string }>;
+  busy: boolean;
+}
+
+interface EditableLineItem {
+  color?: string; selection?: string; quantity?: string; pieces?: string;
 }
 
 const ApprovedDetailsModal: React.FC<ApprovedDetailsModalProps> = ({
-  invoice, onClose, onOpenContract,
+  invoice, onClose, onOpenContract, onSave, busy,
 }) => {
-  const lineItems = (invoice.line_items || []) as Array<{
-    color?: string; selection?: string; quantity?: string; pieces?: string;
-  }>;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(() => buildApprovedDraft(invoice));
+  const [contractsText, setContractsText] = useState<string>(
+    (invoice.contract_numbers || []).join(', '),
+  );
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(buildApprovedDraft(invoice));
+    setContractsText((invoice.contract_numbers || []).join(', '));
+    setEditing(false);
+    setSaveError(null);
+  }, [invoice.id]);
+
+  const setField = (key: string, value: any) => setDraft((d) => ({ ...d, [key]: value }));
+
+  const updateLineItem = (
+    i: number,
+    key: 'color' | 'selection' | 'quantity' | 'pieces',
+    value: string,
+  ) =>
+    setDraft((d) => {
+      const next = [...(d.line_items || [])];
+      next[i] = { ...next[i], [key]: value };
+      return { ...d, line_items: next };
+    });
+
+  const addLineItem = () =>
+    setDraft((d) => ({
+      ...d,
+      line_items: [...(d.line_items || []), { color: '', selection: '', quantity: '', pieces: '' }],
+    }));
+
+  const removeLineItem = (i: number) =>
+    setDraft((d) => ({
+      ...d,
+      line_items: (d.line_items || []).filter((_, idx) => idx !== i),
+    }));
+
+  const handleSave = async () => {
+    setSaveError(null);
+    const cleanedContracts = contractsText
+      .split(/[,\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const patch: Partial<Invoice> = {
+      invoice_number: (draft.invoice_number || '').trim(),
+      invoice_date: draft.invoice_date,
+      invoice_value: draft.invoice_value || '',
+      contract_numbers: cleanedContracts,
+      line_items: draft.line_items || [],
+      notes: draft.notes || '',
+      ...({ bill_type: draft.bill_type } as any),
+      ...({ bill_number: (draft.bill_number || '').trim() } as any),
+      ...({ shipping_date: draft.shipping_date } as any),
+    };
+    const res = await onSave(patch);
+    if (res.ok) {
+      setEditing(false);
+    } else {
+      setSaveError(res.error || 'Failed to save');
+    }
+  };
+
+  const handleCancel = () => {
+    setDraft(buildApprovedDraft(invoice));
+    setContractsText((invoice.contract_numbers || []).join(', '));
+    setSaveError(null);
+    setEditing(false);
+  };
+
+  const lineItems: EditableLineItem[] = draft.line_items || [];
+
   return (
     <div className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center bg-black/50" onClick={onClose}>
       <div
@@ -707,32 +955,87 @@ const ApprovedDetailsModal: React.FC<ApprovedDetailsModalProps> = ({
         <div className="px-5 py-4 border-b border-slate-200 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600">
-              Approved
+              Approved {editing && '· Editing'}
             </p>
             <h2 className="text-lg font-black text-slate-900 truncate">
-              {invoice.invoice_number || '—'}
+              {draft.invoice_number || '—'}
             </h2>
           </div>
-          <button onClick={onClose} className="shrink-0 p-1.5 rounded-lg hover:bg-slate-100 active:scale-95 transition" aria-label="Close">
-            <X className="h-5 w-5 text-slate-500" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {!editing && (
+              <button
+                onClick={() => setEditing(true)}
+                className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 transition"
+              >
+                Edit
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 active:scale-95 transition" aria-label="Close">
+              <X className="h-5 w-5 text-slate-500" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+          {saveError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-[11px] text-red-700">
+              {saveError}
+            </div>
+          )}
+
+          {/* Invoice basics */}
           <Section icon={<Hash className="h-3.5 w-3.5" />} title="Invoice basics">
-            <Field label="Invoice number" value={invoice.invoice_number || '—'} mono />
-            <Field
-              label="Invoice date"
-              value={invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : '—'}
-            />
-            <Field label="Invoice value" value={invoice.invoice_value || '—'} icon={<DollarSign className="h-3 w-3" />} />
-            {(invoice as any).source && (
-              <Field label="Source" value={(invoice as any).source} />
+            {editing ? (
+              <>
+                <EditField
+                  label="Invoice number"
+                  value={draft.invoice_number || ''}
+                  onChange={(v) => setField('invoice_number', v)}
+                  mono
+                />
+                <EditField
+                  label="Invoice date"
+                  type="date"
+                  value={toDateInputValue(draft.invoice_date)}
+                  onChange={(v) => setField('invoice_date', v || null)}
+                />
+                <EditField
+                  label="Invoice value"
+                  value={draft.invoice_value || ''}
+                  onChange={(v) => setField('invoice_value', v)}
+                />
+              </>
+            ) : (
+              <>
+                <Field label="Invoice number" value={invoice.invoice_number || '—'} mono />
+                <Field
+                  label="Invoice date"
+                  value={invoice.invoice_date ? new Date(invoice.invoice_date).toLocaleDateString() : '—'}
+                />
+                <Field label="Invoice value" value={invoice.invoice_value || '—'} icon={<DollarSign className="h-3 w-3" />} />
+                {(invoice as any).source && (
+                  <Field label="Source" value={(invoice as any).source} />
+                )}
+              </>
             )}
           </Section>
 
+          {/* Linked contracts */}
           <Section icon={<FileText className="h-3.5 w-3.5" />} title="Linked contracts">
-            {invoice.contract_numbers?.length ? (
+            {editing ? (
+              <>
+                <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                  Comma-separated contract numbers
+                </label>
+                <input
+                  type="text"
+                  value={contractsText}
+                  onChange={(e) => setContractsText(e.target.value)}
+                  placeholder="JI-2025-001, JI-2025-002"
+                  className="w-full px-3 py-2 text-[12px] font-semibold rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                />
+              </>
+            ) : invoice.contract_numbers?.length ? (
               <div className="flex flex-wrap gap-1.5">
                 {invoice.contract_numbers.map((c) => (
                   <button
@@ -750,17 +1053,103 @@ const ApprovedDetailsModal: React.FC<ApprovedDetailsModalProps> = ({
             )}
           </Section>
 
+          {/* Shipping */}
           <Section icon={<Truck className="h-3.5 w-3.5" />} title="Shipping">
-            <Field label="Bill type" value={(invoice as any).bill_type || '—'} />
-            <Field label="Bill / AWB number" value={(invoice as any).bill_number || '—'} mono />
-            <Field
-              label="Shipping date"
-              value={(invoice as any).shipping_date ? new Date((invoice as any).shipping_date).toLocaleDateString() : '—'}
-            />
+            {editing ? (
+              <>
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-500">Bill type</label>
+                  <select
+                    value={draft.bill_type || ''}
+                    onChange={(e) => setField('bill_type', e.target.value)}
+                    className="w-full px-3 py-2 text-[12px] font-semibold rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white"
+                  >
+                    <option value="">— None —</option>
+                    <option value="Airway Bill">Airway Bill</option>
+                    <option value="Bill of Lading">Bill of Lading</option>
+                  </select>
+                </div>
+                <EditField
+                  label="Bill / AWB number"
+                  value={draft.bill_number || ''}
+                  onChange={(v) => setField('bill_number', v)}
+                  mono
+                />
+                <EditField
+                  label="Shipping date"
+                  type="date"
+                  value={toDateInputValue(draft.shipping_date)}
+                  onChange={(v) => setField('shipping_date', v || null)}
+                />
+              </>
+            ) : (
+              <>
+                <Field label="Bill type" value={(invoice as any).bill_type || '—'} />
+                <Field label="Bill / AWB number" value={(invoice as any).bill_number || '—'} mono />
+                <Field
+                  label="Shipping date"
+                  value={(invoice as any).shipping_date
+                    ? new Date((invoice as any).shipping_date).toLocaleDateString() : '—'}
+                />
+              </>
+            )}
           </Section>
 
+          {/* Line items */}
           <Section icon={<Package className="h-3.5 w-3.5" />} title={`Line items (${lineItems.length})`}>
-            {lineItems.length ? (
+            {editing ? (
+              <>
+                {lineItems.length ? (
+                  <div className="space-y-2">
+                    {lineItems.map((li, i) => (
+                      <div key={i} className="grid grid-cols-12 gap-1.5 items-center">
+                        <input
+                          placeholder="Color"
+                          value={li.color || ''}
+                          onChange={(e) => updateLineItem(i, 'color', e.target.value)}
+                          className="col-span-3 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        <input
+                          placeholder="Selection"
+                          value={li.selection || ''}
+                          onChange={(e) => updateLineItem(i, 'selection', e.target.value)}
+                          className="col-span-4 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        <input
+                          placeholder="Qty"
+                          value={li.quantity || ''}
+                          onChange={(e) => updateLineItem(i, 'quantity', e.target.value)}
+                          className="col-span-2 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        <input
+                          placeholder="Pieces"
+                          value={li.pieces || ''}
+                          onChange={(e) => updateLineItem(i, 'pieces', e.target.value)}
+                          className="col-span-2 px-2 py-1.5 text-[11px] rounded-md border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeLineItem(i)}
+                          className="col-span-1 inline-flex items-center justify-center text-slate-400 hover:text-red-600"
+                          aria-label="Remove line"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500">No line items.</p>
+                )}
+                <button
+                  type="button"
+                  onClick={addLineItem}
+                  className="mt-2 text-[11px] font-bold text-blue-600 hover:text-blue-800"
+                >
+                  + Add line item
+                </button>
+              </>
+            ) : lineItems.length ? (
               <div className="overflow-x-auto -mx-5 px-5">
                 <table className="w-full text-[11px]">
                   <thead>
@@ -788,20 +1177,92 @@ const ApprovedDetailsModal: React.FC<ApprovedDetailsModalProps> = ({
             )}
           </Section>
 
-          {invoice.notes ? (
-            <Section icon={<StickyNote className="h-3.5 w-3.5" />} title="Notes">
+          {/* Notes */}
+          <Section icon={<StickyNote className="h-3.5 w-3.5" />} title="Notes">
+            {editing ? (
+              <textarea
+                value={draft.notes || ''}
+                onChange={(e) => setField('notes', e.target.value)}
+                rows={3}
+                placeholder="Any extra context…"
+                className="w-full px-3 py-2 text-[12px] rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-none"
+              />
+            ) : invoice.notes ? (
               <p className="text-[12px] text-slate-700 whitespace-pre-wrap">{invoice.notes}</p>
-            </Section>
-          ) : null}
+            ) : (
+              <p className="text-[11px] text-slate-500">No notes.</p>
+            )}
+          </Section>
         </div>
+
+        {/* Footer — only when editing */}
+        {editing && (
+          <div className="border-t border-slate-200 px-5 py-3 grid grid-cols-2 gap-2 bg-white">
+            <button
+              onClick={handleCancel}
+              disabled={busy}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 active:scale-95 transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={busy || !draft.invoice_number?.trim()}
+              className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 active:scale-95 transition"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 /* ---------------------------------------------------------------------- */
-/*  Tiny presentational helpers                                           */
+/*  Helpers                                                               */
 /* ---------------------------------------------------------------------- */
+
+/** Convert any date-ish value to the YYYY-MM-DD format <input type="date"> wants. */
+const toDateInputValue = (v: string | null | undefined): string => {
+  if (!v) return '';
+  const t = String(v).trim();
+  if (!t) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return '';
+  // Build YYYY-MM-DD in local time so the date stays correct across TZs.
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+/** Make sure an extracted invoice has every field populated (no undefineds). */
+const normalizeExtracted = (inv: ExtractedInvoice): ExtractedInvoice => ({
+  invoice_number: inv.invoice_number || '',
+  invoice_date: inv.invoice_date ?? null,
+  contract_numbers: inv.contract_numbers || [],
+  line_items: inv.line_items || [],
+  invoice_value: inv.invoice_value || '',
+  bill_type: (inv.bill_type as ExtractedInvoice['bill_type']) || '',
+  bill_number: inv.bill_number || '',
+  shipping_date: inv.shipping_date ?? null,
+  notes: inv.notes || '',
+});
+
+/** Build the editable draft for an approved invoice row. */
+const buildApprovedDraft = (inv: Invoice) => ({
+  invoice_number: inv.invoice_number || '',
+  invoice_date: inv.invoice_date ?? null,
+  invoice_value: inv.invoice_value || '',
+  bill_type: ((inv as any).bill_type as string) || '',
+  bill_number: ((inv as any).bill_number as string) || '',
+  shipping_date: ((inv as any).shipping_date as string | null) ?? null,
+  notes: inv.notes || '',
+  line_items: ((inv.line_items as EditableLineItem[]) || []).slice(),
+});
 
 const Section: React.FC<{ icon?: React.ReactNode; title: string; children: React.ReactNode }> = ({
   icon, title, children,
@@ -811,7 +1272,7 @@ const Section: React.FC<{ icon?: React.ReactNode; title: string; children: React
       {icon}
       {title}
     </h3>
-    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-1.5">
+    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-2">
       {children}
     </div>
   </section>
@@ -830,6 +1291,31 @@ const Field: React.FC<{ label: string; value: string; mono?: boolean; icon?: Rea
       {icon}
       {value}
     </span>
+  </div>
+);
+
+const EditField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+  required?: boolean;
+  mono?: boolean;
+  placeholder?: string;
+}> = ({ label, value, onChange, type = 'text', required, mono, placeholder }) => (
+  <div className="space-y-1">
+    <label className="block text-[10px] font-bold text-slate-500">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className={`w-full px-3 py-2 text-[12px] font-semibold rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none ${
+        mono ? 'font-mono' : ''
+      }`}
+    />
   </div>
 );
 

@@ -307,17 +307,36 @@ export async function approveExtractedInvoice(
       .map((c) => c.trim().toUpperCase())
       .filter((c) => c.length > 0);
 
+    // Postgres date columns reject empty strings — coerce blanks to null.
+    const cleanDate = (v: string | null | undefined): string | null => {
+      if (!v) return null;
+      const t = String(v).trim();
+      if (!t) return null;
+      // Accept YYYY-MM-DD as-is; otherwise let Date parse and re-format.
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+      const d = new Date(t);
+      if (Number.isNaN(d.getTime())) return null;
+      return d.toISOString().slice(0, 10);
+    };
+
+    // bill_type has a CHECK constraint allowing only the two enum values,
+    // empty string, or NULL. Pass null when blank to be safe.
+    const cleanBillType = (v: string | null | undefined) => {
+      const t = (v || '').trim();
+      return t === 'Airway Bill' || t === 'Bill of Lading' ? t : null;
+    };
+
     const payload = {
       user_id: userId,
       invoice_number: inv.invoice_number.trim(),
-      invoice_date: inv.invoice_date,
+      invoice_date: cleanDate(inv.invoice_date),
       contract_numbers: cleanedContracts,
-      line_items: inv.line_items,
-      invoice_value: inv.invoice_value,
-      bill_type: inv.bill_type,
-      bill_number: inv.bill_number,
-      shipping_date: inv.shipping_date,
-      notes: '',
+      line_items: inv.line_items || [],
+      invoice_value: inv.invoice_value || '',
+      bill_type: cleanBillType(inv.bill_type),
+      bill_number: (inv.bill_number || '').trim(),
+      shipping_date: cleanDate(inv.shipping_date),
+      notes: inv.notes || '',
       price_adjustment: '',
       source: 'email_sync',
       is_approved: true,
