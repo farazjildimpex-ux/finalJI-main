@@ -239,32 +239,73 @@ async function callQwen(
   }
 }
 
-async function upsertOne(inv: ExtractedInvoice, userId: string): Promise<SyncResult> {
+// Email sync NEVER writes directly to the `invoices` table. Extracted
+// invoices are only staged in `email_scan_log.extracted_invoices` and the
+// user must explicitly approve them on the Approvals page, which is the only
+// place that performs the actual insert.
+async function previewOne(inv: ExtractedInvoice): Promise<SyncResult> {
   if (!inv.invoice_number?.trim()) {
-    return { invoice_number: '(empty)', contract_numbers: [], action: 'skipped', reason: 'No invoice number found', invoice: inv };
+    return {
+      invoice_number: '(empty)',
+      contract_numbers: [],
+      action: 'skipped',
+      reason: 'No invoice number found',
+      invoice: inv,
+    };
   }
-  try {
-    const cleanedContracts = (inv.contract_numbers || [])
-      .map(c => c.trim().toUpperCase())
-      .filter(c => c.length > 0);
 
+  const cleanedContracts = (inv.contract_numbers || [])
+    .map((c) => c.trim().toUpperCase())
+    .filter((c) => c.length > 0);
+
+  try {
     const { data: existing } = await supabase
       .from('invoices')
       .select('id, is_approved')
       .eq('invoice_number', inv.invoice_number.trim())
       .maybeSingle();
 
-    // Once an invoice has been approved by the user, never overwrite it on a
-    // subsequent re-sync. The user has confirmed it's correct.
-    if (existing?.is_approved) {
+    if (existing?.id) {
       return {
         invoice_number: inv.invoice_number,
         contract_numbers: cleanedContracts,
         action: 'skipped',
-        reason: 'Already approved',
+        reason: existing.is_approved
+          ? 'Already approved — kept as-is'
+          : 'Already pending approval',
         invoice: inv,
       };
     }
+
+    return {
+      invoice_number: inv.invoice_number,
+      contract_numbers: cleanedContracts,
+      action: 'created',
+      reason: 'Awaiting your approval',
+      invoice: inv,
+    };
+  } catch (err: any) {
+    return {
+      invoice_number: inv.invoice_number,
+      contract_numbers: cleanedContracts,
+      action: 'skipped',
+      reason: err.message,
+      invoice: inv,
+    };
+  }
+}
+
+export async function approveExtractedInvoice(
+  inv: ExtractedInvoice,
+  userId: string,
+): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
+  if (!inv.invoice_number?.trim()) {
+    return { ok: false, error: 'Missing invoice number' };
+  }
+  try {
+    const cleanedContracts = (inv.contract_numbers || [])
+      .map((c) => c.trim().toUpperCase())
+      .filter((c) => c.length > 0);
 
     const payload = {
       user_id: userId,
@@ -279,16 +320,35 @@ async function upsertOne(inv: ExtractedInvoice, userId: string): Promise<SyncRes
       notes: '',
       price_adjustment: '',
       source: 'email_sync',
+      is_approved: true,
+      approved_at: new Date().toISOString(),
+      approved_by: userId,
     };
 
+    const { data: existing } = await supabase
+      .from('invoices')
+      .select('id')
+      .eq('invoice_number', payload.invoice_number)
+      .maybeSingle();
+
     if (existing?.id) {
-      await supabase.from('invoices').update(payload).eq('id', existing.id);
-      return { invoice_number: inv.invoice_number, contract_numbers: cleanedContracts, action: 'updated', invoice: inv };
+      const { error } = await supabase
+        .from('invoices')
+        .update(payload)
+        .eq('id', existing.id);
+      if (error) throw error;
+      return { ok: true, id: existing.id };
     }
-    await supabase.from('invoices').insert([payload]);
-    return { invoice_number: inv.invoice_number, contract_numbers: cleanedContracts, action: 'created', invoice: inv };
+
+    const { data: inserted, error } = await supabase
+      .from('invoices')
+      .insert([payload])
+      .select('id')
+      .single();
+    if (error) throw error;
+    return { ok: true, id: inserted!.id };
   } catch (err: any) {
-    return { invoice_number: inv.invoice_number, contract_numbers: inv.contract_numbers, action: 'skipped', reason: err.message, invoice: inv };
+    return { ok: false, error: err?.message || 'Failed to approve invoice' };
   }
 }
 
@@ -351,7 +411,7 @@ export async function syncEmailsWithLog(
         status = 'no_invoices';
       } else {
         for (const inv of extracted) {
-          results.push(await upsertOne(inv, userId));
+          results.push(await previewOne(inv));
         }
         const skipped = results.filter(r => r.action === 'skipped').length;
         status = skipped === 0 ? 'success' : (skipped === results.length ? 'error' : 'partial');
@@ -369,13 +429,3 @@ export async function syncEmailsWithLog(
   return out;
 }
 
-export async function upsertInvoices(
-  extractedInvoices: ExtractedInvoice[],
-  userId: string
-): Promise<SyncResult[]> {
-  const out: SyncResult[] = [];
-  for (const inv of extractedInvoices) {
-    out.push(await upsertOne(inv, userId));
-  }
-  return out;
-}

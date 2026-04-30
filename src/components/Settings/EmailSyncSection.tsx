@@ -289,7 +289,9 @@ const EmailSyncSection: React.FC = () => {
           </div>
           <div>
             <p className="text-sm font-bold text-gray-900">Auto Invoice Sync</p>
-            <p className="text-xs text-gray-500">Scan Gmail (last 7 days) · AI fills invoice details automatically</p>
+            <p className="text-xs text-gray-500">
+              Scan Gmail (last 7 days) · AI extracts invoices · review &amp; approve before they're saved
+            </p>
           </div>
         </div>
         <button
@@ -416,15 +418,24 @@ const EmailSyncSection: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                <p className="text-xs font-semibold text-emerald-800">
-                  Sync complete —{' '}
-                  {created > 0 && <>{created} invoice{created !== 1 ? 's' : ''} created</>}
-                  {created > 0 && updated > 0 && ', '}
-                  {updated > 0 && <>{updated} updated</>}
-                  {skipped > 0 && ` (${skipped} skipped)`}
-                </p>
+              <div className="flex items-start gap-2 p-3 bg-emerald-50 rounded-2xl border border-emerald-100">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="text-xs font-semibold text-emerald-800 space-y-1">
+                  <p>
+                    Found{' '}
+                    {created > 0 && <>{created} new invoice{created !== 1 ? 's' : ''} for review</>}
+                    {skipped > 0 && created > 0 && ', '}
+                    {skipped > 0 && <>{skipped} already in your records</>}
+                    {updated > 0 && created === 0 && <>{updated} updated</>}
+                    .
+                  </p>
+                  {created > 0 && (
+                    <p className="text-[11px] font-normal text-emerald-700">
+                      Open the Approvals page to review and approve them — nothing has been saved
+                      to your records yet.
+                    </p>
+                  )}
+                </div>
               </div>
               <button
                 onClick={() => setShowResults((v) => !v)}

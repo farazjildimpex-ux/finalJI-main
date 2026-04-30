@@ -1,5 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import fs from 'node:fs';
 import { initReplitSecretWatcher } from './replitSecrets.js';
 import {
   GMAIL_SCOPE,
@@ -182,5 +185,41 @@ app.get('/api/google/oauth/callback', async (req, res) => {
     );
   }
 });
+
+// ─── SPA static + fallback (production only) ──────────────────────────────
+// In dev the Vite server (port 5000) serves the SPA and proxies /api to us.
+// In production this Express process is the only thing running, so it must
+// also serve the built React app and fall back to index.html for every
+// non-API route — otherwise refreshing /app/home returns 404.
+if (isProd) {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const distDir = path.resolve(__dirname, '..', 'dist');
+  const indexHtmlPath = path.join(distDir, 'index.html');
+
+  if (fs.existsSync(indexHtmlPath)) {
+    app.use(
+      express.static(distDir, {
+        // Hashed bundles in /assets are immutable — long cache. Everything
+        // else (index.html, sw.js, manifest) must revalidate so PWA updates
+        // ship immediately.
+        setHeaders: (res, filePath) => {
+          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+          } else {
+            res.setHeader('Cache-Control', 'no-cache');
+          }
+        },
+      }),
+    );
+
+    // SPA fallback for any GET that isn't an API call or a real file.
+    app.get(/^(?!\/api\/).*/, (_req, res) => {
+      res.set('Cache-Control', 'no-cache');
+      res.sendFile(indexHtmlPath);
+    });
+  } else {
+    console.warn(`[server] dist/ not found at ${distDir}. Run "npm run build" before starting in production.`);
+  }
+}
 
 app.listen(PORT, '0.0.0.0', () => console.log(`Server running on port ${PORT}`));

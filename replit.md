@@ -74,10 +74,20 @@ supabase/
   read scanned PDFs via `image_url` data URIs. Key from bailian.console.aliyun.com.
 - OpenRouter was removed (April 2026) — quota was unreliable.
 
-## Invoice approval flow
-- Migration `20260430000000_invoice_approval_and_courier.sql` adds `is_approved`, `approved_at`, `approved_by`, `source` to `invoices`.
-- `emailSync.upsertOne` skips invoices where `is_approved = true` so user-confirmed records aren't overwritten on resync.
-- Approvals page at `/app/approvals` (linked from Settings → "Invoice Approvals" card) lists `source = 'email_sync' AND is_approved = false` rows with Approve / Edit / Delete actions.
+## Invoice approval flow (April 30, 2026 — staging-based)
+- Email sync NEVER writes to `invoices` directly. `emailSync.previewOne` only checks for duplicates and produces a preview `SyncResult`. The AI-extracted invoice JSON is stored in `email_scan_log.extracted_invoices` via `recordScan`.
+- Approvals page at `/app/approvals` lists pending items by reading `email_scan_log.extracted_invoices` and excluding any `invoice_number` already present in `invoices`. On Approve it calls `emailSync.approveExtractedInvoice` which inserts into `invoices` with `is_approved=true, source='email_sync'`.
+- `InvoicesSection` (contract page) filters out unapproved email-sync rows: `or('is_approved.eq.true,source.is.null,source.neq.email_sync')` so manual entries always show, sync entries only after approval.
+- Migration `20260430000000_invoice_approval_and_courier.sql` provides the `is_approved`, `approved_at`, `approved_by`, `source` columns used above.
+
+## PWA / SPA fallback
+- `server/index.js` (production only) serves `dist/` static and falls back to `index.html` for any non-`/api/*` GET so refreshing `/app/home` (or any deep route) works in the installed PWA on Replit deployments.
+- `netlify.toml` includes a `/* → /index.html (200)` redirect for the same reason on Netlify.
+- Service worker version bumped to `v11-2026-04-30` to invalidate stale caches.
+
+## Pull-to-refresh on Home
+- `src/components/UI/PullToRefresh.tsx` is a touch-driven wrapper that listens on `window`. When the page is at scrollTop 0 and the user drags down past the threshold, it fires `onRefresh` and shows a full-screen splash (`RefreshSplash`) reusing the JI letter animation from `LoadingScreen.tsx`.
+- `HomePage` wraps its tree in `<PullToRefresh onRefresh={...}>` and the refresh callback re-runs both `fetchData` (orders) and `fetchJournalEntries`.
 
 ## Sample courier tracking
 - Same migration adds `courier_provider`, `courier_reference`, `courier_status`, `delivered_at`, `delivery_notified` to `samples`.

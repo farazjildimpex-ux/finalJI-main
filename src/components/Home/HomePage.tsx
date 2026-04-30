@@ -5,6 +5,7 @@ import JournalWidget from './JournalWidget';
 import JournalSearchResults from '../Journal/JournalSearchResults';
 import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
+import PullToRefresh from '../UI/PullToRefresh';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { Building2, AlertCircle } from 'lucide-react';
 import type { Order, JournalEntry } from '../../types';
@@ -177,7 +178,12 @@ const HomePage: React.FC = () => {
   const showJournal = activeFilter === 'all' || activeFilter === 'journal';
   const showOrders = activeFilter === 'all' || activeFilter !== 'journal';
 
+  const handlePullRefresh = useCallback(async () => {
+    await Promise.all([fetchData(), fetchJournalEntries()]);
+  }, [fetchData, fetchJournalEntries]);
+
   return (
+    <PullToRefresh onRefresh={handlePullRefresh}>
     <div className="max-w-7xl mx-auto page-fade-in px-4">
       <div className="mb-6 md:mb-8 flex flex-col items-center text-center pt-4">
         <div className="flex items-center justify-center mb-2">
@@ -268,6 +274,7 @@ const HomePage: React.FC = () => {
         />
       )}
     </div>
+    </PullToRefresh>
   );
 };
 

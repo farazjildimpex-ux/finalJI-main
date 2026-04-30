@@ -98,6 +98,10 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           .from('invoices')
           .select('*')
           .contains('contract_numbers', [v])
+          // Only show approved invoices and manually-entered ones. Email-sync
+          // invoices are kept out of contract pages until the user approves
+          // them on the Approvals page.
+          .or('is_approved.eq.true,source.is.null,source.neq.email_sync')
           .order('invoice_date', { ascending: false })
           .order('created_at', { ascending: false });
         if (fetchError) throw fetchError;

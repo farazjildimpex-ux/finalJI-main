@@ -7,7 +7,7 @@
 // at hashed bundles that disappear on every deploy, which is what caused the
 // installed PWA to launch into a blank screen after each Netlify build.
 
-const APP_VERSION = 'v10-2026-04-29';
+const APP_VERSION = 'v11-2026-04-30';
 const STATIC_CACHE = `jild-static-${APP_VERSION}`;
 const RUNTIME_CACHE = `jild-runtime-${APP_VERSION}`;
 
