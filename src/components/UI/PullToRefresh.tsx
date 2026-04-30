@@ -6,37 +6,56 @@ interface PullToRefreshProps {
   onRefresh: () => Promise<unknown> | void;
   /**
    * Distance the user must drag before a release triggers a refresh.
-   * Defaults to 80px. The indicator becomes "ready" past this point.
+   * Defaults to 110px so casual touches never fire it.
    */
   threshold?: number;
   /**
-   * Maximum drag distance (the indicator caps here). Defaults to 140px.
+   * Maximum drag distance (the indicator caps here). Defaults to 160px.
    */
   maxPull?: number;
+  /**
+   * Minimum drag distance before the indicator becomes visible at all.
+   * Filters out small finger jitter. Defaults to 30px.
+   */
+  activationDistance?: number;
   children: React.ReactNode;
 }
 
 /**
- * Mobile-first pull-to-refresh. Listens for touch gestures on the document
- * (so it works regardless of which inner element is scrolled) and only fires
- * when the page is already scrolled to the very top.
+ * Mobile pull-to-refresh that is intentionally hard to trigger by accident.
  *
- * While refreshing it shows the JILD "JI" splash animation as a full-screen
- * overlay so the action feels like a fresh launch.
+ * Rules for a valid pull:
+ *   1. The page MUST be at scrollTop 0 when the finger touches down.
+ *   2. NO scroll event may fire during the touch session — if the page
+ *      scrolls at all, the gesture is permanently disqualified until the
+ *      finger lifts. This kills "swipe up to scroll up" false positives.
+ *   3. The very first move must already be a downward drag of at least
+ *      `activationDistance` pixels. If the user moved their finger upward
+ *      first (i.e. they're trying to scroll down), the gesture is disarmed.
+ *   4. Only single-finger touches count.
+ *   5. Release must be past `threshold` (110px by default).
+ *
+ * While refreshing it shows the JILD "JI" splash so the action feels like a
+ * fresh launch.
  */
 const PullToRefresh: React.FC<PullToRefreshProps> = ({
   onRefresh,
-  threshold = 80,
-  maxPull = 140,
+  threshold = 110,
+  maxPull = 160,
+  activationDistance = 30,
   children,
 }) => {
   const [pull, setPull] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
+
+  // All gesture state lives in refs so listeners stay stable.
   const startY = useRef<number | null>(null);
-  const tracking = useRef(false);
+  const armed = useRef(false);
+  const disqualified = useRef(false);
+  const movedUpFirst = useRef(false);
 
   useEffect(() => {
-    // Disable native browser pull-to-refresh chrome on mobile so our
+    // Disable the browser's native pull-to-refresh chrome on mobile so our
     // gesture and animation don't fight it.
     const prev = document.body.style.overscrollBehaviorY;
     document.body.style.overscrollBehaviorY = 'contain';
@@ -55,47 +74,106 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
       return sy <= 0;
     };
 
+    const reset = () => {
+      armed.current = false;
+      disqualified.current = false;
+      movedUpFirst.current = false;
+      startY.current = null;
+      setPull(0);
+    };
+
+    const onScroll = () => {
+      // Any scroll during a touch invalidates the pull permanently for
+      // this gesture. This is the key fix: scrolling up to the top will
+      // fire scroll events along the way, so even when the touch
+      // continues after reaching the top it can't be misread as a pull.
+      if (armed.current || startY.current != null) {
+        disqualified.current = true;
+        if (pull !== 0) setPull(0);
+      }
+    };
+
     const onTouchStart = (e: TouchEvent) => {
       if (refreshing) return;
-      if (!atTop()) {
-        tracking.current = false;
+
+      // Multi-touch (pinch, etc.) — never treat as pull.
+      if (e.touches.length !== 1) {
+        reset();
         return;
       }
-      tracking.current = true;
+
+      // Must start at the very top to even consider arming.
+      if (!atTop()) {
+        armed.current = false;
+        startY.current = null;
+        return;
+      }
+
+      armed.current = true;
+      disqualified.current = false;
+      movedUpFirst.current = false;
       startY.current = e.touches[0].clientY;
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!tracking.current || refreshing || startY.current == null) return;
-      const delta = e.touches[0].clientY - startY.current;
-      if (delta <= 0) {
-        // user is scrolling up — let the page do its normal thing
+      if (refreshing) return;
+      if (!armed.current || disqualified.current || startY.current == null) return;
+      if (e.touches.length !== 1) {
+        disqualified.current = true;
         setPull(0);
         return;
       }
-      // Resistance: feels rubbery, never exceeds maxPull.
-      const resisted = Math.min(maxPull, delta * 0.55);
+
+      const delta = e.touches[0].clientY - startY.current;
+
+      // First detectable motion: if it was upward (negative), the user
+      // wants to scroll the content, not pull. Disarm permanently.
+      if (delta < -4) {
+        movedUpFirst.current = true;
+        disqualified.current = true;
+        setPull(0);
+        return;
+      }
+
+      if (delta < activationDistance) {
+        // Below the activation threshold — show nothing yet, but don't
+        // disarm in case the user is gradually starting their pull.
+        if (pull !== 0) setPull(0);
+        return;
+      }
+
+      // Re-check that we're still at the top. If the page somehow
+      // scrolled in the meantime (rare, but possible with nested
+      // scrollers), disqualify.
+      if (!atTop()) {
+        disqualified.current = true;
+        setPull(0);
+        return;
+      }
+
+      // Valid pull. Apply rubber-band resistance and cap at maxPull.
+      const adjusted = delta - activationDistance;
+      const resisted = Math.min(maxPull, adjusted * 0.55);
       setPull(resisted);
 
-      if (delta > 8 && atTop()) {
-        // Prevent the page from also scrolling while we drag.
-        if (e.cancelable) e.preventDefault();
-      }
+      // Stop the page from also rubber-banding while we drag.
+      if (e.cancelable) e.preventDefault();
     };
 
     const onTouchEnd = async () => {
-      if (!tracking.current) return;
-      tracking.current = false;
-      const triggered = pull >= threshold;
-      startY.current = null;
+      if (refreshing) return;
 
-      if (!triggered) {
-        setPull(0);
-        return;
-      }
+      const triggered =
+        armed.current &&
+        !disqualified.current &&
+        !movedUpFirst.current &&
+        pull >= threshold;
+
+      reset();
+
+      if (!triggered) return;
 
       setRefreshing(true);
-      setPull(0);
       try {
         await onRefresh();
       } finally {
@@ -104,19 +182,21 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
       }
     };
 
-    // `passive: false` so we can preventDefault during the pull.
+    // `passive: false` on touchmove so we can preventDefault during the pull.
+    window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('touchend', onTouchEnd, { passive: true });
     window.addEventListener('touchcancel', onTouchEnd, { passive: true });
 
     return () => {
+      window.removeEventListener('scroll', onScroll);
       window.removeEventListener('touchstart', onTouchStart);
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('touchcancel', onTouchEnd);
     };
-  }, [pull, threshold, maxPull, onRefresh, refreshing]);
+  }, [pull, threshold, maxPull, activationDistance, onRefresh, refreshing]);
 
   const ready = pull >= threshold;
   const progress = Math.min(1, pull / threshold);
@@ -160,7 +240,7 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
           }}
         >
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            {ready ? 'Release to refresh' : 'Pull to refresh'}
+            {ready ? 'Release to refresh' : 'Keep pulling…'}
           </span>
         </div>
       )}

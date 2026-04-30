@@ -53,9 +53,9 @@ const ApprovalsPage: React.FC = () => {
       //    yet for that invoice_number.
       const scanResp = await supabase
         .from('email_scan_log')
-        .select('id, created_at, email_subject, email_from, extracted_invoices')
+        .select('id, scanned_at, email_subject, email_from, extracted_invoices')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .order('scanned_at', { ascending: false })
         .limit(200);
       if (scanResp.error) throw scanResp.error;
 
@@ -84,7 +84,7 @@ const ApprovalsPage: React.FC = () => {
             key: `${row.id}:${idx}`,
             scanLogId: row.id,
             scanIndex: idx,
-            scannedAt: row.created_at,
+            scannedAt: row.scanned_at,
             emailSubject: row.email_subject || '(no subject)',
             emailFrom: row.email_from || '',
             invoice: inv,
