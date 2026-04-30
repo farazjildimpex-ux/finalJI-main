@@ -167,70 +167,66 @@ async function callGoogleGemini(
   }
 }
 
-async function callOpenRouter(
+// ─── Provider: Qwen (Alibaba DashScope) ──────────────────────────────────
+// DashScope International gives a generous free tier and qwen-vl-max-latest
+// reads images (and short PDFs converted to images) natively. Get a key at
+// https://dashscope.console.aliyun.com (or the international console).
+async function callQwen(
   email: EmailData,
   contracts: Contract[],
-  openRouterKey: string
+  apiKey: string
 ): Promise<ExtractedInvoice[]> {
   const knownContracts = contracts.map((c) => c.contract_no).join(', ') || 'none yet';
   const prompt = buildPrompt(knownContracts);
+  const model = localStorage.getItem('jild_qwen_model') || 'qwen-vl-max-latest';
 
-  const model = localStorage.getItem('jild_openrouter_model') || 'google/gemini-2.0-flash-exp:free';
-
-  // Build OpenAI-style multipart message: text part + every PDF that came with
-  // base64 data (server only attaches data when text extraction failed).
+  // Qwen uses OpenAI-compatible chat completions with image_url multipart.
+  // We pass the PDF as a data URI on image_url — qwen-vl reads it.
   const contentParts: any[] = [
     { type: 'text', text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) },
   ];
 
-  let needsFileParser = false;
   for (const a of email.attachments) {
     if (a.dataBase64 && a.type === 'pdf') {
-      needsFileParser = true;
       contentParts.push({
-        type: 'file',
-        file: {
-          filename: a.name,
-          file_data: `data:${a.mimeType || 'application/pdf'};base64,${a.dataBase64}`,
+        type: 'image_url',
+        image_url: {
+          url: `data:${a.mimeType || 'application/pdf'};base64,${a.dataBase64}`,
         },
       });
     }
   }
 
-  const body: any = {
+  const body = {
     model,
     messages: [{ role: 'user', content: contentParts }],
     temperature: 0.1,
   };
-  // When at least one PDF needs OCR, ask OpenRouter's file-parser plugin to
-  // hand the PDF to the model natively (Gemini & GPT-4o read PDFs directly).
-  if (needsFileParser) {
-    body.plugins = [{ id: 'file-parser', pdf: { engine: 'native' } }];
-  }
 
-  const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${openRouterKey}`,
-      'HTTP-Referer': window.location.origin,
-      'X-Title': 'JILD IMPEX Email Sync',
-    },
-    body: JSON.stringify(body),
-  });
+  const resp = await fetch(
+    'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    }
+  );
 
   if (!resp.ok) {
     let detail = '';
-    try { detail = (await resp.text()).slice(0, 300); } catch {}
-    throw new Error(`AI request failed (${resp.status}). ${detail || 'Check your OpenRouter key or try a different model.'}`);
+    try { detail = (await resp.text()).slice(0, 400); } catch {}
+    throw new Error(
+      `Qwen request failed (${resp.status}). ${detail || 'Check your DashScope key or try qwen-plus.'}`
+    );
   }
 
   const data = await resp.json();
   const content = data.choices?.[0]?.message?.content || '';
 
   try {
-    // Some models wrap JSON in code fences or include surrounding prose — pull
-    // out the first {...} block as a fallback.
     let jsonStr = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
     if (!jsonStr.startsWith('{')) {
       const m = jsonStr.match(/\{[\s\S]*\}/);
@@ -239,7 +235,7 @@ async function callOpenRouter(
     const parsed = JSON.parse(jsonStr);
     return Array.isArray(parsed.invoices) ? parsed.invoices : [];
   } catch {
-    throw new Error('AI returned data in an unexpected format.');
+    throw new Error('Qwen returned data in an unexpected format. Raw: ' + content.slice(0, 200));
   }
 }
 
@@ -254,9 +250,21 @@ async function upsertOne(inv: ExtractedInvoice, userId: string): Promise<SyncRes
 
     const { data: existing } = await supabase
       .from('invoices')
-      .select('id')
+      .select('id, is_approved')
       .eq('invoice_number', inv.invoice_number.trim())
       .maybeSingle();
+
+    // Once an invoice has been approved by the user, never overwrite it on a
+    // subsequent re-sync. The user has confirmed it's correct.
+    if (existing?.is_approved) {
+      return {
+        invoice_number: inv.invoice_number,
+        contract_numbers: cleanedContracts,
+        action: 'skipped',
+        reason: 'Already approved',
+        invoice: inv,
+      };
+    }
 
     const payload = {
       user_id: userId,
@@ -270,6 +278,7 @@ async function upsertOne(inv: ExtractedInvoice, userId: string): Promise<SyncRes
       shipping_date: inv.shipping_date,
       notes: '',
       price_adjustment: '',
+      source: 'email_sync',
     };
 
     if (existing?.id) {
@@ -310,7 +319,7 @@ async function recordScan(scan: EmailScanResult, userId: string): Promise<void> 
   }
 }
 
-export type AIProvider = 'google' | 'openrouter';
+export type AIProvider = 'google' | 'qwen';
 
 export interface AICredentials {
   provider: AIProvider;
@@ -337,7 +346,7 @@ export async function syncEmailsWithLog(
     try {
       extracted = credentials.provider === 'google'
         ? await callGoogleGemini(email, contracts, credentials.apiKey)
-        : await callOpenRouter(email, contracts, credentials.apiKey);
+        : await callQwen(email, contracts, credentials.apiKey);
       if (extracted.length === 0) {
         status = 'no_invoices';
       } else {
@@ -358,22 +367,6 @@ export async function syncEmailsWithLog(
   }
   onProgress?.(emails.length, emails.length);
   return out;
-}
-
-// ── Legacy helpers retained for any callers still importing them ──────────
-export async function analyzeEmailsWithAI(
-  emails: EmailData[],
-  contracts: Contract[],
-  openRouterKey: string
-): Promise<ExtractedInvoice[]> {
-  const all: ExtractedInvoice[] = [];
-  for (const e of emails) {
-    try {
-      const extracted = await callOpenRouter(e, contracts, openRouterKey);
-      all.push(...extracted);
-    } catch {}
-  }
-  return all;
 }
 
 export async function upsertInvoices(

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Database, Download, Upload, AlertCircle, HardDrive, Trash2, ChevronDown, ChevronUp, FileText, Book, Bookmark, Receipt, Clipboard, Search, RefreshCw, CheckCircle2, ShieldCheck, Bell, BellOff, BellRing } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Database, Download, Upload, AlertCircle, HardDrive, Trash2, ChevronDown, ChevronUp, ChevronRight, FileText, Book, Bookmark, Receipt, Clipboard, Search, RefreshCw, CheckCircle2, ShieldCheck, Bell, BellOff, BellRing } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useNotifications } from '../../hooks/useNotifications';
 import { dialogService } from '../../lib/dialogService';
@@ -210,6 +211,27 @@ const SettingsPage: React.FC = () => {
 
       {/* Auto Invoice Sync from Gmail */}
       <EmailSyncSection />
+
+      {/* Approval queue link */}
+      <Link
+        to="/app/approvals"
+        className="block bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden hover:border-emerald-300 hover:shadow-md transition-all"
+      >
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-emerald-50">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">Invoice Approvals</p>
+              <p className="text-xs text-gray-500">
+                Review synced invoices · approve to lock them from future overwrites
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-gray-400" />
+        </div>
+      </Link>
 
       {/* Scanned email history */}
       <EmailScanHistory />

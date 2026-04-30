@@ -110,6 +110,12 @@ export interface Sample {
   notes: string;
   shipment_reference: string[];
   customer_comments: string;
+  courier_provider?: string | null;
+  courier_reference?: string | null;
+  courier_status?: string | null;
+  courier_status_updated_at?: string | null;
+  delivered_at?: string | null;
+  delivery_notified?: boolean | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -243,6 +249,10 @@ export interface Invoice {
   bill_type?: 'Airway Bill' | 'Bill of Lading' | '';
   bill_number?: string;
   shipping_date?: string | null;
+  is_approved?: boolean;
+  approved_at?: string | null;
+  approved_by?: string | null;
+  source?: 'manual' | 'email_sync' | string;
   created_at?: string;
   updated_at?: string;
 }

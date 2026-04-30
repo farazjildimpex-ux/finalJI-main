@@ -55,14 +55,34 @@ Starts the Vite dev server on port 5000.
 ## Project Structure
 ```
 src/
-  components/     # UI components by feature (Auth, Contracts, DebitNote, etc.)
+  components/     # UI components by feature (Auth, Contracts, DebitNote, Approvals, etc.)
   hooks/          # useAuth, useNotifications, useReminderChecker
-  lib/            # supabaseClient.ts, firebase.ts
+  lib/            # supabaseClient.ts, firebase.ts, courierTracking.ts, emailSync.ts
   types/          # TypeScript interfaces
   utils/          # PDF/Word generators, PWA helpers
-  App.tsx         # Router + route definitions
+  App.tsx         # Router + route definitions (includes /app/approvals)
   main.tsx        # Bootstrap, service worker registration
 supabase/
   functions/      # Edge Functions (check-reminders, onesignal-proxy)
   migrations/     # SQL schema history
 ```
+
+## AI providers for invoice extraction (emailSync.ts)
+- **Google AI Studio (Gemini)** — direct API, native PDF reading, 1500 req/day free. Recommended.
+- **Qwen / DashScope (Alibaba)** — backup. OpenAI-compatible endpoint at
+  `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions`. Vision models (`qwen-vl-max-latest`)
+  read scanned PDFs via `image_url` data URIs. Key from bailian.console.aliyun.com.
+- OpenRouter was removed (April 2026) — quota was unreliable.
+
+## Invoice approval flow
+- Migration `20260430000000_invoice_approval_and_courier.sql` adds `is_approved`, `approved_at`, `approved_by`, `source` to `invoices`.
+- `emailSync.upsertOne` skips invoices where `is_approved = true` so user-confirmed records aren't overwritten on resync.
+- Approvals page at `/app/approvals` (linked from Settings → "Invoice Approvals" card) lists `source = 'email_sync' AND is_approved = false` rows with Approve / Edit / Delete actions.
+
+## Sample courier tracking
+- Same migration adds `courier_provider`, `courier_reference`, `courier_status`, `delivered_at`, `delivery_notified` to `samples`.
+- `src/lib/courierTracking.ts` lists supported couriers (DHL, FedEx, UPS, Aramex, BlueDart, DTDC, India Post, TNT, Other) and builds tap-to-track URLs.
+- `SampleForm.tsx` has a "Courier & Tracking" section with provider dropdown, AWB field, "Track" button (opens public tracker), latest-status text input, and "Mark Delivered" button (sets `delivered_at`, status = Completed).
+
+## Journal reminder quick-pick buttons
+`JournalEntryForm.tsx` shows 6 preset buttons (2 days, 1 week, 10 days, 2 weeks, 3 weeks, 4 weeks) when reminders are enabled. Each preset sets `reminderDate = today + N days` and `reminderTime = 09:00`.

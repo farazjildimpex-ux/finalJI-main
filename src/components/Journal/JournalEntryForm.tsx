@@ -2,12 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
 import { JournalEntry } from '../../types';
 import DatePicker from '../UI/DatePicker';
 import { dialogService } from '../../lib/dialogService';
+
+const REMINDER_PRESETS: { label: string; days: number }[] = [
+  { label: '2 days',  days: 2 },
+  { label: '1 week',  days: 7 },
+  { label: '10 days', days: 10 },
+  { label: '2 weeks', days: 14 },
+  { label: '3 weeks', days: 21 },
+  { label: '4 weeks', days: 28 },
+];
 
 const JournalEntryForm: React.FC<{
   initialDate: Date;
@@ -177,25 +186,56 @@ const JournalEntryForm: React.FC<{
               </div>
 
               {reminderEnabled && (
-                <div className="grid grid-cols-2 gap-3 animate-in slide-in-from-top-2 duration-200">
+                <div className="space-y-3 animate-in slide-in-from-top-2 duration-200">
+                  {/* Quick-pick preset buttons. Sets date = today + N days, time = 09:00 */}
                   <div>
-                    <label className={labelClass}>Date</label>
-                    <DatePicker
-                      value={reminderDate}
-                      onChange={(val) => setReminderDate(val)}
-                    />
+                    <label className={labelClass}>Quick remind in…</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {REMINDER_PRESETS.map((p) => {
+                        const target = format(addDays(new Date(), p.days), 'yyyy-MM-dd');
+                        const isActive = reminderDate === target && reminderTime === '09:00';
+                        return (
+                          <button
+                            key={p.label}
+                            type="button"
+                            onClick={() => {
+                              setReminderDate(target);
+                              setReminderTime('09:00');
+                            }}
+                            className={`px-2 py-2 text-[11px] font-bold rounded-xl border transition-all active:scale-95 ${
+                              isActive
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-200'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            {p.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1.5 px-1">All quick picks default to 9:00 AM</p>
                   </div>
-                  <div>
-                    <label className={labelClass}>Time</label>
-                    <div className="relative">
-                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <input
-                        type="time"
-                        value={reminderTime}
-                        onChange={(e) => setReminderTime(e.target.value)}
-                        className={`${inputClass} pl-10`}
-                        required={reminderEnabled}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Date</label>
+                      <DatePicker
+                        value={reminderDate}
+                        onChange={(val) => setReminderDate(val)}
                       />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Time</label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input
+                          type="time"
+                          value={reminderTime}
+                          onChange={(e) => setReminderTime(e.target.value)}
+                          className={`${inputClass} pl-10`}
+                          required={reminderEnabled}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

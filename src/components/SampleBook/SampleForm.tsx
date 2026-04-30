@@ -15,6 +15,7 @@ import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
+import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed'] as const;
@@ -44,6 +45,10 @@ const createEmptySample = (): Sample => ({
   notes: '',
   shipment_reference: [],
   customer_comments: '',
+  courier_provider: null,
+  courier_reference: null,
+  courier_status: null,
+  delivered_at: null,
 });
 
 const escapeHtml = (value: string) =>
@@ -648,6 +653,79 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
               }}
               className="min-h-[200px] px-3 py-2 text-sm leading-6 text-gray-800 focus:outline-none"
             />
+          </div>
+        </FormRow>
+      </FormSection>
+
+      {/* Courier / Tracking */}
+      <FormSection title="Courier & Tracking">
+        <FormRow label="Courier Provider" htmlFor="courier_provider">
+          <select
+            id="courier_provider"
+            value={formData.courier_provider || ''}
+            onChange={(e) => setField('courier_provider', e.target.value || null)}
+            className={formInputClass}
+          >
+            <option value="">— Select courier —</option>
+            {COURIERS.map((c) => (
+              <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        </FormRow>
+        <FormRow label="Tracking / AWB Number" htmlFor="courier_reference">
+          <div className="flex gap-2">
+            <input
+              id="courier_reference"
+              type="text"
+              value={formData.courier_reference || ''}
+              onChange={(e) => setField('courier_reference', e.target.value || null)}
+              className={formInputClass}
+              placeholder="e.g. 1234567890"
+            />
+            {(() => {
+              const url = buildTrackingUrl(formData.courier_provider, formData.courier_reference);
+              return url ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap"
+                >
+                  Track
+                </a>
+              ) : null;
+            })()}
+          </div>
+        </FormRow>
+        <FormRow label="Latest Status" htmlFor="courier_status">
+          <input
+            id="courier_status"
+            type="text"
+            value={formData.courier_status || ''}
+            onChange={(e) => setField('courier_status', e.target.value || null)}
+            className={formInputClass}
+            placeholder="e.g. In Transit / Out for Delivery / Delivered"
+          />
+        </FormRow>
+        <FormRow label="">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date().toISOString();
+                setField('delivered_at', now);
+                setField('courier_status', 'Delivered');
+                setField('status', 'Completed');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              Mark Delivered
+            </button>
+            {formData.delivered_at && (
+              <span className="inline-flex items-center px-3 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md">
+                Delivered {new Date(formData.delivered_at).toLocaleDateString()}
+              </span>
+            )}
           </div>
         </FormRow>
       </FormSection>

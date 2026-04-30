@@ -23,13 +23,13 @@ import {
 } from 'lucide-react';
 import type { SyncResult, EmailScanResult } from '../../lib/emailSync';
 
-const OPENROUTER_KEY_STORAGE = 'jild_openrouter_key';
-const OPENROUTER_MODEL_STORAGE = 'jild_openrouter_model';
+const QWEN_KEY_STORAGE = 'jild_qwen_key';
+const QWEN_MODEL_STORAGE = 'jild_qwen_model';
 const GOOGLE_KEY_STORAGE = 'jild_google_key';
 const GOOGLE_MODEL_STORAGE = 'jild_google_model';
 const PROVIDER_STORAGE = 'jild_ai_provider';
 
-type Provider = 'google' | 'openrouter';
+type Provider = 'google' | 'qwen';
 
 // Direct Google AI Studio models — free tier: 1,500 requests/day, native PDF reading.
 const GOOGLE_MODELS = [
@@ -38,14 +38,12 @@ const GOOGLE_MODELS = [
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite — lighter, faster' },
 ];
 
-// OpenRouter free models. Vision-capable ones go first.
-const OPENROUTER_MODELS = [
-  { value: 'google/gemini-2.0-flash-exp:free',          label: 'Gemini 2.0 Flash (free) — reads scanned PDFs' },
-  { value: 'google/gemini-2.5-flash-lite-preview-09-2025:free', label: 'Gemini 2.5 Flash Lite (free) — reads scanned PDFs' },
-  { value: 'meta-llama/llama-3.2-11b-vision-instruct:free', label: 'Llama 3.2 11B Vision (free) — reads images' },
-  { value: 'qwen/qwen2.5-vl-72b-instruct:free',         label: 'Qwen 2.5 VL 72B (free) — reads images' },
-  { value: 'openai/gpt-oss-20b:free',                   label: 'OpenAI GPT OSS 20B (free) — text PDFs only' },
-  { value: 'openai/gpt-oss-120b:free',                  label: 'OpenAI GPT OSS 120B (free) — text PDFs only' },
+// Qwen / Alibaba DashScope International models. Vision-capable first.
+const QWEN_MODELS = [
+  { value: 'qwen-vl-max-latest',  label: 'Qwen-VL Max (latest) — reads scanned PDFs · recommended' },
+  { value: 'qwen-vl-plus-latest', label: 'Qwen-VL Plus — cheaper, reads images' },
+  { value: 'qwen-plus',           label: 'Qwen Plus — text only, fast' },
+  { value: 'qwen-max',            label: 'Qwen Max — text only, smarter' },
 ];
 
 const StatusBadge: React.FC<{ action: SyncResult['action'] }> = ({ action }) => {
@@ -97,23 +95,25 @@ const EmailSyncSection: React.FC = () => {
   const [googleModel, setGoogleModel] = useState<string>(
     () => localStorage.getItem(GOOGLE_MODEL_STORAGE) || 'gemini-2.0-flash'
   );
-  const [openRouterKey, setOpenRouterKey] = useState<string>(
-    () => localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
+  const [qwenKey, setQwenKey] = useState<string>(
+    () => localStorage.getItem(QWEN_KEY_STORAGE) || ''
   );
-  const [selectedModel, setSelectedModel] = useState<string>(() => {
-    const saved = localStorage.getItem(OPENROUTER_MODEL_STORAGE);
-    const OLD_DEFAULTS = ['openai/gpt-oss-20b:free', 'openai/gpt-oss-120b:free'];
-    if (!saved || OLD_DEFAULTS.includes(saved)) {
-      const next = 'google/gemini-2.0-flash-exp:free';
-      localStorage.setItem(OPENROUTER_MODEL_STORAGE, next);
-      return next;
-    }
-    return saved;
-  });
+  const [qwenModel, setQwenModel] = useState<string>(
+    () => localStorage.getItem(QWEN_MODEL_STORAGE) || 'qwen-vl-max-latest'
+  );
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
 
-  const activeKey = provider === 'google' ? googleKey : openRouterKey;
+  // Migrate any saved 'openrouter' provider preference to 'qwen' silently.
+  useEffect(() => {
+    const saved = localStorage.getItem(PROVIDER_STORAGE);
+    if (saved === 'openrouter') {
+      localStorage.setItem(PROVIDER_STORAGE, 'qwen');
+      setProvider('qwen');
+    }
+  }, []);
+
+  const activeKey = provider === 'google' ? googleKey : qwenKey;
 
   const [showSetup, setShowSetup] = useState(false);
 
@@ -203,17 +203,17 @@ const EmailSyncSection: React.FC = () => {
       localStorage.setItem(GOOGLE_KEY_STORAGE, googleKey.trim());
       localStorage.setItem(GOOGLE_MODEL_STORAGE, googleModel);
     } else {
-      if (!openRouterKey.trim()) return;
-      localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey.trim());
-      localStorage.setItem(OPENROUTER_MODEL_STORAGE, selectedModel);
+      if (!qwenKey.trim()) return;
+      localStorage.setItem(QWEN_KEY_STORAGE, qwenKey.trim());
+      localStorage.setItem(QWEN_MODEL_STORAGE, qwenModel);
     }
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   };
 
-  const handleModelChange = (model: string) => {
-    setSelectedModel(model);
-    localStorage.setItem(OPENROUTER_MODEL_STORAGE, model);
+  const handleQwenModelChange = (model: string) => {
+    setQwenModel(model);
+    localStorage.setItem(QWEN_MODEL_STORAGE, model);
   };
 
   const handleGoogleModelChange = (model: string) => {
@@ -236,7 +236,7 @@ const EmailSyncSection: React.FC = () => {
     if (!key) { setShowSetup(true); return; }
     if (gmailStatus !== 'ok') { setShowSetup(true); return; }
     if (provider === 'google') localStorage.setItem(GOOGLE_KEY_STORAGE, key);
-    else localStorage.setItem(OPENROUTER_KEY_STORAGE, key);
+    else localStorage.setItem(QWEN_KEY_STORAGE, key);
 
     setRunning(true); setSyncError(null); setResults(null); setScans(null); setStage('fetching');
     try {
@@ -496,13 +496,13 @@ const EmailSyncSection: React.FC = () => {
                     <span className="block text-[9px] font-normal text-emerald-600 mt-0.5">Free · 1,500/day · recommended</span>
                   </button>
                   <button
-                    onClick={() => handleProviderChange('openrouter')}
+                    onClick={() => handleProviderChange('qwen')}
                     className={`px-3 py-2 text-[11px] font-bold rounded-lg transition-colors ${
-                      provider === 'openrouter' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      provider === 'qwen' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    OpenRouter
-                    <span className="block text-[9px] font-normal text-gray-500 mt-0.5">Free models, limited quota</span>
+                    Qwen (Alibaba)
+                    <span className="block text-[9px] font-normal text-gray-500 mt-0.5">Free tier · backup option</span>
                   </button>
                 </div>
 
@@ -553,15 +553,15 @@ const EmailSyncSection: React.FC = () => {
                   </div>
                 )}
 
-                {/* OpenRouter block */}
-                {provider === 'openrouter' && (
+                {/* Qwen / DashScope block */}
+                {provider === 'qwen' && (
                   <div className="space-y-1.5">
                     <div className="flex gap-2">
                       <input
                         type={showKey ? 'text' : 'password'}
-                        value={openRouterKey}
-                        onChange={(e) => { setOpenRouterKey(e.target.value); setKeySaved(false); }}
-                        placeholder="sk-or-..."
+                        value={qwenKey}
+                        onChange={(e) => { setQwenKey(e.target.value); setKeySaved(false); }}
+                        placeholder="sk-..."
                         className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-gray-50"
                       />
                       <button onClick={() => setShowKey((v) => !v)} className="px-3 py-2 text-xs border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">
@@ -569,34 +569,35 @@ const EmailSyncSection: React.FC = () => {
                       </button>
                       <button
                         onClick={handleSaveKey}
-                        disabled={!openRouterKey.trim()}
+                        disabled={!qwenKey.trim()}
                         className={`px-3 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 ${keySaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
                       >
                         {keySaved ? '✓ Saved' : 'Save'}
                       </button>
                     </div>
-                    <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer"
+                    <a href="https://bailian.console.aliyun.com/?apiKey=1" target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
-                      Get a free key at openrouter.ai <ExternalLink className="h-3 w-3" />
+                      Get a free DashScope key at bailian.console.aliyun.com <ExternalLink className="h-3 w-3" />
                     </a>
                     <div className="mt-2">
                       <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
-                        AI Model <span className="text-gray-400 font-normal normal-case">(if one fails, switch to another)</span>
+                        Qwen Model <span className="text-gray-400 font-normal normal-case">(VL models read scanned PDFs)</span>
                       </label>
                       <select
-                        value={selectedModel}
-                        onChange={(e) => handleModelChange(e.target.value)}
+                        value={qwenModel}
+                        onChange={(e) => handleQwenModelChange(e.target.value)}
                         className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
                       >
-                        {OPENROUTER_MODELS.map((m) => (
+                        {QWEN_MODELS.map((m) => (
                           <option key={m.value} value={m.value}>{m.label}</option>
                         ))}
                       </select>
                     </div>
                     <div className="p-2 bg-amber-50 border border-amber-100 rounded-lg">
                       <p className="text-[10px] text-amber-800 leading-relaxed">
-                        <strong>Heads up:</strong> OpenRouter's free Gemini models share a low daily quota across all users
-                        and may return errors. Switch to <strong>Google AI Studio</strong> above for a much higher free limit.
+                        <strong>Use as a backup:</strong> Qwen is good when Google's quota runs out. Sign up at
+                        Alibaba Cloud's Bailian / DashScope console — the international site has a free tier with
+                        about 1 million tokens. The key starts with <code className="bg-white px-1 rounded">sk-</code>.
                       </p>
                     </div>
                   </div>

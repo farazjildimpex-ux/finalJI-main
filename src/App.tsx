@@ -9,6 +9,7 @@ import ContactBookPage from './components/ContactBook/ContactBookPage';
 import DebitNotePage from './components/DebitNote/DebitNotePage';
 import SampleBookPage from './components/SampleBook/SampleBookPage';
 import SettingsPage from './components/Settings/SettingsPage';
+import ApprovalsPage from './components/Approvals/ApprovalsPage';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import NotificationInitializer from './components/Auth/NotificationInitializer';
@@ -52,6 +53,7 @@ function App() {
           <Route path="contacts" element={<ContactBookPage />} />
           <Route path="samples" element={<SampleBookPage />} />
           <Route path="samples/:id" element={<SampleBookPage />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="debit-notes" element={<DebitNotePage />} />
           <Route path="debit-notes/:id" element={<DebitNotePage />} />
           <Route path="settings" element={<SettingsPage />} />
