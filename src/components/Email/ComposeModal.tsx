@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import {
-  X, Send, Paperclip, Eye, EyeOff, ChevronDown, AlertCircle,
-  CheckCircle2, Loader2, Mail, User, FileText, Inbox,
+  X, Send, Paperclip, Eye, EyeOff, AlertCircle,
+  CheckCircle2, Loader2, Mail, Users, FileText, Inbox, Search,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -14,17 +14,29 @@ import {
 import type { EmailTemplate, Contact } from '../../types';
 import RichTextEditor from './RichTextEditor';
 
-interface GmailAttachment { messageId: string; attachmentId: string; filename: string; mimeType: string; date: string; }
+interface GmailAttachment {
+  messageId: string;
+  attachmentId: string;
+  filename: string;
+  mimeType: string;
+  date: string;
+}
 
 interface ComposeModalProps {
   template: EmailTemplate;
   context: EmailContext;
   pdfBase64?: string;
   pdfFileName?: string;
-  /** Optional async function to generate a PDF on demand (for contract/letter/payment). */
+  /** Async function to generate a PDF on demand (contract/letter/payment). */
   getPdfBase64?: () => Promise<{ base64: string; filename: string }>;
   onSent?: () => void;
   onClose: () => void;
+}
+
+/* Helper: stable key from context data for useEffect deps */
+function ctxKey(ctx: EmailContext) {
+  const d = ctx.data as Record<string, unknown>;
+  return `${ctx.type}|${d?.contract_no ?? d?.sample_number ?? d?.debit_note_no ?? d?.id ?? ''}`;
 }
 
 const ComposeModal: React.FC<ComposeModalProps> = ({
@@ -46,16 +58,20 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   const [attachmentName, setAttachmentName] = useState(pdfFileName || '');
   const [attachmentMime, setAttachmentMime] = useState('application/pdf');
   const fileRef = useRef<HTMLInputElement>(null);
-  const [contactOpen, setContactOpen]   = useState(false);
   const [companyName, setCompanyName]   = useState('');
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  /* Inline contact panel */
+  const [contactPanelOpen, setContactPanelOpen] = useState(false);
+  const [contactSearch, setContactSearch]       = useState('');
+
   /* Gmail attachment picker */
-  const [gmailPickerOpen, setGmailPickerOpen] = useState(false);
-  const [gmailAttachments, setGmailAttachments] = useState<GmailAttachment[]>([]);
-  const [loadingGmail, setLoadingGmail] = useState(false);
+  const [gmailPickerOpen, setGmailPickerOpen]     = useState(false);
+  const [gmailAttachments, setGmailAttachments]   = useState<GmailAttachment[]>([]);
+  const [loadingGmail, setLoadingGmail]           = useState(false);
   const [fetchingAttachment, setFetchingAttachment] = useState<string | null>(null);
 
+  /* ---- Load contacts & company ---- */
   useEffect(() => {
     if (!user) return;
     supabase.from('contact_book').select('*').eq('user_id', user.id)
@@ -64,24 +80,58 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
       .then(({ data }) => setCompanyName(data?.name || '')).catch(() => {});
   }, [user?.id]);
 
+  /* ---- Render template ---- */
   useEffect(() => {
     const vars = buildVarsFromContext(context, companyName);
     setSubject(renderTemplate(template.subject, vars));
     setBody(renderTemplate(template.body, vars));
-  }, [template.id, context.type, companyName]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [template.id, ctxKey(context), companyName]);
 
+  /* ---- Pre-fill To/CC from matched contact ---- */
   useEffect(() => {
     if (!contacts.length) return;
     const vars = buildVarsFromContext(context, companyName);
-    const targetName = (vars.supplier_name || vars.buyer_name || '').toLowerCase();
-    if (!targetName) return;
-    const match = contacts.find((c) =>
-      c.name.toLowerCase().includes(targetName) || targetName.includes(c.name.toLowerCase()));
-    if (!match) return;
-    if (match.email?.length && toList.length === 0) setToList(match.email.filter(Boolean));
-    if (match.email_cc?.length && ccList.length === 0) setCcList(match.email_cc.filter(Boolean));
-  }, [contacts, context.type, companyName]);
 
+    // Try buyer_name first, then supplier_name
+    const targetNames = [
+      vars.buyer_name,
+      vars.supplier_name,
+    ].filter(Boolean).map((n) => n!.toLowerCase().trim());
+
+    if (!targetNames.length) return;
+
+    const match = contacts.find((c) => {
+      const cname = c.name.toLowerCase();
+      return targetNames.some(
+        (t) => cname.includes(t) || t.includes(cname) || similarity(cname, t) > 0.6
+      );
+    });
+
+    if (match) {
+      if (match.email?.length && toList.length === 0) {
+        setToList(match.email.filter(Boolean));
+      }
+      if (match.email_cc?.length && ccList.length === 0) {
+        setCcList(match.email_cc.filter(Boolean));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contacts.length, ctxKey(context), companyName]);
+
+  /* ---- Filtered contacts for picker panel ---- */
+  const filteredContacts = useMemo(() => {
+    const q = contactSearch.toLowerCase().trim();
+    if (!q) return contacts;
+    return contacts.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        c.contact_person?.toLowerCase().includes(q) ||
+        c.email?.some((e) => e.toLowerCase().includes(q))
+    );
+  }, [contacts, contactSearch]);
+
+  /* ---- Address helpers ---- */
   const addAddress = (val: string, list: string[], setList: (v: string[]) => void, clear: () => void) => {
     const emails = val.split(/[,;\s]+/).map((e) => e.trim()).filter((e) => e.includes('@'));
     if (!emails.length) return;
@@ -92,6 +142,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   const removeAddress = (idx: number, list: string[], setList: (v: string[]) => void) =>
     setList(list.filter((_, i) => i !== idx));
 
+  /* ---- File attachment ---- */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -102,6 +153,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
     reader.readAsDataURL(f);
   };
 
+  /* ---- PDF generation ---- */
   const handleAttachPdf = async () => {
     if (!getPdfBase64) return;
     setGeneratingPdf(true);
@@ -123,8 +175,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  /* ---------- Gmail attachment picker ---------- */
-
+  /* ---- Gmail attachment picker ---- */
   const openGmailPicker = async () => {
     setGmailPickerOpen(true);
     if (gmailAttachments.length) return;
@@ -144,7 +195,9 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   const pickGmailAttachment = async (att: GmailAttachment) => {
     setFetchingAttachment(att.attachmentId);
     try {
-      const res = await fetch(`/api/gmail/attachment?messageId=${att.messageId}&attachmentId=${att.attachmentId}&filename=${encodeURIComponent(att.filename)}`);
+      const res = await fetch(
+        `/api/gmail/attachment?messageId=${att.messageId}&attachmentId=${att.attachmentId}&filename=${encodeURIComponent(att.filename)}`
+      );
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setAttachmentB64(data.base64);
@@ -158,8 +211,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
     }
   };
 
-  /* ---------- Send ---------- */
-
+  /* ---- Send ---- */
   const handleSend = async () => {
     if (!toList.length) { setError('Add at least one To address.'); return; }
     if (!subject.trim()) { setError('Subject cannot be empty.'); return; }
@@ -179,8 +231,14 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
     await logEmail(supabase, user!.id, {
       templateId: template.id,
       contextType: context.type,
-      contextId: (context.data as any)?.contract_no || (context.data as any)?.sample_number || (context.data as any)?.id,
-      to: toList, cc: ccList, subject, body,
+      contextId:
+        (context.data as any)?.contract_no ||
+        (context.data as any)?.sample_number ||
+        (context.data as any)?.id,
+      to: toList,
+      cc: ccList,
+      subject,
+      body,
       attachmentName: attachmentName || undefined,
       status: result.ok ? 'sent' : 'failed',
       errorMessage: result.error,
@@ -195,15 +253,40 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
     }
   };
 
-  /* ---------- Render ---------- */
+  /* ---- Pick a contact from the inline panel ---- */
+  const pickContact = (c: Contact) => {
+    if (c.email?.length) addAddress(c.email[0], toList, setToList, () => {});
+    if (c.email_cc?.length) setCcList((p) => [...new Set([...p, ...c.email_cc!])]);
+    setContactPanelOpen(false);
+    setContactSearch('');
+  };
+
+  /* ---- Address badge render ---- */
+  const renderBadges = (list: string[], setList: (v: string[]) => void, color: string) =>
+    list.map((e, i) => (
+      <span
+        key={i}
+        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold ${color}`}
+      >
+        {e}
+        <button onClick={() => removeAddress(i, list, setList)} className="opacity-60 hover:opacity-100 hover:text-red-500 transition">
+          <X className="h-3 w-3" />
+        </button>
+      </span>
+    ));
+
+  /* ============================================================ */
 
   return (
-    <div className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[1100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
       <div
         className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-2xl shadow-2xl flex flex-col max-h-[95vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2">
             <Mail className="h-5 w-5 text-blue-600" />
@@ -226,7 +309,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
           </div>
         </div>
 
-        {/* Success */}
+        {/* ── Success ── */}
         {success && (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center py-10">
@@ -239,24 +322,33 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
         {!success && (
           <div className="flex-1 overflow-y-auto">
             {showPreview ? (
-              /* ── Preview ────────────────────────────────── */
+              /* ── Preview ── */
               <div className="px-5 py-4">
                 <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                   <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 space-y-0.5">
-                    <p className="text-[11px] text-slate-600"><span className="font-bold text-slate-800">To:</span> {toList.join(', ') || '—'}</p>
-                    {ccList.length > 0 && <p className="text-[11px] text-slate-600"><span className="font-bold text-slate-800">CC:</span> {ccList.join(', ')}</p>}
-                    <p className="text-[11px] text-slate-600"><span className="font-bold text-slate-800">Subject:</span> {subject}</p>
+                    <p className="text-[11px] text-slate-600">
+                      <span className="font-bold text-slate-800">To:</span> {toList.join(', ') || '—'}
+                    </p>
+                    {ccList.length > 0 && (
+                      <p className="text-[11px] text-slate-600">
+                        <span className="font-bold text-slate-800">CC:</span> {ccList.join(', ')}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-slate-600">
+                      <span className="font-bold text-slate-800">Subject:</span> {subject}
+                    </p>
                     {attachmentB64 && (
                       <p className="text-[11px] text-slate-600 inline-flex items-center gap-1">
-                        <Paperclip className="h-3 w-3" /><span className="font-bold text-slate-800">Attachment:</span> {attachmentName}
+                        <Paperclip className="h-3 w-3" />
+                        <span className="font-bold text-slate-800">Attachment:</span> {attachmentName}
                       </p>
                     )}
                   </div>
-                  {/* body preview — uses app font, not monospace */}
                   <div
                     className="p-5 text-sm text-slate-800"
                     style={{
-                      fontFamily: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                      fontFamily:
+                        'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                       lineHeight: 1.7,
                       minHeight: 180,
                     }}
@@ -265,74 +357,103 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                 </div>
               </div>
             ) : (
-              /* ── Edit ────────────────────────────────────── */
+              /* ── Edit ── */
               <div className="px-5 py-4 space-y-4">
-                {/* To */}
+
+                {/* ── To ── */}
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">To *</label>
-                  <div className="flex flex-wrap gap-1.5 mb-1.5">
-                    {toList.map((e, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700">
-                        {e}
-                        <button onClick={() => removeAddress(i, toList, setToList)} className="text-blue-400 hover:text-red-500"><X className="h-3 w-3" /></button>
-                      </span>
-                    ))}
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">To *</label>
+                    <button
+                      type="button"
+                      onClick={() => { setContactPanelOpen((p) => !p); setContactSearch(''); }}
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 transition"
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      {contactPanelOpen ? 'Close contacts' : 'Pick from contacts'}
+                    </button>
                   </div>
-                  <div className="flex gap-2">
-                    <input
-                      value={toInput}
-                      onChange={(e) => setToInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault();
-                          addAddress(toInput, toList, setToList, () => setToInput(''));
-                        }
-                      }}
-                      onBlur={() => addAddress(toInput, toList, setToList, () => setToInput(''))}
-                      placeholder="email@example.com  (press Enter or , to add)"
-                      className="flex-1 px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                    />
-                    <div className="relative">
-                      <button
-                        onClick={() => setContactOpen((p) => !p)}
-                        className="h-full px-3 py-2 text-xs font-bold rounded-lg border border-slate-300 hover:bg-slate-50 inline-flex items-center gap-1 transition"
-                      >
-                        <User className="h-3.5 w-3.5" /> <ChevronDown className="h-3 w-3" />
-                      </button>
-                      {contactOpen && (
-                        <div className="absolute right-0 top-full mt-1 z-10 w-64 bg-white border border-slate-200 rounded-xl shadow-lg overflow-auto max-h-56">
-                          {contacts.length === 0 && <p className="p-3 text-xs text-slate-500">No contacts</p>}
-                          {contacts.map((c) => (
+
+                  {/* Badges */}
+                  {toList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {renderBadges(toList, setToList, 'bg-blue-50 text-blue-700')}
+                    </div>
+                  )}
+
+                  {/* Manual input */}
+                  <input
+                    value={toInput}
+                    onChange={(e) => setToInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        addAddress(toInput, toList, setToList, () => setToInput(''));
+                      }
+                    }}
+                    onBlur={() => { if (toInput) addAddress(toInput, toList, setToList, () => setToInput('')); }}
+                    placeholder="email@example.com — press Enter or comma to add"
+                    className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  />
+
+                  {/* Inline contact picker panel */}
+                  {contactPanelOpen && (
+                    <div className="mt-2 border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                      <div className="px-3 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2">
+                        <Search className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <input
+                          autoFocus
+                          value={contactSearch}
+                          onChange={(e) => setContactSearch(e.target.value)}
+                          placeholder="Search contacts…"
+                          className="flex-1 bg-transparent text-xs outline-none text-slate-700 placeholder:text-slate-400"
+                        />
+                      </div>
+                      <div className="max-h-44 overflow-y-auto divide-y divide-slate-100">
+                        {filteredContacts.length === 0 ? (
+                          <p className="p-3 text-xs text-slate-400 text-center">
+                            {contacts.length === 0 ? 'No contacts in your contact book yet.' : 'No contacts match your search.'}
+                          </p>
+                        ) : (
+                          filteredContacts.map((c) => (
                             <button
                               key={c.id}
-                              onClick={() => {
-                                if (c.email?.length) addAddress(c.email[0], toList, setToList, () => {});
-                                if (c.email_cc?.length) setCcList((p) => [...new Set([...p, ...c.email_cc!])]);
-                                setContactOpen(false);
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-slate-50 border-b border-slate-100 last:border-0"
+                              type="button"
+                              onClick={() => pickContact(c)}
+                              className="w-full text-left px-3 py-2.5 hover:bg-blue-50 transition"
                             >
-                              <div className="font-bold text-slate-800">{c.name}</div>
-                              {c.contact_person && <div className="text-slate-500">{c.contact_person}</div>}
-                              <div className="text-slate-400 truncate">{c.email?.join(', ')}</div>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-slate-800 truncate">{c.name}</p>
+                                  {c.contact_person && (
+                                    <p className="text-[10px] text-slate-500">{c.contact_person}</p>
+                                  )}
+                                </div>
+                                <div className="text-right shrink-0">
+                                  <p className="text-[10px] text-blue-600 font-semibold truncate max-w-[140px]">
+                                    {c.email?.[0] || '—'}
+                                  </p>
+                                  {c.email_cc?.length ? (
+                                    <p className="text-[9px] text-slate-400">+CC</p>
+                                  ) : null}
+                                </div>
+                              </div>
                             </button>
-                          ))}
-                        </div>
-                      )}
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
-                {/* CC */}
+                {/* ── CC ── */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">CC</label>
-                  <div className="flex flex-wrap gap-1.5 mb-1.5">
-                    {ccList.map((e, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                        {e} <button onClick={() => removeAddress(i, ccList, setCcList)} className="text-slate-400 hover:text-red-500"><X className="h-3 w-3" /></button>
-                      </span>
-                    ))}
-                  </div>
+                  {ccList.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {renderBadges(ccList, setCcList, 'bg-slate-100 text-slate-700')}
+                    </div>
+                  )}
                   <input
                     value={ccInput}
                     onChange={(e) => setCcInput(e.target.value)}
@@ -342,13 +463,13 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                         addAddress(ccInput, ccList, setCcList, () => setCcInput(''));
                       }
                     }}
-                    onBlur={() => addAddress(ccInput, ccList, setCcList, () => setCcInput(''))}
+                    onBlur={() => { if (ccInput) addAddress(ccInput, ccList, setCcList, () => setCcInput('')); }}
                     placeholder="cc@example.com"
                     className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                   />
                 </div>
 
-                {/* Subject */}
+                {/* ── Subject ── */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Subject *</label>
                   <input
@@ -358,13 +479,13 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                   />
                 </div>
 
-                {/* Body — rich text editor */}
+                {/* ── Body ── */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Body</label>
                   <RichTextEditor value={body} onChange={setBody} minHeight={220} />
                 </div>
 
-                {/* Attachment */}
+                {/* ── Attachment ── */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Attachment</label>
                   {attachmentB64 ? (
@@ -377,8 +498,8 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {/* Local file */}
                       <button
+                        type="button"
                         onClick={() => fileRef.current?.click()}
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border border-dashed border-slate-300 hover:bg-slate-50 text-slate-600 transition"
                       >
@@ -386,22 +507,23 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                       </button>
                       <input ref={fileRef} type="file" className="hidden" accept="*/*" onChange={handleFileChange} />
 
-                      {/* Attach generated PDF */}
                       {getPdfBase64 && (
                         <button
+                          type="button"
                           onClick={handleAttachPdf}
                           disabled={generatingPdf}
                           className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border border-dashed border-blue-300 hover:bg-blue-50 text-blue-700 transition disabled:opacity-50"
                         >
-                          {generatingPdf
-                            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating PDF…</>
-                            : <><FileText className="h-3.5 w-3.5" /> Attach document PDF</>
-                          }
+                          {generatingPdf ? (
+                            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating PDF…</>
+                          ) : (
+                            <><FileText className="h-3.5 w-3.5" /> Attach document PDF</>
+                          )}
                         </button>
                       )}
 
-                      {/* Gmail picker */}
                       <button
+                        type="button"
                         onClick={openGmailPicker}
                         className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border border-dashed border-violet-300 hover:bg-violet-50 text-violet-700 transition"
                       >
@@ -421,13 +543,17 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
           </div>
         )}
 
-        {/* Footer */}
+        {/* ── Footer ── */}
         {!success && (
           <div className="border-t border-slate-200 px-5 py-3 flex items-center justify-between gap-3 bg-white shrink-0">
-            <div className="text-[10px] text-slate-500">Sent via <span className="font-bold">Zoho Mail</span></div>
+            <div className="text-[10px] text-slate-500">
+              Sent via <span className="font-bold">Zoho Mail</span>
+            </div>
             <div className="flex gap-2">
-              <button onClick={onClose}
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+              >
                 Cancel
               </button>
               <button
@@ -443,13 +569,19 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
         )}
       </div>
 
-      {/* Gmail attachment picker overlay */}
+      {/* ── Gmail attachment picker overlay ── */}
       {gmailPickerOpen && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={() => setGmailPickerOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setGmailPickerOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="text-sm font-black text-slate-900">Recent Gmail attachments</h3>
-              <button onClick={() => setGmailPickerOpen(false)} className="p-1 rounded-lg hover:bg-slate-100">
+              <button onClick={() => setGmailPickerOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 transition">
                 <X className="h-4 w-4 text-slate-500" />
               </button>
             </div>
@@ -476,9 +608,13 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                       <FileText className="h-5 w-5 text-red-500 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-bold text-slate-800 truncate">{att.filename}</p>
-                        <p className="text-[10px] text-slate-500">{new Date(att.date).toLocaleDateString()}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {new Date(att.date).toLocaleDateString()}
+                        </p>
                       </div>
-                      {fetchingAttachment === att.attachmentId && <Loader2 className="h-4 w-4 animate-spin text-slate-400 shrink-0" />}
+                      {fetchingAttachment === att.attachmentId && (
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400 shrink-0" />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -490,5 +626,20 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
     </div>
   );
 };
+
+/* ---- Very simple bigram similarity (0–1) ---- */
+function bigrams(s: string): Set<string> {
+  const b = new Set<string>();
+  for (let i = 0; i < s.length - 1; i++) b.add(s.slice(i, i + 2));
+  return b;
+}
+function similarity(a: string, b: string): number {
+  if (!a || !b) return 0;
+  const ba = bigrams(a);
+  const bb = bigrams(b);
+  let intersection = 0;
+  ba.forEach((g) => { if (bb.has(g)) intersection++; });
+  return (2 * intersection) / (ba.size + bb.size);
+}
 
 export default ComposeModal;
