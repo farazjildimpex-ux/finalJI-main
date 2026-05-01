@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Bookmark } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import SampleForm from './SampleForm';
+import EmailButton from '../Email/EmailButton';
+import EmailLogSection from '../Email/EmailLogSection';
 import type { Sample } from '../../types';
 
 const SampleBookPage: React.FC = () => {
@@ -49,11 +51,20 @@ const SampleBookPage: React.FC = () => {
         <p className="text-xs md:text-sm text-gray-600">
           {id ? 'Update letter details' : 'Create a new letter entry'}
         </p>
+        {sample && (
+          <div className="mt-3">
+            <EmailButton contextType="letter" contextData={sample as any} />
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-2 md:p-3 shadow-sm">
         <SampleForm initialData={sample} />
       </div>
+
+      {sample && (
+        <EmailLogSection contextType="letter" contextId={sample.sample_number || id || ''} />
+      )}
     </div>
   );
 };

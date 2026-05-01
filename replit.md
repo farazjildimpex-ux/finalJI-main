@@ -6,9 +6,11 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Contracts Management** — Create, manage, and export leather supply contracts to PDF/Word
 - **Sample Book** — Track leather samples and shipment references
 - **Debit Notes** — Calculate commissions with currency conversion, export documents
-- **Contact Book** — Directory for business contacts and clients
+- **Contact Book** — Directory for business contacts and clients (with contact_person + email_cc fields)
 - **Journal & Reminders** — Daily entries with time-based push notification reminders
 - **Auto Invoice Sync** — Connects to Gmail via IMAP, downloads PDF attachments from the last 7 days, uses OpenRouter AI to extract invoice data, and upserts into Supabase
+- **Email System** — Zoho Mail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal reusable component, email buttons on Contract/Letter/Payment pages, email log history
+- **Gmail Push** — Cloud Pub/Sub webhook at `/api/gmail/push` for true push delivery (no polling)
 - **PWA** — Service worker for offline support and push notifications
 
 ## Tech Stack
@@ -25,6 +27,13 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - `GOOGLE_CLIENT_ID` — OAuth 2.0 Web Application Client ID from Google Cloud Console (Gmail API enabled)
 - `GOOGLE_CLIENT_SECRET` — OAuth 2.0 Client Secret matching the Client ID above
 - `GOOGLE_REFRESH_TOKEN` — long-lived refresh token obtained via the in-app `/api/google/oauth/start` flow (one-time)
+- `ZOHO_CLIENT_ID` — Zoho Developer Console Web app Client ID
+- `ZOHO_CLIENT_SECRET` — Zoho Client Secret
+- `ZOHO_REFRESH_TOKEN` — Zoho refresh token obtained via `/api/zoho/oauth/start` (one-time)
+- `ZOHO_FROM_EMAIL` — The Zoho Mail address to send from
+- `ZOHO_ACCOUNT_ID` — (optional) Zoho numeric account ID; auto-fetched and cached if omitted
+- `ZOHO_AUTH_BASE` — (optional) Zoho auth DC base URL, defaults to `https://accounts.zoho.com`
+- `ZOHO_API_BASE` — (optional) Zoho API DC base URL, defaults to `https://mail.zoho.com`
 - Firebase variables are optional (set in `.env.example` for reference)
 
 ## Architecture: Auto Invoice Sync

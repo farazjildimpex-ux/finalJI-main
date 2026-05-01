@@ -38,8 +38,37 @@ export interface Contact {
   mark: string | null;
   email: string[];
   contact_no: string[];
+  contact_person?: string;
+  email_cc?: string[];
   created_at: string;
   updated_at: string;
+}
+
+export interface EmailTemplate {
+  id: string;
+  user_id: string;
+  name: string;
+  subject: string;
+  body: string;
+  context: 'general' | 'contract' | 'letter' | 'payment';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailLog {
+  id: string;
+  user_id: string;
+  template_id: string | null;
+  context_type: string | null;
+  context_id: string | null;
+  to_email: string[];
+  cc_email: string[];
+  subject: string;
+  body: string;
+  attachment_name: string | null;
+  status: 'sent' | 'failed';
+  error_message: string | null;
+  sent_at: string;
 }
 
 export interface Company {

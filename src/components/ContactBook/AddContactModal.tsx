@@ -13,8 +13,10 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
   const [name, setName] = useState('');
   const [addresses, setAddresses] = useState(['']);
   const [emails, setEmails] = useState(['']);
+  const [emailCc, setEmailCc] = useState(['']);
   const [phones, setPhones] = useState(['']);
   const [mark, setMark] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,10 +29,12 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
         .insert([
           {
             name,
-            address: addresses.filter(addr => addr.trim() !== ''),
-            email: emails.filter(email => email.trim() !== ''),
-            contact_no: phones.filter(phone => phone.trim() !== ''),
-            mark: mark.trim() !== '' ? mark : null,
+            address:        addresses.filter(addr  => addr.trim()  !== ''),
+            email:          emails.filter(email => email.trim() !== ''),
+            email_cc:       emailCc.filter(e    => e.trim()     !== ''),
+            contact_no:     phones.filter(phone => phone.trim()  !== ''),
+            mark:           mark.trim() !== '' ? mark : null,
+            contact_person: contactPerson.trim() !== '' ? contactPerson.trim() : null,
           },
         ]);
 
@@ -55,8 +59,10 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
     setName('');
     setAddresses(['']);
     setEmails(['']);
+    setEmailCc(['']);
     setPhones(['']);
     setMark('');
+    setContactPerson('');
   };
 
   const handleArrayFieldChange = (
@@ -113,6 +119,21 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+
+            {/* Contact Person */}
+            <div className="mb-6">
+              <label htmlFor="contactPerson" className="block text-sm font-medium text-gray-700 mb-1">
+                Contact Person
+              </label>
+              <input
+                type="text"
+                id="contactPerson"
+                value={contactPerson}
+                onChange={(e) => setContactPerson(e.target.value)}
+                placeholder="e.g. John Smith"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -174,6 +195,37 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
               >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Email
+              </button>
+            </div>
+
+            {/* CC Emails */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">CC Email Addresses</label>
+              {emailCc.map((email, index) => (
+                <div key={index} className="flex gap-2 mb-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => handleArrayFieldChange(index, e.target.value, setEmailCc, emailCc)}
+                    placeholder="cc@example.com"
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeField(index, setEmailCc, emailCc)}
+                    className="text-gray-400 hover:text-red-600"
+                  >
+                    <Minus className="h-5 w-5" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => addField(setEmailCc, emailCc)}
+                className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add CC Email
               </button>
             </div>
 

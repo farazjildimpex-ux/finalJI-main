@@ -38,11 +38,13 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
       const { error } = await supabase
         .from('contact_book')
         .update({
-          name: editedContact.name,
-          address: editedContact.address.filter(a => a.trim()),
-          mark: editedContact.mark,
-          email: editedContact.email.filter(e => e.trim()),
-          contact_no: editedContact.contact_no.filter(p => p.trim()),
+          name:           editedContact.name,
+          address:        editedContact.address.filter(a => a.trim()),
+          mark:           editedContact.mark,
+          email:          editedContact.email.filter(e => e.trim()),
+          email_cc:       (editedContact.email_cc || []).filter(e => e.trim()),
+          contact_no:     editedContact.contact_no.filter(p => p.trim()),
+          contact_person: editedContact.contact_person?.trim() || null,
         })
         .eq('id', editedContact.id);
 
@@ -176,6 +178,17 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
               </div>
 
               <div>
+                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Contact Person</label>
+                <input
+                  type="text"
+                  value={editedContact.contact_person || ''}
+                  onChange={(e) => setEditedContact({ ...editedContact, contact_person: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  placeholder="e.g. John Smith"
+                />
+              </div>
+
+              <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">Mark</label>
                 <input
                   type="text"
@@ -224,6 +237,29 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
 
               <div>
                 <div className="flex items-center justify-between mb-1.5 ml-1">
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">CC Emails</label>
+                  <button type="button" onClick={() => setEditedContact({ ...editedContact, email_cc: [...(editedContact.email_cc || []), ''] })} className="text-[10px] font-bold text-blue-600 hover:underline uppercase">+ Add</button>
+                </div>
+                {(editedContact.email_cc || []).map((email, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        const arr = [...(editedContact.email_cc || [])];
+                        arr[index] = e.target.value;
+                        setEditedContact({ ...editedContact, email_cc: arr });
+                      }}
+                      placeholder="cc@example.com"
+                      className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                    <button onClick={() => setEditedContact({ ...editedContact, email_cc: (editedContact.email_cc || []).filter((_, i) => i !== index) })} className="text-slate-400 hover:text-red-600 p-2"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5 ml-1">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Phones</label>
                   <button type="button" onClick={() => addArrayField('contact_no')} className="text-[10px] font-bold text-blue-600 hover:underline uppercase">+ Add</button>
                 </div>
@@ -245,6 +281,9 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
               <div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Name</p>
                 <p className="text-2xl font-bold text-gray-900">{contact.name}</p>
+                {contact.contact_person && (
+                  <p className="text-sm text-slate-500 mt-1">Contact: <span className="font-semibold text-slate-700">{contact.contact_person}</span></p>
+                )}
               </div>
 
               {contact.address.length > 0 && (
@@ -274,6 +313,16 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
                         >
                           <Mail className="h-4 w-4 text-slate-400 group-hover:text-blue-500 flex-shrink-0" />
                           <p className="text-sm text-gray-900 truncate">{email}</p>
+                        </a>
+                      ))}
+                      {(contact.email_cc || []).map((email, index) => (
+                        <a 
+                          key={`cc-${index}`}
+                          href={`mailto:${email}`}
+                          className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 hover:bg-violet-50 hover:border-violet-100 transition-colors group"
+                        >
+                          <Mail className="h-4 w-4 text-slate-300 group-hover:text-violet-400 flex-shrink-0" />
+                          <p className="text-sm text-gray-700 truncate">{email} <span className="text-[10px] text-slate-400">(cc)</span></p>
                         </a>
                       ))}
                     </div>

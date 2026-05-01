@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import ContractForm from './ContractForm';
 import DebitNotesSection from './DebitNotesSection';
 import InvoicesSection from './InvoicesSection';
+import EmailButton from '../Email/EmailButton';
+import EmailLogSection from '../Email/EmailLogSection';
 import { FileText } from 'lucide-react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import type { Contract } from '../../types';
@@ -96,6 +98,14 @@ const ContractsPage: React.FC = () => {
             : 'Create a new contract with detailed specifications'
           }
         </p>
+        {selectedContract && (
+          <div className="mt-3">
+            <EmailButton
+              contextType="contract"
+              contextData={selectedContract as any}
+            />
+          </div>
+        )}
       </div>
 
       {/* Contract Form Section */}
@@ -111,6 +121,11 @@ const ContractsPage: React.FC = () => {
       {/* Debit Notes Section - Only show if we have a selected contract */}
       {selectedContract && (
         <DebitNotesSection contractNumber={selectedContract.contract_no} />
+      )}
+
+      {/* Email history */}
+      {selectedContract && (
+        <EmailLogSection contextType="contract" contextId={selectedContract.contract_no} />
       )}
     </div>
   );

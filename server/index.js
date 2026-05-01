@@ -15,13 +15,20 @@ import {
   renderSuccessPage,
   renderErrorPage,
 } from './gmailLib.js';
+import {
+  zohoConfigured,
+  getZohoCreds,
+  getZohoAccessToken,
+  buildZohoAuthUrl,
+  exchangeZohoCode,
+  sendZohoEmail,
+} from './zohoLib.js';
 
 initReplitSecretWatcher();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
-// Trust the Replit / proxy front so req.protocol & x-forwarded-* work.
+app.use(express.json({ limit: '10mb' }));
 app.set('trust proxy', true);
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -56,13 +63,11 @@ app.get('/api/gmail/test-imap', async (req, res) => {
       return res.json({ ok: false, error: `Gmail API error (${profileResp.status}): ${t}` });
     }
     const profile = await profileResp.json();
-
     const query = encodeURIComponent('has:attachment newer_than:7d');
     const list = await gmailFetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=100`
     );
     const count = (list.messages || []).length;
-
     res.json({ ok: true, email: profile.emailAddress, messagesLast7Days: count });
   } catch (err) {
     res.json({ ok: false, error: err.message });
@@ -97,6 +102,84 @@ app.get('/api/gmail/debug-emails', async (req, res) => {
   }
 });
 
+// ─── Gmail Cloud Pub/Sub push webhook ─────────────────────────────────────
+// Google Cloud Pub/Sub sends POST requests here when a new Gmail message arrives.
+// Setup guide (do once in Google Cloud Console):
+//   1. Create/use a GCP project with Gmail API + Cloud Pub/Sub API enabled.
+//   2. Create a Pub/Sub topic: e.g. "projects/<PROJECT_ID>/topics/gmail-push"
+//   3. Add gmail-api-push@system.gserviceaccount.com as Pub/Sub Publisher on that topic.
+//   4. Create a push subscription → endpoint URL: https://<your-replit-domain>/api/gmail/push
+//   5. Call Gmail watch() once (use /api/gmail/watch endpoint below).
+app.post('/api/gmail/push', async (req, res) => {
+  // Acknowledge immediately so Pub/Sub doesn't retry.
+  res.sendStatus(204);
+
+  try {
+    const message = req.body?.message;
+    if (!message?.data) return;
+
+    const decoded = JSON.parse(Buffer.from(message.data, 'base64').toString('utf-8'));
+    const { emailAddress, historyId } = decoded;
+    console.log(`[gmail-push] New mail for ${emailAddress}, historyId=${historyId}`);
+
+    // Fetch emails that arrived since this history point.
+    const token = await getAccessToken();
+    const lastHistoryId = global.__lastGmailHistoryId || historyId;
+
+    const historyResp = await fetch(
+      `https://gmail.googleapis.com/gmail/v1/users/me/history?startHistoryId=${lastHistoryId}&historyTypes=messageAdded`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    const historyData = await historyResp.json();
+    global.__lastGmailHistoryId = historyId;
+
+    const addedMessages = (historyData.history || [])
+      .flatMap((h) => h.messagesAdded || [])
+      .map((m) => m.message?.id)
+      .filter(Boolean);
+
+    if (addedMessages.length === 0) return;
+    console.log(`[gmail-push] ${addedMessages.length} new message(s) to process.`);
+
+    // Emit a server-side event that the frontend can pick up via polling or SSE.
+    // For now we just log. The frontend periodic-refresh hook will pick up new mail
+    // next time the user opens the app. A full SSE pipe is optional future work.
+    global.__pendingGmailMessageIds = [
+      ...(global.__pendingGmailMessageIds || []),
+      ...addedMessages,
+    ];
+  } catch (err) {
+    console.error('[gmail-push] Error processing push notification:', err.message);
+  }
+});
+
+// Register Gmail watch() — call once after Cloud Pub/Sub is set up.
+app.post('/api/gmail/watch', async (req, res) => {
+  const { topicName } = req.body; // e.g. "projects/my-project/topics/gmail-push"
+  if (!topicName) return res.status(400).json({ error: 'topicName required' });
+  try {
+    const token = await getAccessToken();
+    const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/watch', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topicName, labelIds: ['INBOX'] }),
+    });
+    const data = await resp.json();
+    if (!resp.ok) throw new Error(JSON.stringify(data));
+    global.__lastGmailHistoryId = data.historyId;
+    res.json({ ok: true, historyId: data.historyId, expiration: data.expiration });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Poll for pending push messages (frontend calls this after receiving a push signal).
+app.get('/api/gmail/pending-messages', (req, res) => {
+  const ids = global.__pendingGmailMessageIds || [];
+  global.__pendingGmailMessageIds = [];
+  res.json({ ids });
+});
+
 // ─── Google OAuth ─────────────────────────────────────────────────────────
 app.get('/api/google/oauth/redirect-uri', (req, res) => {
   res.json({ redirectUri: buildRedirectUri(req) });
@@ -105,13 +188,10 @@ app.get('/api/google/oauth/redirect-uri', (req, res) => {
 app.get('/api/google/oauth/start', (req, res) => {
   const { clientId } = getOAuthCreds();
   if (!clientId) {
-    return res
-      .status(400)
-      .type('html')
-      .send(renderErrorPage(
-        'Missing GOOGLE_CLIENT_ID',
-        'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Replit Secrets, then click "Start" again.'
-      ));
+    return res.status(400).type('html').send(renderErrorPage(
+      'Missing GOOGLE_CLIENT_ID',
+      'Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Replit Secrets, then click "Start" again.'
+    ));
   }
   const redirectUri = buildRedirectUri(req);
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
@@ -128,91 +208,135 @@ app.get('/api/google/oauth/start', (req, res) => {
 app.get('/api/google/oauth/callback', async (req, res) => {
   const code = req.query.code;
   const error = req.query.error;
-
-  if (error) {
-    return res.status(400).type('html').send(
-      renderErrorPage('Google sign-in cancelled', String(error))
-    );
-  }
-  if (!code) {
-    return res.status(400).type('html').send(
-      renderErrorPage('Missing code parameter', 'No authorization code returned by Google.')
-    );
-  }
-
+  if (error) return res.status(400).type('html').send(renderErrorPage('Google sign-in cancelled', String(error)));
+  if (!code) return res.status(400).type('html').send(renderErrorPage('Missing code parameter', 'No authorization code returned.'));
   const { clientId, clientSecret } = getOAuthCreds();
-  if (!clientId || !clientSecret) {
-    return res.status(400).type('html').send(
-      renderErrorPage(
-        'OAuth credentials missing',
-        'GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET are not set in Replit Secrets.'
-      )
-    );
-  }
-
+  if (!clientId || !clientSecret) return res.status(400).type('html').send(renderErrorPage('OAuth credentials missing', 'GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET are not set.'));
   const redirectUri = buildRedirectUri(req);
   try {
     const resp = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'content-type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        code: String(code),
-        client_id: clientId,
-        client_secret: clientSecret,
-        redirect_uri: redirectUri,
-        grant_type: 'authorization_code',
-      }),
+      body: new URLSearchParams({ code: String(code), client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code' }),
     });
     const text = await resp.text();
-    if (!resp.ok) {
-      return res.status(500).type('html').send(
-        renderErrorPage(`Token exchange failed (${resp.status})`, text)
-      );
-    }
+    if (!resp.ok) return res.status(500).type('html').send(renderErrorPage(`Token exchange failed (${resp.status})`, text));
     const data = JSON.parse(text);
-    if (!data.refresh_token) {
-      return res.status(500).type('html').send(
-        renderErrorPage(
-          'No refresh token returned',
-          'Google only issues a refresh token on the FIRST consent. Revoke this app at https://myaccount.google.com/permissions, then try again.'
-        )
-      );
-    }
+    if (!data.refresh_token) return res.status(500).type('html').send(renderErrorPage('No refresh token returned', 'Revoke this app at https://myaccount.google.com/permissions, then try again.'));
     res.type('html').send(renderSuccessPage(data.refresh_token));
   } catch (err) {
-    res.status(500).type('html').send(
-      renderErrorPage('Unexpected error', err.message)
-    );
+    res.status(500).type('html').send(renderErrorPage('Unexpected error', err.message));
   }
 });
 
+// ─── Zoho Mail OAuth ──────────────────────────────────────────────────────
+
+app.get('/api/zoho/status', (req, res) => {
+  const { clientId, clientSecret, refreshToken, fromEmail } = getZohoCreds();
+  res.json({
+    configured: !!(clientId && clientSecret && refreshToken),
+    hasFromEmail: !!fromEmail,
+    missing: {
+      ZOHO_CLIENT_ID: !clientId,
+      ZOHO_CLIENT_SECRET: !clientSecret,
+      ZOHO_REFRESH_TOKEN: !refreshToken,
+      ZOHO_FROM_EMAIL: !fromEmail,
+    },
+  });
+});
+
+app.get('/api/zoho/oauth/redirect-uri', (req, res) => {
+  const proto = req.protocol;
+  const host = req.get('x-forwarded-host') || req.get('host');
+  const uri = `${proto}://${host}/api/zoho/oauth/callback`;
+  res.json({ redirectUri: uri });
+});
+
+app.get('/api/zoho/oauth/start', (req, res) => {
+  try {
+    const proto = req.protocol;
+    const host = req.get('x-forwarded-host') || req.get('host');
+    const redirectUri = `${proto}://${host}/api/zoho/oauth/callback`;
+    const url = buildZohoAuthUrl(redirectUri);
+    res.redirect(url);
+  } catch (err) {
+    res.status(400).type('html').send(renderErrorPage('Zoho OAuth error', err.message));
+  }
+});
+
+app.get('/api/zoho/oauth/callback', async (req, res) => {
+  const code = req.query.code;
+  const error = req.query.error;
+  if (error) return res.status(400).type('html').send(renderErrorPage('Zoho sign-in cancelled', String(error)));
+  if (!code) return res.status(400).type('html').send(renderErrorPage('Missing code', 'No authorization code returned by Zoho.'));
+  try {
+    const proto = req.protocol;
+    const host = req.get('x-forwarded-host') || req.get('host');
+    const redirectUri = `${proto}://${host}/api/zoho/oauth/callback`;
+    const data = await exchangeZohoCode(String(code), redirectUri);
+    // Show the refresh token so the user can store it in Replit Secrets.
+    res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)'));
+  } catch (err) {
+    res.status(500).type('html').send(renderErrorPage('Zoho token exchange failed', err.message));
+  }
+});
+
+// ─── Email send (via Zoho) ────────────────────────────────────────────────
+/**
+ * POST /api/email/send
+ * Body: {
+ *   to: string[],
+ *   cc?: string[],
+ *   subject: string,
+ *   body: string,          // HTML
+ *   attachmentBase64?: string,
+ *   attachmentName?: string,
+ *   attachmentMime?: string,
+ * }
+ */
+app.post('/api/email/send', async (req, res) => {
+  const { to, cc, subject, body, attachmentBase64, attachmentName, attachmentMime } = req.body || {};
+
+  if (!to?.length) return res.status(400).json({ error: 'to is required' });
+  if (!subject)    return res.status(400).json({ error: 'subject is required' });
+  if (!body)       return res.status(400).json({ error: 'body is required' });
+
+  if (!zohoConfigured()) {
+    return res.status(503).json({
+      error: 'Zoho Mail is not connected. Complete the Zoho OAuth setup in Settings first.',
+    });
+  }
+
+  const result = await sendZohoEmail({
+    to,
+    cc,
+    subject,
+    body,
+    contentType: 'html',
+    attachmentBuffer: attachmentBase64 || null,
+    attachmentName:   attachmentName   || null,
+    attachmentMime:   attachmentMime   || null,
+  });
+
+  if (!result.ok) return res.status(500).json({ error: result.error });
+  res.json({ ok: true, messageId: result.messageId });
+});
+
 // ─── SPA static + fallback (production only) ──────────────────────────────
-// In dev the Vite server (port 5000) serves the SPA and proxies /api to us.
-// In production this Express process is the only thing running, so it must
-// also serve the built React app and fall back to index.html for every
-// non-API route — otherwise refreshing /app/home returns 404.
 if (isProd) {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const distDir = path.resolve(__dirname, '..', 'dist');
   const indexHtmlPath = path.join(distDir, 'index.html');
-
   if (fs.existsSync(indexHtmlPath)) {
-    app.use(
-      express.static(distDir, {
-        // Hashed bundles in /assets are immutable — long cache. Everything
-        // else (index.html, sw.js, manifest) must revalidate so PWA updates
-        // ship immediately.
-        setHeaders: (res, filePath) => {
-          if (filePath.includes(`${path.sep}assets${path.sep}`)) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-          } else {
-            res.setHeader('Cache-Control', 'no-cache');
-          }
-        },
-      }),
-    );
-
-    // SPA fallback for any GET that isn't an API call or a real file.
+    app.use(express.static(distDir, {
+      setHeaders: (res, filePath) => {
+        if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
+    }));
     app.get(/^(?!\/api\/).*/, (_req, res) => {
       res.set('Cache-Control', 'no-cache');
       res.sendFile(indexHtmlPath);

@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import { Receipt } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import DebitNoteForm from './DebitNoteForm';
+import EmailButton from '../Email/EmailButton';
+import EmailLogSection from '../Email/EmailLogSection';
 import type { DebitNote } from '../../types';
 
 const DebitNotePage: React.FC = () => {
@@ -56,8 +58,16 @@ const DebitNotePage: React.FC = () => {
         <p className="text-xs md:text-sm text-gray-600">
           {id ? 'Update payment details' : 'Create a new payment entry'}
         </p>
+        {debitNote && (
+          <div className="mt-3">
+            <EmailButton contextType="payment" contextData={debitNote as any} />
+          </div>
+        )}
       </div>
       <DebitNoteForm initialData={debitNote} />
+      {debitNote && (
+        <EmailLogSection contextType="payment" contextId={debitNote.id} />
+      )}
     </div>
   );
 };
