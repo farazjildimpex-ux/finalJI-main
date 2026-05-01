@@ -44,16 +44,24 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **AI Extraction**: OpenRouter API (user-supplied key, stored in localStorage) analyzes email body + PDF text to extract invoice fields. Notes are always saved blank for manual entry.
 - **Data Storage**: Supabase `invoices` table, upserted by invoice number.
 
-## Architecture: Dual Hosting (Replit dev + Netlify production)
-The backend exists in two parallel implementations sharing identical logic:
-- **Local Replit dev**: `server/index.js` (Express on port 3001, proxied by Vite). `server/replitSecrets.js` watches `/run/replit/env/latest.json` for live secret updates without workflow restarts. Redirect URI uses `REPLIT_DOMAINS` env var.
-- **Netlify production**: `netlify/functions/*.mjs` (one file per `/api/*` endpoint). Shared logic in `netlify/functions/_lib.mjs`. Routing in `netlify.toml` maps `/api/*` → `/.netlify/functions/*`. Redirect URI uses Netlify's `URL` / `DEPLOY_PRIME_URL` env var. `pdf-parse` is marked `external_node_modules` so its `pdf.worker.mjs` worker file isn't broken by esbuild bundling. PDF-parsing functions are configured for 26s timeout (Pro tier) — on Free tier they default to 10s.
+## Architecture: Replit Hosting
+The backend is `server/index.js` (Express on port 3001, proxied by Vite on port 5000).
+- `server/replitSecrets.js` watches `/run/replit/env/latest.json` for live secret updates without workflow restarts.
+- Redirect URI for Google OAuth uses the `REPLIT_DOMAINS` env var (auto-set by Replit).
+- In production (`NODE_ENV=production`), Express also serves the built `dist/` SPA with SPA fallback.
 
-### Required Netlify environment variables
-`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`. Netlify env vars take effect on next build only — must trigger a redeploy after editing them. The `/api/gmail/test` endpoint reflects this (no live watcher in production).
+### Required Replit Secrets
+All secrets are stored in Replit Secrets (not `.env` files):
+- `VITE_SUPABASE_URL` — Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` — Supabase anonymous/public key
+- `GOOGLE_CLIENT_ID` — Google OAuth client ID (Gmail sync)
+- `GOOGLE_CLIENT_SECRET` — Google OAuth client secret
+- `GOOGLE_REFRESH_TOKEN` — Google refresh token (obtained via `/api/google/oauth/start`)
+- `ZOHO_CLIENT_ID`, `ZOHO_CLIENT_SECRET`, `ZOHO_REFRESH_TOKEN`, `ZOHO_FROM_EMAIL` — Zoho Mail (optional)
+- `VITE_FIREBASE_*` — Firebase FCM (optional — app degrades gracefully without these)
 
-### Required Google Cloud config for Netlify
-Add `https://<your-site>.netlify.app/api/google/oauth/callback` to the OAuth client's "Authorized redirect URIs" list. Keep the Replit dev URI listed too if you want OAuth to work locally during development.
+### Required Google Cloud config
+Add `https://<your-replit-domain>/api/google/oauth/callback` to the OAuth client's "Authorized redirect URIs" list in Google Cloud Console.
 
 ## Running
 ```
