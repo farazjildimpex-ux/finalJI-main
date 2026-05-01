@@ -180,6 +180,74 @@ app.get('/api/gmail/pending-messages', (req, res) => {
   res.json({ ids });
 });
 
+// ─── Gmail attachment browser (recent 3 days) ─────────────────────────────
+
+app.get('/api/gmail/recent-attachments', async (req, res) => {
+  try {
+    const token = await getAccessToken();
+    if (!token) return res.status(401).json({ error: 'Gmail not connected' });
+
+    const threeDaysAgo = Math.floor((Date.now() - 3 * 24 * 60 * 60 * 1000) / 1000);
+    const query = encodeURIComponent(`has:attachment after:${threeDaysAgo}`);
+    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=30`;
+    const listResp = await gmailFetch(listUrl);
+    const listData = await listResp.json();
+    const messages = listData.messages || [];
+
+    const attachments = [];
+    for (const msg of messages.slice(0, 15)) {
+      try {
+        const msgResp = await gmailFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Date`);
+        const msgData = await msgResp.json();
+        const dateHeader = (msgData.payload?.headers || []).find(h => h.name === 'Date')?.value || '';
+        const date = dateHeader ? new Date(dateHeader).toISOString() : new Date().toISOString();
+
+        const fullResp = await gmailFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`);
+        const fullData = await fullResp.json();
+
+        function findAttachments(parts) {
+          if (!parts) return;
+          for (const part of parts) {
+            const filename = part.filename || '';
+            const mimeType = part.mimeType || '';
+            const attId = part.body?.attachmentId;
+            if (attId && filename && (mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf'))) {
+              attachments.push({ messageId: msg.id, attachmentId: attId, filename, mimeType, date });
+            }
+            if (part.parts) findAttachments(part.parts);
+          }
+        }
+        findAttachments(fullData.payload?.parts);
+      } catch (_) {}
+    }
+
+    res.json({ attachments });
+  } catch (err) {
+    console.error('[gmail-attachments] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/gmail/attachment', async (req, res) => {
+  const { messageId, attachmentId, filename } = req.query;
+  if (!messageId || !attachmentId) return res.status(400).json({ error: 'messageId and attachmentId required' });
+  try {
+    const token = await getAccessToken();
+    if (!token) return res.status(401).json({ error: 'Gmail not connected' });
+
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`;
+    const resp = await gmailFetch(url);
+    if (!resp.ok) return res.status(resp.status).json({ error: 'Gmail API error' });
+    const data = await resp.json();
+    // Gmail uses URL-safe base64
+    const base64 = (data.data || '').replace(/-/g, '+').replace(/_/g, '/');
+    res.json({ base64, filename: filename || 'attachment.pdf' });
+  } catch (err) {
+    console.error('[gmail-attachment] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── Google OAuth ─────────────────────────────────────────────────────────
 app.get('/api/google/oauth/redirect-uri', (req, res) => {
   res.json({ redirectUri: buildRedirectUri(req) });

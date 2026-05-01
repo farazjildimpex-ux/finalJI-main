@@ -15,8 +15,9 @@ const normalizeRichText = (value: string) => {
 export const generateSamplePDF = async (
   sample: Sample,
   company?: Company | null,
-  showCompanyInPdf = true
-) => {
+  showCompanyInPdf = true,
+  download = true
+): Promise<string> => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -123,5 +124,7 @@ export const generateSamplePDF = async (
   doc.setFont('helvetica', 'normal');
   doc.text('Partner / Manager', pageWidth - margin, y, { align: 'right' });
 
-  doc.save(`letter-${sample.sample_number}.pdf`);
+  const base64 = doc.output('datauristring').split(',')[1];
+  if (download) doc.save(`letter-${sample.sample_number}.pdf`);
+  return base64;
 };

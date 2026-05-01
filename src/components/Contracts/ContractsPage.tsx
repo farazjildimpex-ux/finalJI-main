@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import ContractForm from './ContractForm';
 import DebitNotesSection from './DebitNotesSection';
 import InvoicesSection from './InvoicesSection';
-import EmailButton from '../Email/EmailButton';
+import CommunicateButton from '../Email/CommunicateButton';
+import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import EmailLogSection from '../Email/EmailLogSection';
 import { FileText } from 'lucide-react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
@@ -100,9 +101,13 @@ const ContractsPage: React.FC = () => {
         </p>
         {selectedContract && (
           <div className="mt-3">
-            <EmailButton
+            <CommunicateButton
               contextType="contract"
               contextData={selectedContract as any}
+              getPdfBase64={async () => {
+                const base64 = await generateContractPDF(selectedContract, true, false, undefined, false);
+                return { base64, filename: `contract-${selectedContract.contract_no}.pdf` };
+              }}
             />
           </div>
         )}

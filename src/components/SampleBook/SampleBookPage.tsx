@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { Bookmark } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import SampleForm from './SampleForm';
-import EmailButton from '../Email/EmailButton';
+import CommunicateButton from '../Email/CommunicateButton';
 import EmailLogSection from '../Email/EmailLogSection';
+import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import type { Sample } from '../../types';
 
 const SampleBookPage: React.FC = () => {
@@ -13,9 +14,7 @@ const SampleBookPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (id) {
-      fetchSample(id);
-    }
+    if (id) fetchSample(id);
   }, [id]);
 
   const fetchSample = async (sampleId: string) => {
@@ -34,7 +33,7 @@ const SampleBookPage: React.FC = () => {
   if (loading) {
     return (
       <div className="p-4 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
       </div>
     );
   }
@@ -53,7 +52,14 @@ const SampleBookPage: React.FC = () => {
         </p>
         {sample && (
           <div className="mt-3">
-            <EmailButton contextType="letter" contextData={sample as any} />
+            <CommunicateButton
+              contextType="letter"
+              contextData={sample as any}
+              getPdfBase64={async () => {
+                const base64 = await generateSamplePDF(sample, null, true, false);
+                return { base64, filename: `letter-${sample.sample_number}.pdf` };
+              }}
+            />
           </div>
         )}
       </div>

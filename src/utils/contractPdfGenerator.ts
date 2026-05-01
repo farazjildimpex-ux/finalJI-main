@@ -5,8 +5,9 @@ export const generateContractPDF = async (
   contract: Contract,
   showCompanyInPdf: boolean = true,
   includeSignature: boolean = false,
-  letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string }
-) => {
+  letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
+  download: boolean = true
+): Promise<string> => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -235,5 +236,7 @@ export const generateContractPDF = async (
   doc.text('Buyer', pageWidth / 2, yPosition, { align: 'center' });
   doc.text('Partner / Manager', pageWidth - margin, yPosition, { align: 'right' });
 
-  doc.save(`contract-${contract.contract_no}.pdf`);
+  const base64 = doc.output('datauristring').split(',')[1];
+  if (download) doc.save(`contract-${contract.contract_no}.pdf`);
+  return base64;
 };

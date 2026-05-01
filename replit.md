@@ -9,8 +9,15 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Contact Book** — Directory for business contacts and clients (with contact_person + email_cc fields)
 - **Journal & Reminders** — Daily entries with time-based push notification reminders
 - **Auto Invoice Sync** — Connects to Gmail via IMAP, downloads PDF attachments from the last 7 days, uses OpenRouter AI to extract invoice data, and upserts into Supabase
-- **Email System** — Zoho Mail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal reusable component, email buttons on Contract/Letter/Payment pages, email log history
+- **Email System** — Zoho Mail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal with rich-text editor (bold/italic/underline/font size/color), email log history
+- **Rich Text Email Editor** — `src/components/Email/RichTextEditor.tsx` — contenteditable toolbar with formatting, preview uses app system font
+- **CommunicateButton** — `src/components/Email/CommunicateButton.tsx` — WhatsApp/Email choice popup on Contract/Letter/Payment pages. WhatsApp flow generates a pre-filled message and opens wa.me. Email flow opens template picker → ComposeModal.
+- **PDF Attachment Without Save** — PDF generators (`contractPdfGenerator`, `samplePdfGenerator`, `debitNotePdfGenerator`) now accept a `download` boolean and return base64 string. Email compose can attach the document PDF without downloading locally.
+- **Gmail Attachment Picker** — In ComposeModal, "From Gmail (recent)" button calls `/api/gmail/recent-attachments` to list PDF attachments from the last 3 days, then `/api/gmail/attachment` to fetch selected one's base64.
 - **Gmail Push** — Cloud Pub/Sub webhook at `/api/gmail/push` for true push delivery (no polling)
+- **Zoho Setup Guide** — `src/components/Settings/ZohoSetupSection.tsx` — step-by-step setup instructions with live connection status badge. Added to Settings page.
+- **Mobile Nav Templates** — `MobileBottomNav` now shows 7 items (Home, Contacts, Contracts, Letters, Payments, Templates, Data) with horizontal scroll. Templates tab navigates to `/app/email-templates`.
+- **Template Edit Modal** — `EmailTemplatesPage` now opens the TemplateForm in a modal overlay (not inline), preventing duplicate-entry confusion.
 - **PWA** — Service worker for offline support and push notifications
 
 ## Tech Stack

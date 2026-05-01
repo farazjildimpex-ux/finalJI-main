@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Bookmark, CreditCard, Database } from 'lucide-react';
+import { Home, Users, FileText, Bookmark, CreditCard, Database, Mail } from 'lucide-react';
 
 const MobileBottomNav: React.FC = () => {
   const location = useLocation();
@@ -14,10 +14,11 @@ const MobileBottomNav: React.FC = () => {
     { name: 'Contracts', path: '/app/contracts', icon: FileText },
     { name: 'Letters', path: '/app/samples', icon: Bookmark },
     { name: 'Payments', path: '/app/debit-notes', icon: CreditCard },
+    { name: 'Templates', path: '/app/email-templates', icon: Mail },
     { name: 'Data', path: '/app/settings', icon: Database },
   ];
 
-  const activeIndex = navItems.findIndex((i) => location.pathname === i.path);
+  const activeIndex = navItems.findIndex((i) => location.pathname.startsWith(i.path));
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -38,14 +39,14 @@ const MobileBottomNav: React.FC = () => {
       >
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname.startsWith(item.path);
 
           return (
             <Link
               key={item.name}
               to={item.path}
               className="relative flex flex-col items-center justify-center flex-shrink-0 h-full snap-start"
-              style={{ width: '20%' }}
+              style={{ minWidth: '14.28%' }}
             >
               <div className={`
                 flex flex-col items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]

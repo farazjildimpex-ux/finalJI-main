@@ -30,8 +30,7 @@ const EmailTemplatesPage: React.FC = () => {
   const { user } = useAuth();
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | 'new' | null>(null);
   const [composeTemplate, setComposeTemplate] = useState<EmailTemplate | null>(null);
   const [zohoConfigured, setZohoConfigured] = useState<boolean | null>(null);
 
@@ -79,7 +78,7 @@ const EmailTemplatesPage: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => { setEditingId(null); setShowForm(true); }}
+          onClick={() => setEditingTemplate('new')}
           className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:scale-95 transition shadow-sm"
         >
           <Plus className="h-4 w-4" /> New template
@@ -97,23 +96,19 @@ const EmailTemplatesPage: React.FC = () => {
         </div>
       )}
 
-      {showForm && (
-        <TemplateForm
-          editingId={editingId}
-          userId={user?.id || ''}
-          onSaved={() => { setShowForm(false); setEditingId(null); load(); }}
-          onCancel={() => { setShowForm(false); setEditingId(null); }}
-          initialData={editingId ? templates.find((t) => t.id === editingId) : undefined}
-        />
-      )}
-
       {loading ? (
         <div className="text-center py-12 text-sm text-slate-400">Loading…</div>
-      ) : templates.length === 0 && !showForm ? (
+      ) : templates.length === 0 ? (
         <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
           <Mail className="h-10 w-10 text-slate-300 mx-auto mb-3" />
           <p className="text-sm font-bold text-slate-700">No templates yet</p>
           <p className="text-xs text-slate-500 mt-1">Create your first template to start sending professional emails.</p>
+          <button
+            onClick={() => setEditingTemplate('new')}
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700"
+          >
+            <Plus className="h-3.5 w-3.5" /> Create template
+          </button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -121,7 +116,7 @@ const EmailTemplatesPage: React.FC = () => {
             <TemplateCard
               key={t.id}
               template={t}
-              onEdit={() => { setEditingId(t.id); setShowForm(true); }}
+              onEdit={() => setEditingTemplate(t)}
               onDelete={() => handleDelete(t)}
               onCompose={() => setComposeTemplate(t)}
             />
@@ -132,12 +127,22 @@ const EmailTemplatesPage: React.FC = () => {
       {/* Variable reference */}
       <VariableReference />
 
+      {/* Edit / New modal */}
+      {editingTemplate !== null && (
+        <TemplateModal
+          template={editingTemplate === 'new' ? null : editingTemplate}
+          userId={user?.id || ''}
+          onSaved={() => { setEditingTemplate(null); load(); }}
+          onCancel={() => setEditingTemplate(null)}
+        />
+      )}
+
       {composeTemplate && (
         <ComposeModal
           template={composeTemplate}
           context={{ type: 'general', data: {} }}
           onClose={() => setComposeTemplate(null)}
-          onSent={() => { setComposeTemplate(null); dialogService.success('Email sent!'); }}
+          onSent={() => { setComposeTemplate(null); dialogService.alert({ title: 'Email sent!', message: 'Your email was sent successfully.' }); }}
         />
       )}
     </div>
@@ -145,32 +150,22 @@ const EmailTemplatesPage: React.FC = () => {
 };
 
 /* ---------------------------------------------------------------------- */
-/*  Template form (create / edit)                                          */
+/*  Template modal (create / edit) — rendered as an overlay popup          */
 /* ---------------------------------------------------------------------- */
 
-interface TemplateFormProps {
-  editingId: string | null;
+interface TemplateModalProps {
+  template: EmailTemplate | null;
   userId: string;
-  initialData?: EmailTemplate;
   onSaved: () => void;
   onCancel: () => void;
 }
 
-const TemplateForm: React.FC<TemplateFormProps> = ({ editingId, userId, initialData, onSaved, onCancel }) => {
-  const [name, setName]       = useState(initialData?.name    || '');
-  const [context, setContext] = useState<EmailTemplate['context']>(initialData?.context || 'general');
-  const [subject, setSubject] = useState(initialData?.subject || '');
-  const [body, setBody]       = useState(initialData?.body    || '');
+const TemplateModal: React.FC<TemplateModalProps> = ({ template, userId, onSaved, onCancel }) => {
+  const [name, setName]       = useState(template?.name    || '');
+  const [context, setContext] = useState<EmailTemplate['context']>(template?.context || 'general');
+  const [subject, setSubject] = useState(template?.subject || '');
+  const [body, setBody]       = useState(template?.body    || '');
   const [busy, setBusy]       = useState(false);
-
-  useEffect(() => {
-    if (initialData) {
-      setName(initialData.name);
-      setContext(initialData.context);
-      setSubject(initialData.subject);
-      setBody(initialData.body);
-    }
-  }, [initialData?.id]);
 
   const handleSave = async () => {
     if (!name.trim() || !subject.trim()) {
@@ -180,8 +175,8 @@ const TemplateForm: React.FC<TemplateFormProps> = ({ editingId, userId, initialD
     setBusy(true);
     const row = { user_id: userId, name: name.trim(), context, subject: subject.trim(), body, updated_at: new Date().toISOString() };
     let err;
-    if (editingId) {
-      ({ error: err } = await supabase.from('email_templates').update(row).eq('id', editingId));
+    if (template?.id) {
+      ({ error: err } = await supabase.from('email_templates').update(row).eq('id', template.id));
     } else {
       ({ error: err } = await supabase.from('email_templates').insert([row]));
     }
@@ -191,63 +186,95 @@ const TemplateForm: React.FC<TemplateFormProps> = ({ editingId, userId, initialD
   };
 
   return (
-    <div className="bg-white border border-blue-200 rounded-2xl p-5 mb-4 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-sm font-black text-slate-900">{editingId ? 'Edit template' : 'New template'}</h2>
-        <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-slate-100"><X className="h-4 w-4 text-slate-500" /></button>
-      </div>
-
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
+    <div className="fixed inset-0 z-[1200] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onCancel}>
+      <div
+        className="bg-white w-full sm:max-w-2xl sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between gap-3 shrink-0">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1">Template name *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Contract Confirmation"
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+            <h2 className="text-sm font-black text-slate-900">{template ? 'Edit template' : 'New template'}</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Use {'{{variable}}'} placeholders — see the reference on the page for details</p>
           </div>
+          <button onClick={onCancel} className="p-2 rounded-xl hover:bg-slate-100 transition">
+            <X className="h-5 w-5 text-slate-500" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Template name *</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Contract Confirmation"
+                className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Context</label>
+              <select
+                value={context}
+                onChange={(e) => setContext(e.target.value as EmailTemplate['context'])}
+                className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white font-semibold"
+              >
+                <option value="general">General</option>
+                <option value="contract">Contract page</option>
+                <option value="letter">Letter page</option>
+                <option value="payment">Payment / Invoice</option>
+              </select>
+            </div>
+          </div>
+
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1">Context</label>
-            <select value={context} onChange={(e) => setContext(e.target.value as EmailTemplate['context'])}
-              className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white font-semibold">
-              <option value="general">General (manual send)</option>
-              <option value="contract">Contract page</option>
-              <option value="letter">Letter page</option>
-              <option value="payment">Payment / Invoice</option>
-            </select>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Subject *</label>
+            <input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="e.g. Contract {{contract_no}} — Confirmation"
+              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Body</label>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={12}
+              placeholder={"Dear {{contact_person}},\n\nPlease find attached the contract {{contract_no}}…"}
+              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-y font-mono"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              HTML tags are supported. The compose window has a formatting toolbar for rich text.
+            </p>
           </div>
         </div>
 
-        <div>
-          <label className="block text-[10px] font-bold text-slate-500 mb-1">Subject *</label>
-          <input value={subject} onChange={(e) => setSubject(e.target.value)}
-            placeholder="e.g. Contract {{contract_no}} — Confirmation"
-            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none" />
+        {/* Footer */}
+        <div className="border-t border-slate-200 px-5 py-3 flex justify-end gap-2 shrink-0 bg-white">
+          <button onClick={onCancel} className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 px-5 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition"
+          >
+            <Save className="h-3.5 w-3.5" />
+            {busy ? 'Saving…' : template ? 'Save changes' : 'Create template'}
+          </button>
         </div>
-
-        <div>
-          <label className="block text-[10px] font-bold text-slate-500 mb-1">Body (HTML or plain text)</label>
-          <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={10}
-            placeholder={"Dear {{contact_person}},\n\nPlease find attached the contract {{contract_no}}…"}
-            className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none font-mono resize-y" />
-          <p className="text-[10px] text-slate-400 mt-1">
-            Use <code>{'{{variable}}'}</code> placeholders. See the reference below for available variables.
-            HTML tags are supported (e.g. <code>{'<b>{{contract_no}}</b>'}</code>).
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onCancel} className="px-4 py-2 text-xs font-bold rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200">Cancel</button>
-        <button onClick={handleSave} disabled={busy}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
-          <Save className="h-3.5 w-3.5" /> {busy ? 'Saving…' : editingId ? 'Save changes' : 'Create template'}
-        </button>
       </div>
     </div>
   );
 };
 
 /* ---------------------------------------------------------------------- */
-/*  Template card                                                          */
+/*  Template card                                                           */
 /* ---------------------------------------------------------------------- */
 
 const TemplateCard: React.FC<{
@@ -308,7 +335,7 @@ const TemplateCard: React.FC<{
 };
 
 /* ---------------------------------------------------------------------- */
-/*  Variable reference panel                                               */
+/*  Variable reference panel                                                */
 /* ---------------------------------------------------------------------- */
 
 const VariableReference: React.FC = () => {

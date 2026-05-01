@@ -29,8 +29,9 @@ export const generateDebitNotePDF = (
   debitNote: DebitNote,
   showCompanyInPdf: boolean = true,
   includeSignature: boolean = false,
-  letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string }
-) => {
+  letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
+  download: boolean = true
+): string => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -187,5 +188,7 @@ export const generateDebitNotePDF = (
   doc.setFont('helvetica', 'bold');
   doc.text('Partner / Manager', pageWidth - margin, yPosition, { align: 'right' });
 
-  doc.save(`debit-note-${debitNote.debit_note_no}.pdf`);
+  const base64 = doc.output('datauristring').split(',')[1];
+  if (download) doc.save(`debit-note-${debitNote.debit_note_no}.pdf`);
+  return base64;
 };

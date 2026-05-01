@@ -3,8 +3,9 @@ import { useParams } from 'react-router-dom';
 import { Receipt } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import DebitNoteForm from './DebitNoteForm';
-import EmailButton from '../Email/EmailButton';
+import CommunicateButton from '../Email/CommunicateButton';
 import EmailLogSection from '../Email/EmailLogSection';
+import { generateDebitNotePDF } from '../../utils/debitNotePdfGenerator';
 import type { DebitNote } from '../../types';
 
 const DebitNotePage: React.FC = () => {
@@ -14,10 +15,7 @@ const DebitNotePage: React.FC = () => {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-    
-    if (id) {
-      fetchDebitNote(id);
-    }
+    if (id) fetchDebitNote(id);
   }, [id]);
 
   const fetchDebitNote = async (debitNoteId: string) => {
@@ -28,7 +26,6 @@ const DebitNotePage: React.FC = () => {
         .select('*')
         .eq('id', debitNoteId)
         .single();
-
       if (error) throw error;
       setDebitNote(data);
     } catch (error) {
@@ -41,7 +38,7 @@ const DebitNotePage: React.FC = () => {
   if (loading) {
     return (
       <div className="p-4 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
       </div>
     );
   }
@@ -60,7 +57,14 @@ const DebitNotePage: React.FC = () => {
         </p>
         {debitNote && (
           <div className="mt-3">
-            <EmailButton contextType="payment" contextData={debitNote as any} />
+            <CommunicateButton
+              contextType="payment"
+              contextData={debitNote as any}
+              getPdfBase64={async () => {
+                const base64 = generateDebitNotePDF(debitNote, true, false, undefined, false);
+                return { base64, filename: `debit-note-${debitNote.debit_note_no}.pdf` };
+              }}
+            />
           </div>
         )}
       </div>
