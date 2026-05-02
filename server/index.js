@@ -299,7 +299,7 @@ app.get('/api/google/oauth/callback', async (req, res) => {
 // ─── Zoho Mail OAuth ──────────────────────────────────────────────────────
 
 app.get('/api/zoho/status', (req, res) => {
-  const { clientId, clientSecret, refreshToken, fromEmail } = getZohoCreds();
+  const { clientId, clientSecret, refreshToken, fromEmail, fromName } = getZohoCreds();
   res.json({
     configured: !!(clientId && clientSecret && refreshToken),
     hasFromEmail: !!fromEmail,
@@ -308,6 +308,7 @@ app.get('/api/zoho/status', (req, res) => {
       ZOHO_CLIENT_SECRET: !clientSecret,
       ZOHO_REFRESH_TOKEN: !refreshToken,
       ZOHO_FROM_EMAIL: !fromEmail,
+      ZOHO_FROM_NAME: !fromName,
     },
     authBase: process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com',
   });

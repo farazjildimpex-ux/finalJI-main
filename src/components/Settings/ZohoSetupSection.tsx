@@ -189,6 +189,7 @@ const ZohoSetupSection: React.FC = () => {
                   { key: 'ZOHO_CLIENT_ID',     hint: 'From step 3 — Zoho API Console' },
                   { key: 'ZOHO_CLIENT_SECRET',  hint: 'From step 3 — Zoho API Console' },
                   { key: 'ZOHO_FROM_EMAIL',     hint: 'The email address you send from' },
+                  { key: 'ZOHO_FROM_NAME',      hint: 'Display name recipients see, e.g. JILD IMPEX' },
                   { key: 'ZOHO_REFRESH_TOKEN',  hint: 'Generated in step 5 below' },
                 ] as const).map(s => {
                   const missing = status?.missing[s.key];
