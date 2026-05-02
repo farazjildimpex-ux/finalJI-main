@@ -113,15 +113,21 @@ export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html
         : new Blob([Buffer.from(attachmentBuffer, 'base64')], { type: mime });
       formData.append('attach', blob, attachmentName);
 
+      const uploadUrl = `${ZOHO_API_BASE}/api/accounts/${accountId}/messages/attachments`;
+      console.log('[zoho-attach] uploading to:', uploadUrl, 'filename:', attachmentName, 'mime:', mime);
       const upResp = await fetch(
-        `${ZOHO_API_BASE}/api/accounts/${accountId}/messages/attachments`,
+        uploadUrl,
         { method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}` }, body: formData },
       );
-      const upData = await upResp.json();
+      const upText = await upResp.text();
+      console.log('[zoho-attach] response status:', upResp.status, 'body:', upText);
+      let upData;
+      try { upData = JSON.parse(upText); } catch { upData = { raw: upText }; }
       if (!upResp.ok || !upData.data?.[0]?.attachmentId) {
-        throw new Error(`Attachment upload failed: ${JSON.stringify(upData)}`);
+        throw new Error(`Attachment upload failed (${upResp.status}): ${upText}`);
       }
       uploadId = upData.data[0].attachmentId;
+      console.log('[zoho-attach] upload success, attachmentId:', uploadId);
     }
 
     const payload = {
@@ -161,7 +167,7 @@ export function buildZohoAuthUrl(redirectUri) {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id:     clientId,
-    scope:         'ZohoMail.messages.CREATE,ZohoMail.accounts.READ',
+    scope:         'ZohoMail.messages.ALL,ZohoMail.accounts.READ',
     redirect_uri:  redirectUri,
     access_type:   'offline',
     prompt:        'consent',
