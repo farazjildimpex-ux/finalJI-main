@@ -208,3 +208,36 @@ export const ZohoSection: React.FC<ZohoSectionProps> = ({ title, right }) => (
     {right && <div className="flex items-center gap-2">{right}</div>}
   </div>
 );
+
+interface FGridProps {
+  children: React.ReactNode;
+  className?: string;
+}
+
+export const FGrid: React.FC<FGridProps> = ({ children, className = '' }) => (
+  <div className={`px-4 sm:px-6 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 ${className}`}>
+    {children}
+  </div>
+);
+
+interface FFieldProps {
+  label: React.ReactNode;
+  required?: boolean;
+  htmlFor?: string;
+  hint?: string;
+  span?: 'full';
+  children: React.ReactNode;
+}
+
+export const FField: React.FC<FFieldProps> = ({ label, required, htmlFor, hint, span, children }) => (
+  <div className={span === 'full' ? 'sm:col-span-2' : ''}>
+    <label
+      htmlFor={htmlFor}
+      className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1 leading-none"
+    >
+      {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
+    </label>
+    <div className="min-w-0">{children}</div>
+    {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
+  </div>
+);

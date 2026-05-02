@@ -8,7 +8,7 @@ import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, FGrid, FField, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
@@ -545,23 +545,22 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
 
       <ZohoSection title="Basic Information" />
 
-      <ZohoRow label="Debit Note No" htmlFor="debit_note_no" required>
-        <input type="text" id="debit_note_no" name="debit_note_no" value={formData.debit_note_no} onChange={handleChange} className={inputClassName} required />
-      </ZohoRow>
-
-      <ZohoRow label="Debit Note Date">
-        <DatePicker value={formData.debit_note_date || ''} onChange={(val) => setFormData({ ...formData, debit_note_date: val })} />
-      </ZohoRow>
-
-      <ZohoRow label="Status" htmlFor="status">
-        <select id="status" name="status" value={formData.status} onChange={handleChange} className={`${inputClassName} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
-          {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
-        </select>
-      </ZohoRow>
-
-      <ZohoRow label="Currency" htmlFor="currency">
-        <input type="text" id="currency" name="currency" value={formData.currency} readOnly className={inputReadOnlyClass} />
-      </ZohoRow>
+      <FGrid>
+        <FField label="Debit Note No" htmlFor="debit_note_no" required>
+          <input type="text" id="debit_note_no" name="debit_note_no" value={formData.debit_note_no} onChange={handleChange} className={inputClassName} required />
+        </FField>
+        <FField label="Debit Note Date">
+          <DatePicker value={formData.debit_note_date || ''} onChange={(val) => setFormData({ ...formData, debit_note_date: val })} />
+        </FField>
+        <FField label="Status" htmlFor="status">
+          <select id="status" name="status" value={formData.status} onChange={handleChange} className={`${inputClassName} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
+            {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
+          </select>
+        </FField>
+        <FField label="Currency" htmlFor="currency">
+          <input type="text" id="currency" name="currency" value={formData.currency} readOnly className={inputReadOnlyClass} />
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Company" right={
         <div className="flex items-center gap-2">
@@ -570,133 +569,131 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </div>
       } />
 
-      <ZohoRow label="Company" htmlFor="company">
-        <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
-          <option value="">Select a company</option>
-          {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-        </select>
-      </ZohoRow>
+      <FGrid>
+        <FField label="Company" htmlFor="company">
+          <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
+            <option value="">Select a company</option>
+            {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Supplier Information" />
 
-      <ZohoRow label="Supplier" htmlFor="supplier_name">
-        <div className="relative">
-          <input type="text" id="supplier_name" name="supplier_name" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} autoComplete="off" placeholder="Search supplier…" />
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-          {showSupplierDropdown && filteredContacts.length > 0 && (
-            <div className="absolute z-20 mt-1 max-h-60 w-full max-w-[520px] overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
-              {filteredContacts.map(contact => (
-                <div key={contact.id} onMouseDown={() => handleSupplierSelect(contact)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">{contact.name}</div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ZohoRow>
-
-      <ZohoRow label="Supplier Address">
-        <div className="space-y-1.5">
-          {(formData.supplier_address || ['']).map((address, index) => (
-            <div key={index} className="flex gap-2">
-              <input type="text" value={address} onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)} className={inputClassName} placeholder={`Address Line ${index + 1}`} />
-              {index > 0 && (
-                <button type="button" onClick={() => removeArrayField('supplier_address', index)} className="text-gray-400 hover:text-red-600 p-1" title="Remove">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button type="button" onClick={() => addArrayField('supplier_address')} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5">
-            <Plus className="h-3 w-3" /> Add Address Line
-          </button>
-        </div>
-      </ZohoRow>
+      <FGrid>
+        <FField label="Supplier" htmlFor="supplier_name">
+          <div className="relative">
+            <input type="text" id="supplier_name" name="supplier_name" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} autoComplete="off" placeholder="Search supplier…" />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            {showSupplierDropdown && filteredContacts.length > 0 && (
+              <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+                {filteredContacts.map(contact => (
+                  <div key={contact.id} onMouseDown={() => handleSupplierSelect(contact)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">{contact.name}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </FField>
+        <FField label="Supplier Address" span="full">
+          <div className="space-y-1.5">
+            {(formData.supplier_address || ['']).map((address, index) => (
+              <div key={index} className="flex gap-2">
+                <input type="text" value={address} onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)} className={inputClassName} placeholder={`Address Line ${index + 1}`} />
+                {index > 0 && (
+                  <button type="button" onClick={() => removeArrayField('supplier_address', index)} className="text-gray-400 hover:text-red-600 p-1" title="Remove">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => addArrayField('supplier_address')} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5">
+              <Plus className="h-3 w-3" /> Add Address Line
+            </button>
+          </div>
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Contract Information" />
 
-      <ZohoRow label="Contract(s)" fullWidth>
-        <div className="space-y-1.5">
-          {contractSearches.map((searchTerm, index) => (
-            <div key={index} className="flex gap-2">
-              <div className="relative flex-grow">
-                <input type="text" value={searchTerm} onChange={e => { const ns = [...contractSearches]; ns[index] = e.target.value; setContractSearches(ns); const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onFocus={() => { const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onBlur={() => setTimeout(() => { const nd = [...showContractDropdowns]; nd[index] = false; setShowContractDropdowns(nd); }, 150)} className={inputClassName} placeholder="Search by Contract No, Buyer, or Supplier" autoComplete="off" />
-                {showContractDropdowns[index] && (
-                  <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
-                    {getFilteredContracts(searchTerm).map(contract => (
-                      <div key={contract.id} onMouseDown={() => handleContractSelect(contract, index)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">
-                        <strong>{contract.contract_no}</strong> — {contract.buyer_name} / {contract.supplier_name}
-                      </div>
-                    ))}
-                  </div>
+      <FGrid>
+        <FField label="Contract(s)" span="full">
+          <div className="space-y-1.5">
+            {contractSearches.map((searchTerm, index) => (
+              <div key={index} className="flex gap-2">
+                <div className="relative flex-grow">
+                  <input type="text" value={searchTerm} onChange={e => { const ns = [...contractSearches]; ns[index] = e.target.value; setContractSearches(ns); const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onFocus={() => { const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onBlur={() => setTimeout(() => { const nd = [...showContractDropdowns]; nd[index] = false; setShowContractDropdowns(nd); }, 150)} className={inputClassName} placeholder="Search by Contract No, Buyer, or Supplier" autoComplete="off" />
+                  {showContractDropdowns[index] && (
+                    <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+                      {getFilteredContracts(searchTerm).map(contract => (
+                        <div key={contract.id} onMouseDown={() => handleContractSelect(contract, index)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">
+                          <strong>{contract.contract_no}</strong> — {contract.buyer_name} / {contract.supplier_name}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {index > 0 && (
+                  <button type="button" onClick={() => removeContractField(index)} className="text-gray-400 hover:text-red-600 p-1" title="Remove">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
-              {index > 0 && (
-                <button type="button" onClick={() => removeContractField(index)} className="text-gray-400 hover:text-red-600 p-1" title="Remove">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          ))}
-          <button type="button" onClick={addContractField} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5">
-            <Plus className="h-3 w-3" /> Add Contract
-          </button>
-        </div>
-      </ZohoRow>
-
-      <ZohoRow label="Contract Date" htmlFor="contract_date">
-        <input type="text" id="contract_date" value={formData.contract_date ? new Date(formData.contract_date).toLocaleDateString('en-GB') : ''} readOnly className={inputReadOnlyClass} placeholder="Auto-filled" />
-      </ZohoRow>
-
-      <ZohoRow label="Buyer Name" htmlFor="buyer_name">
-        <input type="text" id="buyer_name" value={formData.buyer_name} readOnly className={inputReadOnlyClass} />
-      </ZohoRow>
-
-      <ZohoRow label="Destination" htmlFor="destination">
-        <input type="text" id="destination" value={formData.destination} readOnly className={inputReadOnlyClass} />
-      </ZohoRow>
+            ))}
+            <button type="button" onClick={addContractField} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5">
+              <Plus className="h-3 w-3" /> Add Contract
+            </button>
+          </div>
+        </FField>
+        <FField label="Contract Date" htmlFor="contract_date">
+          <input type="text" id="contract_date" value={formData.contract_date ? new Date(formData.contract_date).toLocaleDateString('en-GB') : ''} readOnly className={inputReadOnlyClass} placeholder="Auto-filled" />
+        </FField>
+        <FField label="Buyer Name" htmlFor="buyer_name">
+          <input type="text" id="buyer_name" value={formData.buyer_name} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Destination" htmlFor="destination">
+          <input type="text" id="destination" value={formData.destination} readOnly className={inputReadOnlyClass} />
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Invoice Information" />
 
-      <ZohoRow label="Invoice No" htmlFor="invoice_no">
-        <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Invoice Date">
-        <DatePicker value={formData.invoice_date || ''} onChange={(val) => setFormData({ ...formData, invoice_date: val })} />
-      </ZohoRow>
-
-      <ZohoRow label="Quantity" htmlFor="quantity">
-        <input type="text" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Pieces" htmlFor="pieces">
-        <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
-      </ZohoRow>
+      <FGrid>
+        <FField label="Invoice No" htmlFor="invoice_no">
+          <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} />
+        </FField>
+        <FField label="Invoice Date">
+          <DatePicker value={formData.invoice_date || ''} onChange={(val) => setFormData({ ...formData, invoice_date: val })} />
+        </FField>
+        <FField label="Quantity" htmlFor="quantity">
+          <input type="text" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClassName} />
+        </FField>
+        <FField label="Pieces" htmlFor="pieces">
+          <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Commission Calculation" />
 
-      <ZohoRow label="Local Commission (%)" htmlFor="local_commission">
-        <input type="text" id="local_commission" value={formData.local_commission} readOnly className={inputReadOnlyClass} />
-      </ZohoRow>
-
-      <ZohoRow label="Invoice Value" htmlFor="invoice_value">
-        <input type="number" id="invoice_value" name="invoice_value" value={formData.invoice_value} onChange={handleChange} className={inputClassName} placeholder="0.00" />
-      </ZohoRow>
-
-      <ZohoRow label="Exchange Rate" htmlFor="exchange_rate">
-        <input type="number" step="0.01" id="exchange_rate" name="exchange_rate" value={formData.exchange_rate} onChange={handleChange} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
-        <input type="number" id="commissioning" value={formData.commissioning.toFixed(2)} readOnly className={inputReadOnlyClass} />
-      </ZohoRow>
-
-      <ZohoRow label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
-        <input type="text" id="commission_in_rupees" value={formData.commission_in_rupees.toFixed(2)} readOnly className={inputReadOnlyClass} />
-      </ZohoRow>
-
-      <ZohoRow label="Commission in Words" htmlFor="commission_in_words" hint="Auto-generated">
-        <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputReadOnlyClass} resize-y`} rows={2} />
-      </ZohoRow>
+      <FGrid>
+        <FField label="Local Commission (%)" htmlFor="local_commission">
+          <input type="text" id="local_commission" value={formData.local_commission} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Invoice Value" htmlFor="invoice_value">
+          <input type="number" id="invoice_value" name="invoice_value" value={formData.invoice_value} onChange={handleChange} className={inputClassName} placeholder="0.00" />
+        </FField>
+        <FField label="Exchange Rate" htmlFor="exchange_rate">
+          <input type="number" step="0.01" id="exchange_rate" name="exchange_rate" value={formData.exchange_rate} onChange={handleChange} className={inputClassName} />
+        </FField>
+        <FField label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
+          <input type="number" id="commissioning" value={formData.commissioning.toFixed(2)} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
+          <input type="text" id="commission_in_rupees" value={formData.commission_in_rupees.toFixed(2)} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Commission in Words" htmlFor="commission_in_words" span="full" hint="Auto-generated">
+          <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputReadOnlyClass} resize-y`} rows={2} />
+        </FField>
+      </FGrid>
 
       <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
         <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">

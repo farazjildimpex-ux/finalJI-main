@@ -3,7 +3,7 @@ import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus } from 'lucide-react
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
@@ -464,98 +464,94 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </div>
       } />
 
-      <ZohoRow label="Company Name" htmlFor="company_name">
-        <select id="company_name" value={formData.company_name} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); setFormData({ ...formData, company_name: e.target.value }); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
-          <option value="">Select Company</option>
-          {companies.map(company => (<option key={company.id} value={company.name}>{company.name}</option>))}
-        </select>
-      </ZohoRow>
-
-      <ZohoRow label="Contract Number" htmlFor="contract_no" required>
-        <input type="text" id="contract_no" value={formData.contract_no} onChange={(e) => setFormData({ ...formData, contract_no: e.target.value })} className={inputClassName} required />
-      </ZohoRow>
-
-      <ZohoRow label="Contract Date">
-        <DatePicker value={formData.contract_date || ''} onChange={(val) => setFormData({ ...formData, contract_date: val })} />
-      </ZohoRow>
-
-      <ZohoRow label="Buyer's Reference" htmlFor="buyers_reference">
-        <input type="text" id="buyers_reference" value={formData.buyers_reference} onChange={(e) => setFormData({ ...formData, buyers_reference: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Status" htmlFor="status">
-        <select id="status" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value as typeof STATUS_OPTIONS[number] })} className={`${inputClassName} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
-          {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
-        </select>
-      </ZohoRow>
-
-      <ZohoRow label="Currency" htmlFor="currency">
-        <select id="currency" value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className={inputClassName}>
-          {CURRENCY_OPTIONS.map(currency => (<option key={currency} value={currency}>{currency}</option>))}
-        </select>
-      </ZohoRow>
+      <FGrid>
+        <FField label="Company Name" htmlFor="company_name">
+          <select id="company_name" value={formData.company_name} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); setFormData({ ...formData, company_name: e.target.value }); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
+            <option value="">Select Company</option>
+            {companies.map(company => (<option key={company.id} value={company.name}>{company.name}</option>))}
+          </select>
+        </FField>
+        <FField label="Contract Number" htmlFor="contract_no" required>
+          <input type="text" id="contract_no" value={formData.contract_no} onChange={(e) => setFormData({ ...formData, contract_no: e.target.value })} className={inputClassName} required />
+        </FField>
+        <FField label="Contract Date">
+          <DatePicker value={formData.contract_date || ''} onChange={(val) => setFormData({ ...formData, contract_date: val })} />
+        </FField>
+        <FField label="Buyer's Reference" htmlFor="buyers_reference">
+          <input type="text" id="buyers_reference" value={formData.buyers_reference} onChange={(e) => setFormData({ ...formData, buyers_reference: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Status" htmlFor="status">
+          <select id="status" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value as typeof STATUS_OPTIONS[number] })} className={`${inputClassName} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
+            {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
+          </select>
+        </FField>
+        <FField label="Currency" htmlFor="currency">
+          <select id="currency" value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className={inputClassName}>
+            {CURRENCY_OPTIONS.map(currency => (<option key={currency} value={currency}>{currency}</option>))}
+          </select>
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Buyer Information" />
 
-      <ZohoRow label="Buyer Name" htmlFor="buyer_name">
-        <div className="relative">
-          <input type="text" id="buyer_name" value={buyerSearch} onChange={(e) => setBuyerSearch(e.target.value)} onFocus={() => setShowBuyerDropdown(true)} onBlur={() => setTimeout(() => setShowBuyerDropdown(false), 150)} className={inputClassName} placeholder="Search buyer…" autoComplete="off" />
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-          {showBuyerDropdown && filteredBuyerContacts.length > 0 && (
-            <div className={dropdownClassName}>
-              {filteredBuyerContacts.map(contact => (<div key={contact.id} className={dropdownItemClassName} onMouseDown={() => handleContactSelect('buyer', contact.name)}>{contact.name}</div>))}
-            </div>
-          )}
-        </div>
-      </ZohoRow>
-
-      <ZohoRow label="Buyer Address">
-        {renderArrayList('buyer_address', formData.buyer_address, 'Address line', 'Add Address Line')}
-      </ZohoRow>
+      <FGrid>
+        <FField label="Buyer Name" htmlFor="buyer_name">
+          <div className="relative">
+            <input type="text" id="buyer_name" value={buyerSearch} onChange={(e) => setBuyerSearch(e.target.value)} onFocus={() => setShowBuyerDropdown(true)} onBlur={() => setTimeout(() => setShowBuyerDropdown(false), 150)} className={inputClassName} placeholder="Search buyer…" autoComplete="off" />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            {showBuyerDropdown && filteredBuyerContacts.length > 0 && (
+              <div className={dropdownClassName}>
+                {filteredBuyerContacts.map(contact => (<div key={contact.id} className={dropdownItemClassName} onMouseDown={() => handleContactSelect('buyer', contact.name)}>{contact.name}</div>))}
+              </div>
+            )}
+          </div>
+        </FField>
+        <FField label="Buyer Address" span="full">
+          {renderArrayList('buyer_address', formData.buyer_address, 'Address line', 'Add Address Line')}
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Supplier Information" />
 
-      <ZohoRow label="Supplier Name" htmlFor="supplier_name">
-        <div className="relative">
-          <input type="text" id="supplier_name" value={supplierSearch} onChange={(e) => setSupplierSearch(e.target.value)} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} placeholder="Search supplier…" autoComplete="off" />
-          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
-          {showSupplierDropdown && filteredSupplierContacts.length > 0 && (
-            <div className={dropdownClassName}>
-              {filteredSupplierContacts.map(contact => (<div key={contact.id} className={dropdownItemClassName} onMouseDown={() => handleContactSelect('supplier', contact.name)}>{contact.name}</div>))}
-            </div>
-          )}
-        </div>
-      </ZohoRow>
-
-      <ZohoRow label="Supplier Address">
-        {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
-      </ZohoRow>
+      <FGrid>
+        <FField label="Supplier Name" htmlFor="supplier_name">
+          <div className="relative">
+            <input type="text" id="supplier_name" value={supplierSearch} onChange={(e) => setSupplierSearch(e.target.value)} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} placeholder="Search supplier…" autoComplete="off" />
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+            {showSupplierDropdown && filteredSupplierContacts.length > 0 && (
+              <div className={dropdownClassName}>
+                {filteredSupplierContacts.map(contact => (<div key={contact.id} className={dropdownItemClassName} onMouseDown={() => handleContactSelect('supplier', contact.name)}>{contact.name}</div>))}
+              </div>
+            )}
+          </div>
+        </FField>
+        <FField label="Supplier Address" span="full">
+          {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Product Details" />
 
-      <ZohoRow label="Description" htmlFor="description">
-        <textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={zohoTextareaClass} rows={2} />
-      </ZohoRow>
-
-      <ZohoRow label="Article" htmlFor="article">
-        <input type="text" id="article" value={formData.article} onChange={(e) => setFormData({ ...formData, article: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Size" htmlFor="size">
-        <input type="text" id="size" value={formData.size} onChange={(e) => setFormData({ ...formData, size: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Average" htmlFor="average">
-        <input type="text" id="average" value={formData.average} onChange={(e) => setFormData({ ...formData, average: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Substance" htmlFor="substance">
-        <input type="text" id="substance" value={formData.substance} onChange={(e) => setFormData({ ...formData, substance: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Measurement" htmlFor="measurement">
-        <input type="text" id="measurement" value={formData.measurement} onChange={(e) => setFormData({ ...formData, measurement: e.target.value })} className={inputClassName} />
-      </ZohoRow>
+      <FGrid>
+        <FField label="Article" htmlFor="article">
+          <input type="text" id="article" value={formData.article} onChange={(e) => setFormData({ ...formData, article: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Size" htmlFor="size">
+          <input type="text" id="size" value={formData.size} onChange={(e) => setFormData({ ...formData, size: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Average" htmlFor="average">
+          <input type="text" id="average" value={formData.average} onChange={(e) => setFormData({ ...formData, average: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Substance" htmlFor="substance">
+          <input type="text" id="substance" value={formData.substance} onChange={(e) => setFormData({ ...formData, substance: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Measurement" htmlFor="measurement">
+          <input type="text" id="measurement" value={formData.measurement} onChange={(e) => setFormData({ ...formData, measurement: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Description" htmlFor="description" span="full">
+          <textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={zohoTextareaClass} rows={2} />
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Product Specifications" />
 
@@ -602,39 +598,37 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
 
       <ZohoSection title="Delivery & Payment" />
 
-      <ZohoRow label="Delivery Schedule">
-        {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}
-      </ZohoRow>
-
-      <ZohoRow label="Destination">
-        {renderArrayList('destination', formData.destination, 'Destination', 'Add Destination')}
-      </ZohoRow>
-
-      <ZohoRow label="Local Commission" htmlFor="local_commission">
-        <input type="text" id="local_commission" value={formData.local_commission} onChange={(e) => setFormData({ ...formData, local_commission: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Foreign Commission" htmlFor="foreign_commission">
-        <input type="text" id="foreign_commission" value={formData.foreign_commission} onChange={(e) => setFormData({ ...formData, foreign_commission: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Payment Terms" htmlFor="payment_terms">
-        <textarea id="payment_terms" value={formData.payment_terms} onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })} className={zohoTextareaClass} rows={2} />
-      </ZohoRow>
-
-      <ZohoRow label="Notify Party" htmlFor="notify_party">
-        <input type="text" id="notify_party" value={formData.notify_party} onChange={(e) => setFormData({ ...formData, notify_party: e.target.value })} className={inputClassName} />
-      </ZohoRow>
-
-      <ZohoRow label="Bank to Present Documents" htmlFor="bank_documents">
-        <input type="text" id="bank_documents" value={formData.bank_documents} onChange={(e) => setFormData({ ...formData, bank_documents: e.target.value })} className={inputClassName} />
-      </ZohoRow>
+      <FGrid>
+        <FField label="Local Commission" htmlFor="local_commission">
+          <input type="text" id="local_commission" value={formData.local_commission} onChange={(e) => setFormData({ ...formData, local_commission: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Foreign Commission" htmlFor="foreign_commission">
+          <input type="text" id="foreign_commission" value={formData.foreign_commission} onChange={(e) => setFormData({ ...formData, foreign_commission: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Notify Party" htmlFor="notify_party">
+          <input type="text" id="notify_party" value={formData.notify_party} onChange={(e) => setFormData({ ...formData, notify_party: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Bank to Present Documents" htmlFor="bank_documents">
+          <input type="text" id="bank_documents" value={formData.bank_documents} onChange={(e) => setFormData({ ...formData, bank_documents: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Delivery Schedule" span="full">
+          {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}
+        </FField>
+        <FField label="Destination" span="full">
+          {renderArrayList('destination', formData.destination, 'Destination', 'Add Destination')}
+        </FField>
+        <FField label="Payment Terms" htmlFor="payment_terms" span="full">
+          <textarea id="payment_terms" value={formData.payment_terms} onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })} className={zohoTextareaClass} rows={2} />
+        </FField>
+      </FGrid>
 
       <ZohoSection title="Important Notes" />
 
-      <ZohoRow label="Notes" fullWidth>
-        {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
-      </ZohoRow>
+      <FGrid>
+        <FField label="Notes" span="full">
+          {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
+        </FField>
+      </FGrid>
 
       <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
         <button type="submit" disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
