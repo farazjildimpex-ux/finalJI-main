@@ -46,7 +46,7 @@ const MobileBottomNav: React.FC = () => {
               key={item.name}
               to={item.path}
               className="relative flex flex-col items-center justify-center flex-shrink-0 h-full snap-start"
-              style={{ minWidth: '20%' }}
+              style={{ width: 'calc(100vw / 5)', minWidth: 'calc(100vw / 5)', flexShrink: 0 }}
             >
               <div className={`
                 flex flex-col items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]

@@ -96,16 +96,29 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   const [gmailList, setGmailList]     = useState<GmailAttachment[]>([]);
   const [gmailLoading, setGmailLoading] = useState(false);
   const [gmailFetching, setGmailFetching] = useState<string | null>(null);
+  const [contactsLoading, setContactsLoading] = useState(true);
+  const [contactsError, setContactsError]     = useState<string | null>(null);
 
-  /* ─ Load contacts (NO user_id filter — let RLS handle it) ─ */
+  /* ─ Load contacts — no user_id filter, RLS handles access ─ */
   useEffect(() => {
-    if (!user) return;
-    supabase.from('contact_book').select('*').order('name').then(({ data }) => {
-      setContacts((data || []) as Contact[]);
-    }).catch(() => {});
+    setContactsLoading(true);
+    setContactsError(null);
+    supabase
+      .from('contact_book')
+      .select('*')
+      .order('name')
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('[ComposeModal] contact_book error:', error);
+          setContactsError(error.message);
+        } else {
+          setContacts((data || []) as Contact[]);
+        }
+        setContactsLoading(false);
+      });
     supabase.from('companies').select('name').limit(1).maybeSingle()
       .then(({ data }) => setCompanyName(data?.name || '')).catch(() => {});
-  }, [user?.id]);
+  }, []);
 
   /* ─ Render template ─ */
   useEffect(() => {
@@ -295,6 +308,11 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
             ) : (
               /* ─ Edit ─ */
               <div className="px-5 py-4 space-y-5">
+                {/* Hidden decoy inputs — trick browsers into filling these instead of real fields */}
+                <div style={{ display: 'none' }} aria-hidden="true">
+                  <input type="text" name="username" autoComplete="username" tabIndex={-1} />
+                  <input type="email" name="email" autoComplete="email" tabIndex={-1} />
+                </div>
 
                 {/* TO */}
                 <div>
@@ -315,8 +333,8 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
 
                   <input
                     value={toInput}
-                    name="compose-to"
-                    autoComplete="off"
+                    name="compose-to-field"
+                    autoComplete="new-password"
                     autoCorrect="off"
                     spellCheck={false}
                     onChange={e => setToInput(e.target.value)}
@@ -344,12 +362,16 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                         </button>
                       </div>
                       <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
-                        {contacts.length === 0 ? (
-                          <p className="p-4 text-sm text-slate-400 text-center">
-                            Loading contacts…
-                          </p>
+                        {contactsLoading ? (
+                          <div className="flex items-center justify-center gap-2 p-4 text-sm text-slate-400">
+                            <Loader2 className="h-4 w-4 animate-spin" /> Loading contacts…
+                          </div>
+                        ) : contactsError ? (
+                          <p className="p-4 text-sm text-red-500 text-center">Error: {contactsError}</p>
+                        ) : contacts.length === 0 ? (
+                          <p className="p-4 text-sm text-slate-400 text-center">No contacts in your contact book yet.</p>
                         ) : filtered.length === 0 ? (
-                          <p className="p-4 text-sm text-slate-400 text-center">No contacts match your search.</p>
+                          <p className="p-4 text-sm text-slate-400 text-center">No contacts match "{cpSearch}".</p>
                         ) : filtered.map(c => (
                           <button key={c.id} type="button" onClick={() => pickContact(c)}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 transition">
@@ -377,8 +399,8 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                   )}
                   <input
                     value={ccInput}
-                    name="compose-cc"
-                    autoComplete="off"
+                    name="compose-cc-field"
+                    autoComplete="new-password"
                     autoCorrect="off"
                     spellCheck={false}
                     onChange={e => setCcInput(e.target.value)}
