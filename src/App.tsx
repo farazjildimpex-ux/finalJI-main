@@ -4,7 +4,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
-import NotificationInitializer from './components/Auth/NotificationInitializer';
+const NotificationInitializer = lazy(() => import('./components/Auth/NotificationInitializer'));
 import LoadingScreen from './components/UI/LoadingScreen';
 import DialogProvider from './components/UI/DialogProvider';
 import ErrorBoundary from './components/UI/ErrorBoundary';
@@ -34,7 +34,9 @@ function App() {
   return (
     <DialogProvider>
       <Router>
-        <NotificationInitializer />
+        <Suspense fallback={null}>
+          <NotificationInitializer />
+        </Suspense>
         <ErrorBoundary>
           <Suspense fallback={<LoadingScreen />}>
             <Routes>

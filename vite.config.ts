@@ -22,6 +22,13 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // Vite's internal dynamic-import preload helper must always live in
+          // vendor-react (the first chunk loaded). If Rollup puts it in a lazy
+          // vendor chunk (e.g. vendor-pdf) the entry file gets a static import
+          // of that lazy chunk, defeating the whole point of code-splitting.
+          if (id.includes('vite/preload-helper')) {
+            return 'vendor-react';
+          }
           // React core — loaded first, cached aggressively
           if (id.includes('node_modules/react/') ||
               id.includes('node_modules/react-dom/') ||
@@ -39,6 +46,12 @@ export default defineConfig({
             return 'vendor-firebase';
           }
           // PDF generation — jspdf + autotable + html2canvas
+          // tslib must be routed to vendor-misc ABOVE this block so that shared
+          // TypeScript helpers never land inside vendor-pdf, which would create
+          // a static cross-chunk import from the app entry into the 591 KB PDF bundle.
+          if (id.includes('node_modules/tslib')) {
+            return 'vendor-misc';
+          }
           if (id.includes('node_modules/jspdf') ||
               id.includes('node_modules/jspdf-autotable') ||
               id.includes('node_modules/html2canvas')) {

@@ -3,12 +3,20 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initPWA } from './utils/pwaHelper.ts';
-import { isFirebaseConfigured } from './lib/firebase.ts';
 
 initPWA();
 
+// Check Firebase config directly from env vars — avoids a static import of
+// the Firebase SDK which would force vendor-firebase to load on every page.
+const _fbConfigured = Boolean(
+  import.meta.env.VITE_FIREBASE_API_KEY &&
+  import.meta.env.VITE_FIREBASE_PROJECT_ID &&
+  import.meta.env.VITE_FIREBASE_APP_ID &&
+  import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID
+);
+
 // Register Firebase messaging service worker for background push notifications
-if ('serviceWorker' in navigator && isFirebaseConfigured) {
+if ('serviceWorker' in navigator && _fbConfigured) {
   navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
     .then((reg) => {
       // Pass Firebase config to the service worker
