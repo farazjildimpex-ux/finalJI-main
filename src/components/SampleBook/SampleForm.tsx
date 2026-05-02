@@ -18,7 +18,12 @@ import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
 
-const STATUS_OPTIONS = ['Issued', 'Completed'] as const;
+const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
+const STATUS_COLORS: Record<string, string> = {
+  Issued:    'bg-blue-50 text-blue-900 border-blue-300',
+  Completed: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+  Cancelled: 'bg-red-50 text-red-900 border-red-300',
+};
 const FONT_SIZES = ['12px', '14px', '16px', '18px'] as const;
 const DEFAULT_TEXT_COLOR = '#1f2937';
 
@@ -516,12 +521,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             id="status"
             value={formData.status}
             onChange={(e) => setField('status', e.target.value as Sample['status'])}
-            className={formInputClass}
+            className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors font-semibold ${STATUS_COLORS[formData.status || 'Issued'] || formInputClass}`}
           >
             {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
+              <option key={status} value={status}>{status}</option>
             ))}
           </select>
         </FormRow>

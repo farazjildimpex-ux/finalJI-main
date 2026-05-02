@@ -11,7 +11,12 @@ import DatePicker from '../UI/DatePicker';
 import FormRow, { FormSection, formInputClass, formInputReadOnlyClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
-const STATUS_OPTIONS = ['Issued', 'Completed'] as const;
+const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
+const STATUS_COLORS: Record<string, string> = {
+  Issued:    'bg-blue-50 text-blue-900 border-blue-300',
+  Completed: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+  Cancelled: 'bg-red-50 text-red-900 border-red-300',
+};
 
 interface DebitNoteFormProps {
   initialData?: DebitNote | null;
@@ -565,7 +570,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             name="status"
             value={formData.status}
             onChange={handleChange}
-            className={inputClassName}
+            className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors font-semibold ${STATUS_COLORS[formData.status || 'Issued'] || inputClassName}`}
           >
             {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
           </select>

@@ -10,7 +10,13 @@ import { generateContractWord, extractLetterheadImages } from '../../utils/contr
 import { useNavigate } from 'react-router-dom';
 import { dialogService } from '../../lib/dialogService';
 
-const STATUS_OPTIONS = ['Issued', 'Inspected', 'Completed'] as const;
+const STATUS_OPTIONS = ['Issued', 'Inspected', 'Completed', 'Cancelled'] as const;
+const STATUS_COLORS: Record<string, string> = {
+  Issued:    'bg-blue-50 text-blue-900 border-blue-300',
+  Inspected: 'bg-amber-50 text-amber-900 border-amber-300',
+  Completed: 'bg-emerald-50 text-emerald-900 border-emerald-300',
+  Cancelled: 'bg-red-50 text-red-900 border-red-300',
+};
 const CURRENCY_OPTIONS = ['Euro', 'USD', 'INR'] as const;
 
 interface ContractFormProps {
@@ -511,7 +517,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             id="status"
             value={formData.status}
             onChange={(e) => setFormData({ ...formData, status: e.target.value as typeof STATUS_OPTIONS[number] })}
-            className={inputClassName}
+            className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors font-semibold ${STATUS_COLORS[formData.status || 'Issued'] || inputClassName}`}
           >
             {STATUS_OPTIONS.map(status => (
               <option key={status} value={status}>{status}</option>

@@ -128,22 +128,25 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [template.id, ctxKey(context), companyName]);
 
-  /* ─ Pre-fill To/CC + greeting from matched contact ─ */
-  useEffect(() => {
-    if (!contacts.length) return;
+  /* ─ Quick-pick: supplier / buyer chips derived from context ─ */
+  const quickPicks = useMemo(() => {
     const vars = buildVarsFromContext(context, companyName);
-    const targets = [vars.buyer_name, vars.supplier_name].filter(Boolean).map(n => n!.toLowerCase().trim());
-    if (!targets.length) return;
-    const match = contacts.find((c) => {
+    return [
+      { role: 'Supplier', name: vars.supplier_name || '' },
+      { role: 'Buyer',    name: vars.buyer_name    || '' },
+    ].filter(q => q.name.trim());
+  }, [context, companyName]);
+
+  const addQuickPick = (name: string) => {
+    const q = name.toLowerCase();
+    const match = contacts.find(c => {
       const cn = c.name.toLowerCase();
-      return targets.some(t => cn.includes(t) || t.includes(cn) || similarity(cn, t) > 0.6);
+      return cn.includes(q) || q.includes(cn) || similarity(cn, q) > 0.55;
     });
-    if (!match) return;
-    if (match.email?.length && toList.length === 0) setToList(match.email.filter(Boolean));
-    if (match.email_cc?.length && ccList.length === 0) setCcList(match.email_cc.filter(Boolean));
-    setBody(prev => applyGreeting(prev, match.contact_person || match.name || ''));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contacts.length, ctxKey(context), companyName]);
+    if (!match) { setToast({ ok: false, msg: `No contact found matching "${name}"` }); return; }
+    if (match.email?.length) addEmail(match.email[0], toList, setToList, () => {});
+    if (match.email_cc?.length) setCcList(p => [...new Set([...p, ...match.email_cc!])]);
+  };
 
   /* ─ Filtered contact list ─ */
   const filtered = useMemo(() => {
@@ -324,6 +327,19 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                       {cpOpen ? 'Close' : 'Pick contact'}
                     </button>
                   </div>
+
+                  {/* Supplier / Buyer quick-add chips */}
+                  {quickPicks.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {quickPicks.map(q => (
+                        <button key={q.role} type="button" onClick={() => addQuickPick(q.name)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 hover:border-blue-200 transition">
+                          <Users className="h-3 w-3" />
+                          <span className="text-slate-400">{q.role}:</span> {q.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {toList.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
