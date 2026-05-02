@@ -10,6 +10,23 @@ interface SidebarProps {
   onChangePassword: () => void;
 }
 
+interface TooltipProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+const Tip: React.FC<TooltipProps> = ({ label, children }) => (
+  <div className="relative group/tip flex items-center justify-center">
+    {children}
+    <div className="pointer-events-none absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg whitespace-nowrap
+      opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-[200] shadow-lg">
+      {label}
+      <div className="absolute top-1/2 -left-1 -translate-y-1/2 w-0 h-0
+        border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-r-[5px] border-r-gray-900" />
+    </div>
+  </div>
+);
+
 const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,56 +45,68 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
   };
 
   return (
-    <div className="bg-white text-gray-700 h-full w-56 flex flex-col shadow-lg transition-all duration-300">
-      <nav className="flex-1 py-3 px-3 overflow-y-auto">
-        <ul className="space-y-1">
-          {navigationItems.map((item) => {
-            // @ts-ignore
-            const Icon = LucideIcons[item.icon.charAt(0).toUpperCase() + item.icon.slice(1)];
-            const isActive = location.pathname === item.path;
+    <div className="bg-white h-full w-12 flex flex-col border-r border-gray-100">
+      {/* Logo mark */}
+      <div className="h-12 flex items-center justify-center border-b border-gray-100 shrink-0">
+        <span className="text-sm font-black tracking-tighter select-none">
+          <span className="text-gray-900">J</span><span className="text-blue-600">I</span>
+        </span>
+      </div>
 
-            return (
-              <li key={item.name}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    isActive ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700 hover:bg-gray-100'
+      {/* Nav items */}
+      <nav className="flex-1 py-2 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar">
+        {navigationItems.map((item) => {
+          // @ts-ignore
+          const Icon = LucideIcons[item.icon.charAt(0).toUpperCase() + item.icon.slice(1)];
+          const isActive = location.pathname === item.path ||
+            (item.path !== '/app/home' && location.pathname.startsWith(item.path));
+
+          return (
+            <Tip key={item.name} label={item.name}>
+              <Link
+                to={item.path}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150
+                  ${isActive
+                    ? 'bg-blue-50 text-blue-600'
+                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'
                   }`}
-                >
-                  {Icon && <Icon className="mr-3 h-5 w-5" />}
-                  <span>{item.name}</span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+              >
+                {Icon && <Icon className="h-4 w-4" strokeWidth={isActive ? 2.5 : 1.75} />}
+              </Link>
+            </Tip>
+          );
+        })}
       </nav>
 
-      <div className="p-3 border-t border-gray-200 space-y-2">
-        <button
-          onClick={onManageCompanies}
-          className="w-full flex items-center px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-all duration-200"
-        >
-          <Building2 className="mr-3 h-5 w-5" />
-          <span>Manage Companies</span>
-        </button>
+      {/* Bottom actions */}
+      <div className="py-2 flex flex-col items-center gap-0.5 border-t border-gray-100 shrink-0">
+        <Tip label="Manage Companies">
+          <button
+            onClick={onManageCompanies}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all duration-150"
+          >
+            <Building2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </Tip>
 
-        <button
-          onClick={onChangePassword}
-          className="w-full flex items-center px-3 py-2.5 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition-all duration-200"
-        >
-          <Key className="mr-3 h-5 w-5" />
-          <span>Change Password</span>
-        </button>
+        <Tip label="Change Password">
+          <button
+            onClick={onChangePassword}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all duration-150"
+          >
+            <Key className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </Tip>
 
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="w-full flex items-center px-3 py-2.5 rounded-lg text-sm text-red-600 hover:bg-red-50 transition-all duration-200 disabled:opacity-50"
-        >
-          <LogOut className="mr-3 h-5 w-5" />
-          <span>{loggingOut ? 'Logging out...' : 'Logout'}</span>
-        </button>
+        <Tip label={loggingOut ? 'Logging out…' : 'Logout'}>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all duration-150 disabled:opacity-40"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </Tip>
       </div>
     </div>
   );
