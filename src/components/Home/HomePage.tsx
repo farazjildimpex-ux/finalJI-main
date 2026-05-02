@@ -185,7 +185,7 @@ const HomePage: React.FC = () => {
   return (
     <PullToRefresh onRefresh={handlePullRefresh}>
     <div className="max-w-7xl mx-auto page-fade-in px-4">
-      <div className="mb-6 md:mb-8 pt-4">
+      <div className="mb-4 pt-3">
         <SearchBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}

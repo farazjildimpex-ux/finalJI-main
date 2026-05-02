@@ -6,8 +6,9 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
-    /* Prevent pull-to-refresh on some browsers if desired, but usually better to keep for web */
-    overscroll-behavior-y: none; 
+    overscroll-behavior-y: none;
+    /* Scale the entire UI to 90% — equivalent to the user setting browser zoom to 90% */
+    font-size: 90%;
   }
   
   body {
