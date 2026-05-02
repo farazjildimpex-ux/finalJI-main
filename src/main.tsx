@@ -3,23 +3,14 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initPWA } from './utils/pwaHelper.ts';
+import { isFirebaseConfigured } from './lib/firebase.ts';
 
 initPWA();
 
-// Check Firebase config directly from env vars — avoids a static import of
-// the Firebase SDK which would force vendor-firebase to load on every page.
-const _fbConfigured = Boolean(
-  import.meta.env.VITE_FIREBASE_API_KEY &&
-  import.meta.env.VITE_FIREBASE_PROJECT_ID &&
-  import.meta.env.VITE_FIREBASE_APP_ID &&
-  import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID
-);
-
 // Register Firebase messaging service worker for background push notifications
-if ('serviceWorker' in navigator && _fbConfigured) {
+if ('serviceWorker' in navigator && isFirebaseConfigured) {
   navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
     .then((reg) => {
-      // Pass Firebase config to the service worker
       const firebaseConfig = {
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
         authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -28,7 +19,7 @@ if ('serviceWorker' in navigator && _fbConfigured) {
         messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
         appId: import.meta.env.VITE_FIREBASE_APP_ID,
       };
-      
+
       const sendConfig = () => {
         if (reg.active) {
           reg.active.postMessage({ type: 'FIREBASE_CONFIG', config: firebaseConfig });
