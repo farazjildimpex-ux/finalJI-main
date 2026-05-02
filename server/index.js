@@ -313,18 +313,24 @@ app.get('/api/zoho/status', (req, res) => {
   });
 });
 
+/** Build the public base URL for OAuth callbacks.
+ *  Priority: ZOHO_REDIRECT_BASE env var → REPLIT_DEV_DOMAIN → request headers */
+function getPublicBase(req) {
+  if (process.env.ZOHO_REDIRECT_BASE) return process.env.ZOHO_REDIRECT_BASE.replace(/\/$/, '');
+  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  const proto = req.headers['x-forwarded-proto'] || req.protocol;
+  const host  = req.get('x-forwarded-host') || req.get('host');
+  return `${proto}://${host}`;
+}
+
 app.get('/api/zoho/oauth/redirect-uri', (req, res) => {
-  const proto = req.protocol;
-  const host = req.get('x-forwarded-host') || req.get('host');
-  const uri = `${proto}://${host}/api/zoho/oauth/callback`;
+  const uri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
   res.json({ redirectUri: uri });
 });
 
 app.get('/api/zoho/oauth/start', (req, res) => {
   try {
-    const proto = req.protocol;
-    const host = req.get('x-forwarded-host') || req.get('host');
-    const redirectUri = `${proto}://${host}/api/zoho/oauth/callback`;
+    const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
     const url = buildZohoAuthUrl(redirectUri);
     res.redirect(url);
   } catch (err) {
@@ -338,9 +344,7 @@ app.get('/api/zoho/oauth/callback', async (req, res) => {
   if (error) return res.status(400).type('html').send(renderErrorPage('Zoho sign-in cancelled', String(error)));
   if (!code) return res.status(400).type('html').send(renderErrorPage('Missing code', 'No authorization code returned by Zoho.'));
   try {
-    const proto = req.protocol;
-    const host = req.get('x-forwarded-host') || req.get('host');
-    const redirectUri = `${proto}://${host}/api/zoho/oauth/callback`;
+    const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
     const data = await exchangeZohoCode(String(code), redirectUri);
     // Show the refresh token so the user can store it in Replit Secrets.
     res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)'));
