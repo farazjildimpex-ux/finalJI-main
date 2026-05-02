@@ -397,8 +397,8 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   );
 
   const inputClassName = zohoInputClass;
-  const dropdownClassName = "absolute z-50 mt-1 w-full max-w-[520px] max-h-60 overflow-y-auto rounded-[3px] border border-gray-300 bg-white shadow-lg";
-  const dropdownItemClassName = "cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50";
+  const dropdownClassName = "absolute z-50 mt-1.5 w-full max-w-[520px] max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl";
+  const dropdownItemClassName = "cursor-pointer px-3.5 py-2.5 text-[13.5px] text-gray-700 hover:bg-blue-50";
 
   const renderToggle = (checked: boolean, onClick: () => void) => (
     <button
@@ -553,7 +553,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </div>
         {formData.selection?.map((_, index) => (
           <div key={index} className="mb-1.5">
-            <div className="md:hidden space-y-1.5 border border-gray-200 rounded-[3px] p-2 bg-gray-50/50 mb-1">
+            <div className="md:hidden space-y-1.5 border border-gray-200 rounded-xl p-3 bg-gray-50/50 mb-1">
               <div className="grid grid-cols-2 gap-1.5">
                 <input type="text" placeholder="Selection" value={formData.selection?.[index] || ''} onChange={(e) => handleArrayFieldChange('selection', index, e.target.value)} className={inputClassName} />
                 <input type="text" placeholder="Color" value={formData.color?.[index] || ''} onChange={(e) => handleArrayFieldChange('color', index, e.target.value)} className={inputClassName} />
@@ -619,37 +619,37 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </FField>
       </FSectionCard>
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
-          <Save className="h-3.5 w-3.5 mr-1.5" />
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-wrap items-center gap-2.5">
+        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+          <Save className="h-4 w-4" />
           {saving ? 'Saving…' : (initialContract ? 'Update Contract' : 'Save Contract')}
         </button>
-        <button type="button" onClick={handleSaveAsNew} disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
-          <Copy className="h-3.5 w-3.5 mr-1.5" /> Save as New
+        <button type="button" onClick={handleSaveAsNew} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+          <Copy className="h-4 w-4" /> Save as New
         </button>
         <div className="relative" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
-          <button type="button" disabled={saving || generatingPdf || generatingWord} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
-            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+          <button type="button" disabled={saving || generatingPdf || generatingWord} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+            <FileDown className="h-4 w-4" />
             {generatingPdf ? 'Generating PDF…' : generatingWord ? 'Generating Word…' : 'Export'}
-            <ChevronDown className="h-3 w-3 ml-1.5" />
+            <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full mb-1 left-0 z-30 min-w-[140px] overflow-hidden rounded-[3px] border border-gray-200 bg-white shadow-xl">
-              <button type="button" onClick={handleExportPDF} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50">
-                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export PDF
+            <div className="absolute bottom-full mb-1.5 left-0 z-30 min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+              <button type="button" onClick={handleExportPDF} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 disabled:opacity-50">
+                <FileDown className="h-4 w-4 shrink-0" /> Export PDF
               </button>
-              <button type="button" onClick={handleExportWord} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100">
-                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export Word
+              <button type="button" onClick={handleExportWord} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100">
+                <FileDown className="h-4 w-4 shrink-0" /> Export Word
               </button>
             </div>
           )}
         </div>
         {initialContract && (
-          <button type="button" onClick={handleDelete} disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-red-700 bg-white border border-gray-300 hover:bg-red-50 disabled:opacity-50">
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+          <button type="button" onClick={handleDelete} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm disabled:opacity-50">
+            <Trash2 className="h-4 w-4" /> Delete
           </button>
         )}
-        <button type="button" onClick={() => navigate('/app/contracts')} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 ml-auto">
+        <button type="button" onClick={() => navigate('/app/contracts')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm ml-auto">
           Cancel
         </button>
       </div>

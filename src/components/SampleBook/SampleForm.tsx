@@ -506,7 +506,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             <input id="supplier_name" type="text" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setField('supplier_name', e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={zohoInputClass} placeholder="Search supplier…" autoComplete="off" required />
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
             {showSupplierDropdown && filteredContacts.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+              <div className="absolute z-50 mt-1.5 w-full max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                 {filteredContacts.map((contact) => (
                   <div key={contact.id} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50" onMouseDown={() => handleSupplierSelect(contact)}>{contact.name}</div>
                 ))}
@@ -524,23 +524,23 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
           <input id="description" type="text" value={formData.description} onChange={(e) => setField('description', e.target.value)} className={zohoInputClass} placeholder="Short bold heading for the letter" />
         </FField>
         <FField label="Letter Details" span="full" hint="Basic formatting: bold, underline, font size and color.">
-          <div className="rounded-[3px] border border-gray-300 bg-white overflow-hidden">
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
-              <button type="button" onClick={() => applyCommand('bold')} className="inline-flex h-7 w-7 items-center justify-center rounded border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700" title="Bold">
+          <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50/70 px-3 py-2">
+              <button type="button" onClick={() => applyCommand('bold')} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700" title="Bold">
                 <Bold className="h-3.5 w-3.5" />
               </button>
-              <button type="button" onClick={() => applyCommand('underline')} className="inline-flex h-7 w-7 items-center justify-center rounded border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700" title="Underline">
+              <button type="button" onClick={() => applyCommand('underline')} className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700" title="Underline">
                 <Underline className="h-3.5 w-3.5" />
               </button>
-              <select value={selectedFontSize} onChange={(e) => { const next = e.target.value as (typeof FONT_SIZES)[number]; setSelectedFontSize(next); applyInlineStyle({ fontSize: next }); }} className="h-7 rounded border border-gray-200 bg-white px-2 text-[12px] text-gray-700 focus:outline-none" title="Font size">
+              <select value={selectedFontSize} onChange={(e) => { const next = e.target.value as (typeof FONT_SIZES)[number]; setSelectedFontSize(next); applyInlineStyle({ fontSize: next }); }} className="h-7 rounded-lg border border-gray-200 bg-white px-2 text-[12px] text-gray-700 focus:outline-none" title="Font size">
                 {FONT_SIZES.map((size) => (<option key={size} value={size}>{size}</option>))}
               </select>
-              <label className="inline-flex h-7 items-center gap-1.5 rounded border border-gray-200 bg-white px-2 text-[12px] text-gray-700">
+              <label className="inline-flex h-7 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 text-[12px] text-gray-700">
                 Color
                 <input type="color" value={selectedColor} onChange={(e) => { setSelectedColor(e.target.value); applyInlineStyle({ color: e.target.value }); }} className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0" title="Text color" />
               </label>
             </div>
-            <div ref={editorRef} contentEditable suppressContentEditableWarning onPaste={(event) => { event.preventDefault(); const text = event.clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); }} className="min-h-[180px] px-3 py-2 text-[13px] leading-6 text-gray-800 focus:outline-none" />
+            <div ref={editorRef} contentEditable suppressContentEditableWarning onPaste={(event) => { event.preventDefault(); const text = event.clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); }} className="min-h-[200px] px-4 py-3 text-[13.5px] leading-6 text-gray-800 focus:outline-none" />
           </div>
         </FField>
       </FSectionCard>
@@ -558,7 +558,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             {(() => {
               const url = buildTrackingUrl(formData.courier_provider, formData.courier_reference);
               return url ? (
-                <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1 rounded-[3px] border border-gray-300 text-[12px] text-blue-600 hover:bg-blue-50 whitespace-nowrap">Track</a>
+                <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-2 rounded-lg border border-gray-200 text-[12px] font-medium text-blue-600 hover:bg-blue-50 whitespace-nowrap">Track</a>
               ) : null;
             })()}
           </div>
@@ -583,21 +583,21 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         </FField>
       </FSectionCard>
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
-          <Save className="h-3.5 w-3.5 mr-1.5" />
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-wrap items-center gap-2.5">
+        <button type="submit" disabled={loading} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 shadow-sm">
+          <Save className="h-4 w-4" />
           {loading ? 'Saving…' : (initialData ? 'Update Letter' : 'Save Letter')}
         </button>
-        <button type="button" onClick={handleExportPDF} disabled={generatingPdf || loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
-          <FileDown className="h-3.5 w-3.5 mr-1.5" />
+        <button type="button" onClick={handleExportPDF} disabled={generatingPdf || loading} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+          <FileDown className="h-4 w-4" />
           {generatingPdf ? 'Generating…' : 'Export PDF'}
         </button>
         {initialData && (
-          <button type="button" onClick={handleDelete} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-red-700 bg-white border border-gray-300 hover:bg-red-50">
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+          <button type="button" onClick={handleDelete} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm">
+            <Trash2 className="h-4 w-4" /> Delete
           </button>
         )}
-        <button type="button" onClick={() => navigate('/app/home')} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 ml-auto">
+        <button type="button" onClick={() => navigate('/app/home')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm ml-auto">
           Cancel
         </button>
       </div>

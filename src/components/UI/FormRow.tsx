@@ -165,13 +165,13 @@ export const formInputReadOnlyClass =
   'block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm';
 
 export const zohoInputClass =
-  'block w-full border border-gray-300 rounded-[3px] px-2.5 py-1 text-[13px] text-gray-800 bg-white placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 transition-colors';
+  'block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10';
 
 export const zohoTextareaClass =
-  'block w-full border border-gray-300 rounded-[3px] px-2.5 py-1.5 text-[13px] text-gray-800 bg-white placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 transition-colors resize-y';
+  'block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 resize-y';
 
 export const zohoInputReadOnlyClass =
-  'block w-full border border-gray-200 rounded-[3px] px-2.5 py-1 text-[13px] text-gray-500 bg-gray-50 cursor-default';
+  'block w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2.5 text-[13.5px] text-gray-500 cursor-default select-none';
 
 interface ZohoRowProps {
   label: React.ReactNode;
@@ -233,24 +233,24 @@ export const FField: React.FC<FFieldProps> = ({ label, required, htmlFor, hint, 
   <div className={span === 'full' ? 'sm:col-span-2' : ''}>
     <label
       htmlFor={htmlFor}
-      className="block text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-1 leading-none"
+      className="block text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1.5 leading-none"
     >
       {label}{required && <span className="text-rose-500 ml-0.5">*</span>}
     </label>
     <div className="min-w-0">{children}</div>
-    {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
+    {hint && <p className="mt-1 text-[11px] text-gray-400">{hint}</p>}
   </div>
 );
 
 const SECTION_ACCENT = {
-  blue:    { header: 'bg-blue-50/80 border-blue-100',      icon: 'bg-blue-100 text-blue-600'       },
-  emerald: { header: 'bg-emerald-50/80 border-emerald-100', icon: 'bg-emerald-100 text-emerald-600' },
-  violet:  { header: 'bg-violet-50/80 border-violet-100',  icon: 'bg-violet-100 text-violet-600'   },
-  amber:   { header: 'bg-amber-50/80 border-amber-100',    icon: 'bg-amber-100 text-amber-700'     },
-  rose:    { header: 'bg-rose-50/80 border-rose-100',      icon: 'bg-rose-100 text-rose-600'       },
-  indigo:  { header: 'bg-indigo-50/80 border-indigo-100',  icon: 'bg-indigo-100 text-indigo-600'   },
-  slate:   { header: 'bg-slate-50 border-slate-200',       icon: 'bg-slate-100 text-slate-500'     },
-  teal:    { header: 'bg-teal-50/80 border-teal-100',      icon: 'bg-teal-100 text-teal-600'       },
+  blue:    { header: 'bg-gradient-to-r from-blue-50 to-white border-blue-100',       icon: 'bg-blue-100 text-blue-600',       bar: 'bg-blue-500'    },
+  emerald: { header: 'bg-gradient-to-r from-emerald-50 to-white border-emerald-100', icon: 'bg-emerald-100 text-emerald-600', bar: 'bg-emerald-500' },
+  violet:  { header: 'bg-gradient-to-r from-violet-50 to-white border-violet-100',   icon: 'bg-violet-100 text-violet-600',   bar: 'bg-violet-500'  },
+  amber:   { header: 'bg-gradient-to-r from-amber-50 to-white border-amber-100',     icon: 'bg-amber-100 text-amber-700',     bar: 'bg-amber-500'   },
+  rose:    { header: 'bg-gradient-to-r from-rose-50 to-white border-rose-100',       icon: 'bg-rose-100 text-rose-600',       bar: 'bg-rose-500'    },
+  indigo:  { header: 'bg-gradient-to-r from-indigo-50 to-white border-indigo-100',   icon: 'bg-indigo-100 text-indigo-600',   bar: 'bg-indigo-500'  },
+  slate:   { header: 'bg-gradient-to-r from-slate-50 to-white border-slate-200',     icon: 'bg-slate-100 text-slate-500',     bar: 'bg-slate-400'   },
+  teal:    { header: 'bg-gradient-to-r from-teal-50 to-white border-teal-100',       icon: 'bg-teal-100 text-teal-600',       bar: 'bg-teal-500'    },
 } as const;
 
 type FSectionAccent = keyof typeof SECTION_ACCENT;
@@ -274,22 +274,23 @@ export const FSectionCard: React.FC<FSectionCardProps> = ({
 }) => {
   const s = SECTION_ACCENT[accent];
   return (
-    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-      <div className={`px-4 sm:px-5 py-3 border-b flex items-center justify-between gap-3 ${s.header}`}>
-        <div className="flex items-center gap-2.5">
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className={`relative px-5 sm:px-6 py-3.5 border-b flex items-center justify-between gap-3 ${s.header}`}>
+        <div className={`absolute inset-y-0 left-0 w-[3px] ${s.bar}`} />
+        <div className="flex items-center gap-3 pl-2">
           {Icon && (
-            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md ${s.icon}`}>
-              <Icon className="h-3.5 w-3.5" />
+            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-xl shadow-sm ${s.icon}`}>
+              <Icon className="h-4 w-4" />
             </span>
           )}
-          <span className="text-[13px] font-semibold text-gray-800 tracking-tight">{title}</span>
+          <span className="text-[13.5px] font-semibold text-gray-800">{title}</span>
         </div>
         {right && <div className="flex items-center gap-2 shrink-0">{right}</div>}
       </div>
       {noPadding ? (
         <>{children}</>
       ) : (
-        <div className="px-4 sm:px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+        <div className="px-5 sm:px-6 py-5 grid grid-cols-1 sm:grid-cols-2 gap-x-7 gap-y-5">
           {children}
         </div>
       )}

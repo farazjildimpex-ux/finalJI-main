@@ -534,7 +534,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-3 text-gray-900">
       {validationError && (
-        <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-[3px] p-3 flex items-start gap-2">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
           <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
           <div>
             <p className="text-[13px] font-medium text-red-800">Validation Error</p>
@@ -580,7 +580,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             <input type="text" id="supplier_name" name="supplier_name" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} autoComplete="off" placeholder="Search supplier…" />
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
             {showSupplierDropdown && filteredContacts.length > 0 && (
-              <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+              <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                 {filteredContacts.map(contact => (
                   <div key={contact.id} onMouseDown={() => handleSupplierSelect(contact)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">{contact.name}</div>
                 ))}
@@ -615,7 +615,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
                 <div className="relative flex-grow">
                   <input type="text" value={searchTerm} onChange={e => { const ns = [...contractSearches]; ns[index] = e.target.value; setContractSearches(ns); const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onFocus={() => { const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onBlur={() => setTimeout(() => { const nd = [...showContractDropdowns]; nd[index] = false; setShowContractDropdowns(nd); }, 150)} className={inputClassName} placeholder="Search by Contract No, Buyer, or Supplier" autoComplete="off" />
                   {showContractDropdowns[index] && (
-                    <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+                    <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-gray-200 bg-white shadow-xl">
                       {getFilteredContracts(searchTerm).map(contract => (
                         <div key={contract.id} onMouseDown={() => handleContractSelect(contract, index)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">
                           <strong>{contract.contract_no}</strong> — {contract.buyer_name} / {contract.supplier_name}
@@ -683,34 +683,34 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </FField>
       </FSectionCard>
 
-      <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-2">
-        <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
-          <Save className="h-3.5 w-3.5 mr-1.5" />
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-wrap items-center gap-2.5">
+        <button type="submit" disabled={loading} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 shadow-sm">
+          <Save className="h-4 w-4" />
           {loading ? 'Saving…' : (initialData?.id ? 'Update Debit Note' : 'Save Debit Note')}
         </button>
         <div className="relative" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
-          <button type="button" disabled={loading || generatingWord} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
-            <FileDown className="h-3.5 w-3.5 mr-1.5" />
+          <button type="button" disabled={loading || generatingWord} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+            <FileDown className="h-4 w-4" />
             {generatingWord ? 'Generating Word…' : 'Export'}
-            <ChevronDown className="h-3 w-3 ml-1.5" />
+            <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full mb-1 left-0 z-30 min-w-[140px] overflow-hidden rounded-[3px] border border-gray-200 bg-white shadow-xl">
-              <button type="button" onClick={handleExportPDF} disabled={loading || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50">
-                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export PDF
+            <div className="absolute bottom-full mb-1.5 left-0 z-30 min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
+              <button type="button" onClick={handleExportPDF} disabled={loading || generatingWord} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 disabled:opacity-50">
+                <FileDown className="h-4 w-4 shrink-0" /> Export PDF
               </button>
-              <button type="button" onClick={handleExportWord} disabled={loading || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100">
-                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export Word
+              <button type="button" onClick={handleExportWord} disabled={loading || generatingWord} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 disabled:opacity-50 border-t border-gray-100">
+                <FileDown className="h-4 w-4 shrink-0" /> Export Word
               </button>
             </div>
           )}
         </div>
         {initialData?.id && (
-          <button type="button" onClick={handleDelete} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-red-700 bg-white border border-gray-300 hover:bg-red-50">
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+          <button type="button" onClick={handleDelete} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm">
+            <Trash2 className="h-4 w-4" /> Delete
           </button>
         )}
-        <button type="button" onClick={() => navigate('/app/debit-notes')} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 ml-auto">
+        <button type="button" onClick={() => navigate('/app/debit-notes')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm ml-auto">
           Cancel
         </button>
       </div>
