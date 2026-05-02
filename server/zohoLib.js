@@ -18,11 +18,11 @@ const ZOHO_API_BASE  = process.env.ZOHO_API_BASE  || 'https://mail.zoho.com';
 
 export function getZohoCreds() {
   return {
-    clientId:     process.env.ZOHO_CLIENT_ID     || '',
-    clientSecret: process.env.ZOHO_CLIENT_SECRET  || '',
-    refreshToken: process.env.ZOHO_REFRESH_TOKEN  || '',
-    fromEmail:    process.env.ZOHO_FROM_EMAIL     || '',
-    accountId:    process.env.ZOHO_ACCOUNT_ID     || '',
+    clientId:     (process.env.ZOHO_CLIENT_ID     || '').trim(),
+    clientSecret: (process.env.ZOHO_CLIENT_SECRET  || '').trim(),
+    refreshToken: (process.env.ZOHO_REFRESH_TOKEN  || '').trim(),
+    fromEmail:    (process.env.ZOHO_FROM_EMAIL     || '').trim(),
+    accountId:    (process.env.ZOHO_ACCOUNT_ID     || '').trim(),
   };
 }
 

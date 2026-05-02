@@ -346,10 +346,11 @@ app.get('/api/zoho/oauth/callback', async (req, res) => {
   try {
     const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
     const data = await exchangeZohoCode(String(code), redirectUri);
-    // Show the refresh token so the user can store it in Replit Secrets.
     res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)'));
   } catch (err) {
-    res.status(500).type('html').send(renderErrorPage('Zoho token exchange failed', err.message));
+    const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
+    const detail = `${err.message}\n\nRedirect URI sent to Zoho: ${redirectUri}\n\nMake sure this EXACT URL is saved under "Authorized Redirect URIs" in your Zoho API Console app. Also check that ZOHO_CLIENT_ID and ZOHO_CLIENT_SECRET in Replit Secrets have no extra spaces or newlines.`;
+    res.status(500).type('html').send(renderErrorPage('Zoho token exchange failed', detail));
   }
 });
 
