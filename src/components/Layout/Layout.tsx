@@ -91,16 +91,14 @@ const Layout: React.FC = () => {
       </aside>
 
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
-        {/* Top header bar */}
-        <header className="h-12 shrink-0 bg-white border-b border-gray-100 flex items-center px-4 gap-3">
-          {/* Mobile menu button */}
+        {/* Mobile-only top bar (menu button) */}
+        <header className="h-12 shrink-0 bg-white border-b border-gray-100 flex items-center px-4 md:hidden">
           <button
-            className="md:hidden p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <Menu className="h-4 w-4" />
           </button>
-          <h1 className="text-sm font-semibold text-gray-800">{pageTitle}</h1>
         </header>
 
         <main

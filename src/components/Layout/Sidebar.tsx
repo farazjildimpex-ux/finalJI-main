@@ -46,13 +46,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
 
   return (
     <div className="bg-white h-full w-12 flex flex-col border-r border-gray-100">
-      {/* Logo mark */}
-      <div className="h-12 flex items-center justify-center border-b border-gray-100 shrink-0">
-        <span className="text-sm font-black tracking-tighter select-none">
-          <span className="text-gray-900">J</span><span className="text-blue-600">I</span>
-        </span>
-      </div>
-
       {/* Nav items */}
       <nav className="flex-1 py-2 flex flex-col items-center gap-0.5 overflow-y-auto no-scrollbar">
         {navigationItems.map((item) => {
