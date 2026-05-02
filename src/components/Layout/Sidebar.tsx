@@ -10,12 +10,12 @@ interface SidebarProps {
   onChangePassword: () => void;
 }
 
-interface TooltipProps {
+interface TipProps {
   label: string;
   children: React.ReactNode;
 }
 
-const Tip: React.FC<TooltipProps> = ({ label, children }) => (
+const Tip: React.FC<TipProps> = ({ label, children }) => (
   <div className="relative group/tip flex items-center justify-center">
     {children}
     <div className="pointer-events-none absolute left-full ml-3 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg whitespace-nowrap
@@ -45,9 +45,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
   };
 
   return (
-    <div className="bg-white h-full w-44 flex flex-col border-r border-gray-100">
+    <div className="bg-white h-full w-12 flex flex-col border-r border-gray-100">
       {/* Nav items */}
-      <nav className="flex-1 py-2 px-2 flex flex-col gap-0.5 overflow-y-auto no-scrollbar">
+      <nav className="flex-1 py-3 flex flex-col items-center gap-1 overflow-y-auto no-scrollbar">
         {navigationItems.map((item) => {
           // @ts-ignore
           const Icon = LucideIcons[item.icon.charAt(0).toUpperCase() + item.icon.slice(1)];
@@ -55,48 +55,57 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
             (item.path !== '/app/home' && location.pathname.startsWith(item.path));
 
           return (
-            <Link
-              key={item.name}
-              to={item.path}
-              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all duration-150
-                ${isActive
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-800'
-                }`}
-            >
-              {Icon && <Icon className="h-4 w-4 shrink-0" strokeWidth={isActive ? 2.5 : 1.75} />}
-              <span>{item.name}</span>
-            </Link>
+            <Tip key={item.name} label={item.name}>
+              <div className="relative flex items-center justify-center w-full">
+                {/* Left accent stripe */}
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-blue-600 rounded-r-full" />
+                )}
+                <Link
+                  to={item.path}
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-150
+                    ${isActive
+                      ? 'text-blue-600'
+                      : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'
+                    }`}
+                >
+                  {Icon && <Icon className="h-4 w-4" strokeWidth={isActive ? 2.5 : 1.75} />}
+                </Link>
+              </div>
+            </Tip>
           );
         })}
       </nav>
 
       {/* Bottom actions */}
-      <div className="py-2 px-2 flex flex-col gap-0.5 border-t border-gray-100 shrink-0">
-        <button
-          onClick={onManageCompanies}
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-all duration-150"
-        >
-          <Building2 className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span>Companies</span>
-        </button>
+      <div className="py-3 flex flex-col items-center gap-1 border-t border-gray-100 shrink-0">
+        <Tip label="Manage Companies">
+          <button
+            onClick={onManageCompanies}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all duration-150"
+          >
+            <Building2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </Tip>
 
-        <button
-          onClick={onChangePassword}
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-all duration-150"
-        >
-          <Key className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span>Password</span>
-        </button>
+        <Tip label="Change Password">
+          <button
+            onClick={onChangePassword}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-all duration-150"
+          >
+            <Key className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </Tip>
 
-        <button
-          onClick={handleLogout}
-          disabled={loggingOut}
-          className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-gray-500 hover:bg-red-50 hover:text-red-500 transition-all duration-150 disabled:opacity-40"
-        >
-          <LogOut className="h-4 w-4 shrink-0" strokeWidth={1.75} />
-          <span>{loggingOut ? 'Logging out…' : 'Logout'}</span>
-        </button>
+        <Tip label={loggingOut ? 'Logging out…' : 'Logout'}>
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all duration-150 disabled:opacity-40"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        </Tip>
       </div>
     </div>
   );
