@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
 
@@ -470,8 +470,9 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
       {/* Basic Information */}
-      <FormSection
+      <CollapsibleFormSection
         title="Basic Information"
+        summary={`${formData.sample_number || 'New'} · ${formData.date || '—'} · ${formData.status || 'Issued'}`}
         right={
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">
@@ -528,10 +529,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             ))}
           </select>
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Supplier Information */}
-      <FormSection title="Supplier Information">
+      <CollapsibleFormSection title="Supplier Information" summary={formData.supplier_name || '—'}>
         <FormRow label="Supplier Name" htmlFor="supplier_name" required>
           <div className="relative">
             <input
@@ -575,10 +576,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             'Add Address Line'
           )}
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Letter Content */}
-      <FormSection title="Letter Content">
+      <CollapsibleFormSection title="Letter Content" summary={formData.description || '—'}>
         <FormRow label="Description" htmlFor="description">
           <input
             id="description"
@@ -658,10 +659,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             />
           </div>
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Courier / Tracking */}
-      <FormSection title="Courier & Tracking">
+      <CollapsibleFormSection title="Courier & Tracking" summary={formData.courier_reference ? `${formData.courier_provider || ''} · ${formData.courier_reference}` : (formData.courier_status || '—')} defaultOpen={false}>
         <FormRow label="Courier Provider" htmlFor="courier_provider">
           <select
             id="courier_provider"
@@ -731,10 +732,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             )}
           </div>
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Signature */}
-      <FormSection title="Signature">
+      <CollapsibleFormSection title="Signature" summary={formData.customer_comments || '—'} defaultOpen={false}>
         <FormRow label="Signee Name" htmlFor="signee_name">
           <input
             id="signee_name"
@@ -745,7 +746,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             placeholder="Name to show under the signature"
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Form Actions */}
       <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">

@@ -3,7 +3,7 @@ import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus } from 'lucide-react
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { FormSection, formInputClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass } from '../UI/FormRow';
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
@@ -457,8 +457,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   return (
     <form onSubmit={handleSave} className="space-y-4 text-gray-900">
       {/* Basic Information */}
-      <FormSection
+      <CollapsibleFormSection
         title="Basic Information"
+        summary={`${formData.contract_no || 'New'} · ${formData.contract_date || '—'} · ${formData.status || 'Issued'}`}
         right={
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show Company in PDF</span>
@@ -537,10 +538,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             ))}
           </select>
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Buyer Information */}
-      <FormSection title="Buyer Information">
+      <CollapsibleFormSection title="Buyer Information" summary={formData.buyer_name || '—'}>
         <FormRow label="Buyer Name" htmlFor="buyer_name">
           <div className="relative">
             <input
@@ -574,10 +575,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FormRow label="Buyer Address">
           {renderArrayList('buyer_address', formData.buyer_address, 'Address line', 'Add Address Line')}
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Supplier Information */}
-      <FormSection title="Supplier Information">
+      <CollapsibleFormSection title="Supplier Information" summary={formData.supplier_name || '—'}>
         <FormRow label="Supplier Name" htmlFor="supplier_name">
           <div className="relative">
             <input
@@ -611,10 +612,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FormRow label="Supplier Address">
           {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Product Details */}
-      <FormSection title="Product Details">
+      <CollapsibleFormSection title="Product Details" summary={formData.description || formData.article || '—'}>
         <FormRow label="Description" htmlFor="description">
           <textarea
             id="description"
@@ -669,10 +670,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             className={inputClassName}
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Product Specifications Table */}
-      <FormSection title="Product Specifications">
+      <CollapsibleFormSection title="Product Specifications" summary={`${(formData.selection || []).filter(Boolean).length} item(s)`} defaultOpen={false}>
         <div className="px-4 sm:px-6 py-4 space-y-2">
           {/* Header row (desktop only) */}
           <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 px-1 pb-1 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
@@ -752,10 +753,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             <Plus className="h-3 w-3" /> Add Row
           </button>
         </div>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Delivery & Payment */}
-      <FormSection title="Delivery & Payment">
+      <CollapsibleFormSection title="Delivery & Payment" summary={formData.payment_terms || '—'} defaultOpen={false}>
         <FormRow label="Delivery Schedule">
           {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}
         </FormRow>
@@ -807,14 +808,14 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             className={inputClassName}
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Important Notes */}
-      <FormSection title="Important Notes">
+      <CollapsibleFormSection title="Important Notes" summary={`${(formData.important_notes || []).filter(Boolean).length} note(s)`} defaultOpen={false}>
         <div className="px-4 sm:px-6 py-3">
           {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
         </div>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Form Actions */}
       <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">

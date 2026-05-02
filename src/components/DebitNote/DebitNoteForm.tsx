@@ -8,7 +8,7 @@ import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { FormSection, formInputClass, formInputReadOnlyClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
@@ -546,7 +546,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       )}
 
       {/* Basic Information */}
-      <FormSection title="Basic Information">
+      <CollapsibleFormSection title="Basic Information" summary={`${formData.debit_note_no || 'New'} · ${formData.debit_note_date || '—'} · ${formData.status || 'Issued'}`}>
         <FormRow label="Debit Note No" htmlFor="debit_note_no" required alt>
           <input
             type="text"
@@ -585,11 +585,12 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             className={inputReadOnlyClass}
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Company */}
-      <FormSection
+      <CollapsibleFormSection
         title="Company"
+        summary={formData.company || '—'}
         right={
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show in PDF</span>
@@ -613,10 +614,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Supplier Information */}
-      <FormSection title="Supplier Information">
+      <CollapsibleFormSection title="Supplier Information" summary={formData.supplier_name || '—'}>
         <FormRow label="Supplier" htmlFor="supplier_name">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -679,10 +680,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             </button>
           </div>
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Contract Information */}
-      <FormSection title="Contract Information">
+      <CollapsibleFormSection title="Contract Information" summary={formData.buyer_name || '—'}>
         <FormRow label="Contract(s)">
           <div className="space-y-2">
             {contractSearches.map((searchTerm, index) => (
@@ -776,10 +777,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             className={inputReadOnlyClass}
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Invoice Information */}
-      <FormSection title="Invoice Information">
+      <CollapsibleFormSection title="Invoice Information" summary={formData.invoice_no || '—'} defaultOpen={false}>
         <FormRow label="Invoice No" htmlFor="invoice_no">
           <input
             type="text"
@@ -816,10 +817,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             className={inputClassName}
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Commission Calculation */}
-      <FormSection title="Commission Calculation">
+      <CollapsibleFormSection title="Commission Calculation" summary={formData.invoice_value ? `₹ ${Number(formData.commission_in_rupees || 0).toFixed(2)}` : '—'} defaultOpen={false}>
         <FormRow label="Local Commission (%)" htmlFor="local_commission">
           <input
             type="text"
@@ -878,7 +879,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             rows={2}
           />
         </FormRow>
-      </FormSection>
+      </CollapsibleFormSection>
 
       {/* Form Actions */}
       <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">

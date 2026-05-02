@@ -67,6 +67,13 @@ const EmailTemplatesPage: React.FC = () => {
   }, []);
   useEffect(() => { if (tab === 'history') loadLogs(); }, [tab, user?.id]);
 
+  const handleDeleteLog = async (id: string) => {
+    const ok = await dialogService.confirm({ title: 'Delete log entry?', message: 'This failed email entry will be removed from history.', confirmLabel: 'Delete', tone: 'danger' });
+    if (!ok) return;
+    await supabase.from('email_logs').delete().eq('id', id);
+    setLogs(prev => prev.filter(l => l.id !== id));
+  };
+
   const handleDelete = async (t: EmailTemplate) => {
     const ok = await dialogService.confirm({ title: 'Delete template?', message: `"${t.name}" will be permanently deleted.`, confirmLabel: 'Delete', tone: 'danger' });
     if (!ok) return;
@@ -180,7 +187,8 @@ const EmailTemplatesPage: React.FC = () => {
               {filteredLogs.map(log => (
                 <LogCard key={log.id} log={log}
                   expanded={expandedLog === log.id}
-                  onToggle={() => setExpandedLog(expandedLog === log.id ? null : log.id)} />
+                  onToggle={() => setExpandedLog(expandedLog === log.id ? null : log.id)}
+                  onDelete={log.status === 'failed' ? handleDeleteLog : undefined} />
               ))}
             </div>
           )}
@@ -209,7 +217,7 @@ const EmailTemplatesPage: React.FC = () => {
 /* ──────────────────────────────────────────────────────── */
 /*  Log card                                                */
 /* ──────────────────────────────────────────────────────── */
-const LogCard: React.FC<{ log: EmailLog; expanded: boolean; onToggle: () => void }> = ({ log, expanded, onToggle }) => {
+const LogCard: React.FC<{ log: EmailLog; expanded: boolean; onToggle: () => void; onDelete?: (id: string) => void }> = ({ log, expanded, onToggle, onDelete }) => {
   const sent = new Date(log.sent_at);
   const dateStr = sent.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const timeStr = sent.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -256,9 +264,17 @@ const LogCard: React.FC<{ log: EmailLog; expanded: boolean; onToggle: () => void
       {/* Expanded body */}
       {expanded && (
         <div className="border-t border-slate-100 px-4 py-3">
-          {log.status === 'failed' && log.error_message && (
-            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
-              Error: {log.error_message}
+          {log.status === 'failed' && (
+            <div className="mb-3 flex items-start justify-between gap-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+              <div className="text-xs text-red-700 font-medium flex-1">
+                {log.error_message ? `Error: ${log.error_message}` : 'Send failed'}
+              </div>
+              {onDelete && (
+                <button onClick={() => onDelete(log.id)}
+                  className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition">
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+              )}
             </div>
           )}
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Message body</p>
