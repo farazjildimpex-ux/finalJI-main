@@ -607,3 +607,5 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
     </form>
   );
 }
+
+export default SampleForm;

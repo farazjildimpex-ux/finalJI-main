@@ -1,0 +1,22 @@
+/opt/build/repo/src/components/SampleBook/SampleBookPage.tsx:4:7
+10:58:48 PM: 
+10:58:48 PM: 2: import { useParams } from 'react-router-dom';
+10:58:48 PM: 3: import { supabase } from '../../lib/supabaseClient';
+10:58:48 PM: 4: import SampleForm from './SampleForm';
+10:58:48 PM:           ^
+10:58:48 PM: 5: import CommunicateButton from '../Email/CommunicateButton';
+10:58:48 PM: 6: import EmailLogSection from '../Email/EmailLogSection';
+10:58:48 PM: 
+10:58:48 PM:     at getRollupError (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/parseAst.js:406:41)
+10:58:48 PM:     at error (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/parseAst.js:402:42)
+10:58:48 PM:     at Module.error (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:17384:16)
+10:58:48 PM:     at Module.traceVariable (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:17817:29)
+10:58:48 PM:     at ModuleScope.findVariable (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:15407:39)
+10:58:48 PM:     at ReturnValueScope.findVariable (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:5676:38)
+10:58:48 PM:     at FunctionBodyScope.findVariable (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:5676:38)
+10:58:48 PM:     at Identifier.bind (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:5450:40)
+10:58:48 PM:     at CallExpression.bind (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:2828:28)
+10:58:48 PM:     at CallExpression.bind (file:///opt/build/repo/node_modules/.pnpm/rollup@4.60.2/node_modules/rollup/dist/es/shared/node-entry.js:12516:15)
+10:58:48 PM: ​
+10:58:48 PM: "build.command" failed                                        
+10:58:48 PM: 
