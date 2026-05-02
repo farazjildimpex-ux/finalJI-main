@@ -22,6 +22,7 @@ export function getZohoCreds() {
     clientSecret: (process.env.ZOHO_CLIENT_SECRET  || '').trim(),
     refreshToken: (process.env.ZOHO_REFRESH_TOKEN  || '').trim(),
     fromEmail:    (process.env.ZOHO_FROM_EMAIL     || '').trim(),
+    fromName:     (process.env.ZOHO_FROM_NAME      || '').trim(),
     accountId:    (process.env.ZOHO_ACCOUNT_ID     || '').trim(),
   };
 }
@@ -96,7 +97,7 @@ export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html
   try {
     const token     = await getZohoAccessToken();
     const accountId = await getZohoAccountId();
-    const { fromEmail } = getZohoCreds();
+    const { fromEmail, fromName } = getZohoCreds();
 
     if (!fromEmail) throw new Error('ZOHO_FROM_EMAIL is not set in Replit Secrets.');
 
@@ -132,6 +133,7 @@ export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html
 
     const payload = {
       fromAddress: fromEmail,
+      ...(fromName ? { senderName: fromName } : {}),
       toAddress:   toArr.join(','),
       ccAddress:   ccArr.join(','),
       subject,

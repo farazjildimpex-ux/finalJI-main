@@ -1,5 +1,4 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import type { DebitNote } from '../types';
 
 const drawStyledText = (

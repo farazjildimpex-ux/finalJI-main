@@ -28,7 +28,7 @@ initReplitSecretWatcher();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
 app.set('trust proxy', true);
 
 const isProd = process.env.NODE_ENV === 'production';
@@ -187,23 +187,21 @@ app.get('/api/gmail/recent-attachments', async (req, res) => {
     const token = await getAccessToken();
     if (!token) return res.status(401).json({ error: 'Gmail not connected' });
 
-    const threeDaysAgo = Math.floor((Date.now() - 3 * 24 * 60 * 60 * 1000) / 1000);
-    const query = encodeURIComponent(`has:attachment after:${threeDaysAgo}`);
-    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=30`;
-    const listResp = await gmailFetch(listUrl);
-    const listData = await listResp.json();
+    const sevenDaysAgo = Math.floor((Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000);
+    const query = encodeURIComponent(`has:attachment after:${sevenDaysAgo}`);
+    const listUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${query}&maxResults=50`;
+    // gmailFetch already returns parsed JSON — do NOT call .json() again
+    const listData = await gmailFetch(listUrl);
     const messages = listData.messages || [];
 
     const attachments = [];
-    for (const msg of messages.slice(0, 15)) {
+    for (const msg of messages.slice(0, 20)) {
       try {
-        const msgResp = await gmailFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Date`);
-        const msgData = await msgResp.json();
+        const msgData = await gmailFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Date,Subject,From`);
         const dateHeader = (msgData.payload?.headers || []).find(h => h.name === 'Date')?.value || '';
         const date = dateHeader ? new Date(dateHeader).toISOString() : new Date().toISOString();
 
-        const fullResp = await gmailFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`);
-        const fullData = await fullResp.json();
+        const fullData = await gmailFetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`);
 
         function findAttachments(parts) {
           if (!parts) return;
@@ -211,8 +209,9 @@ app.get('/api/gmail/recent-attachments', async (req, res) => {
             const filename = part.filename || '';
             const mimeType = part.mimeType || '';
             const attId = part.body?.attachmentId;
-            if (attId && filename && (mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf'))) {
-              attachments.push({ messageId: msg.id, attachmentId: attId, filename, mimeType, date });
+            // Show all real attachments — not just PDFs
+            if (attId && filename) {
+              attachments.push({ messageId: msg.id, attachmentId: attId, filename, mimeType: mimeType || 'application/octet-stream', date });
             }
             if (part.parts) findAttachments(part.parts);
           }
