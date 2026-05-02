@@ -17,13 +17,18 @@ export function useAuth() {
     }
 
     const initAuth = async () => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('auth_timeout')), 4000)
+      );
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await Promise.race([
+          supabase.auth.getSession(),
+          timeout,
+        ]);
         if (isMounted) {
           setUser(session?.user ?? null);
         }
       } catch (error) {
-        console.error('Error getting session:', error);
         if (isMounted) {
           setUser(null);
         }

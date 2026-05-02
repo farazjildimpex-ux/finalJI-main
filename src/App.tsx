@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout/Layout';
 import HomePage from './components/Home/HomePage';
@@ -18,21 +18,10 @@ import LoadingScreen from './components/UI/LoadingScreen';
 import DialogProvider from './components/UI/DialogProvider';
 import { useAuth } from './hooks/useAuth';
 
-// Minimum time (ms) the JI splash animation is shown. The animation itself
-// runs ~1.0s, so we hold for 1200ms so users always see it play through —
-// even when the app loads from cache and auth resolves instantly.
-const SPLASH_MIN_DURATION_MS = 1200;
-
 function App() {
   const { loading } = useAuth();
-  const [splashElapsed, setSplashElapsed] = useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setSplashElapsed(true), SPLASH_MIN_DURATION_MS);
-    return () => clearTimeout(t);
-  }, []);
-
-  if (loading || !splashElapsed) {
+  if (loading) {
     return (
       <DialogProvider>
         <LoadingScreen />
