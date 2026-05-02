@@ -41,33 +41,36 @@ const DebitNotePage: React.FC = () => {
   );
 
   return (
-    <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            {id ? 'Edit Payment' : 'New Payment'}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {id ? 'Update payment details' : 'Create a new payment entry'}
-          </p>
+    <div className="min-h-full bg-gray-50/60">
+      <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-500 mb-1">Payments</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              {debitNote ? debitNote.debit_note_no : 'New Payment'}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {debitNote ? `Debit Note · ${debitNote.supplier_name || '—'}` : 'Create a new payment / debit note'}
+            </p>
+          </div>
+          {debitNote && (
+            <CommunicateButton
+              contextType="payment"
+              contextData={debitNote as any}
+              getPdfBase64={async () => {
+                const base64 = generateDebitNotePDF(debitNote, true, false, undefined, false);
+                return { base64, filename: `debit-note-${debitNote.debit_note_no}.pdf` };
+              }}
+            />
+          )}
         </div>
+
+        <DebitNoteForm initialData={debitNote} />
+
         {debitNote && (
-          <CommunicateButton
-            contextType="payment"
-            contextData={debitNote as any}
-            getPdfBase64={async () => {
-              const base64 = generateDebitNotePDF(debitNote, true, false, undefined, false);
-              return { base64, filename: `debit-note-${debitNote.debit_note_no}.pdf` };
-            }}
-          />
+          <EmailLogSection contextType="payment" contextId={debitNote.id} />
         )}
       </div>
-
-      <DebitNoteForm initialData={debitNote} />
-
-      {debitNote && (
-        <EmailLogSection contextType="payment" contextId={debitNote.id} />
-      )}
     </div>
   );
 };

@@ -36,35 +36,36 @@ const SampleBookPage: React.FC = () => {
   );
 
   return (
-    <div className="px-4 py-6 max-w-5xl mx-auto space-y-4">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            {id ? 'Edit Letter' : 'New Letter'}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {id ? 'Update letter details' : 'Create a new letter entry'}
-          </p>
+    <div className="min-h-full bg-gray-50/60">
+      <div className="px-4 py-6 max-w-5xl mx-auto space-y-4">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-violet-500 mb-1">Sample Letters</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              {sample ? sample.sample_number : 'New Letter'}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {sample ? `Letter · ${sample.supplier_name || '—'}` : 'Create a new sample / cover letter'}
+            </p>
+          </div>
+          {sample && (
+            <CommunicateButton
+              contextType="letter"
+              contextData={sample as any}
+              getPdfBase64={async () => {
+                const base64 = await generateSamplePDF(sample, null, true, false);
+                return { base64, filename: `letter-${sample.sample_number}.pdf` };
+              }}
+            />
+          )}
         </div>
+
+        <SampleForm initialData={sample} />
+
         {sample && (
-          <CommunicateButton
-            contextType="letter"
-            contextData={sample as any}
-            getPdfBase64={async () => {
-              const base64 = await generateSamplePDF(sample, null, true, false);
-              return { base64, filename: `letter-${sample.sample_number}.pdf` };
-            }}
-          />
+          <EmailLogSection contextType="letter" contextId={sample.sample_number || id || ''} />
         )}
       </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 shadow-sm">
-        <SampleForm initialData={sample} />
-      </div>
-
-      {sample && (
-        <EmailLogSection contextType="letter" contextId={sample.sample_number || id || ''} />
-      )}
     </div>
   );
 };

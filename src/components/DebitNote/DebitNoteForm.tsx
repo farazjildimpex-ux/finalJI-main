@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Save, FileDown, Trash2, ChevronDown, X, Search, Plus, Minus, AlertCircle } from 'lucide-react';
+import { Save, FileDown, Trash2, ChevronDown, X, Search, Plus, Minus, AlertCircle, ClipboardList, Building2, FileText, Receipt, Calculator } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { DebitNote, Contact, Contract, Company } from '../../types';
 import { generateDebitNotePDF } from '../../utils/debitNotePdfGenerator';
@@ -8,7 +8,7 @@ import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, FGrid, FField, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
@@ -532,7 +532,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 overflow-hidden text-gray-900">
+    <form onSubmit={handleSubmit} className="space-y-3 text-gray-900">
       {validationError && (
         <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-[3px] p-3 flex items-start gap-2">
           <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
@@ -543,9 +543,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </div>
       )}
 
-      <ZohoSection title="Basic Information" />
-
-      <FGrid>
+      <FSectionCard title="Basic Information" icon={ClipboardList} accent="emerald">
         <FField label="Debit Note No" htmlFor="debit_note_no" required>
           <input type="text" id="debit_note_no" name="debit_note_no" value={formData.debit_note_no} onChange={handleChange} className={inputClassName} required />
         </FField>
@@ -560,27 +558,23 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         <FField label="Currency" htmlFor="currency">
           <input type="text" id="currency" name="currency" value={formData.currency} readOnly className={inputReadOnlyClass} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Company" right={
+      <FSectionCard title="Company" icon={Building2} accent="teal" right={
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-500">Show in PDF</span>
           {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
         </div>
-      } />
-
-      <FGrid>
-        <FField label="Company" htmlFor="company">
+      }>
+        <FField label="Company" htmlFor="company" span="full">
           <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
             <option value="">Select a company</option>
             {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Supplier Information" />
-
-      <FGrid>
+      <FSectionCard title="Supplier Information" icon={Building2} accent="slate">
         <FField label="Supplier" htmlFor="supplier_name">
           <div className="relative">
             <input type="text" id="supplier_name" name="supplier_name" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} autoComplete="off" placeholder="Search supplier…" />
@@ -611,11 +605,9 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
             </button>
           </div>
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Contract Information" />
-
-      <FGrid>
+      <FSectionCard title="Contract Information" icon={FileText} accent="blue">
         <FField label="Contract(s)" span="full">
           <div className="space-y-1.5">
             {contractSearches.map((searchTerm, index) => (
@@ -653,11 +645,9 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         <FField label="Destination" htmlFor="destination">
           <input type="text" id="destination" value={formData.destination} readOnly className={inputReadOnlyClass} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Invoice Information" />
-
-      <FGrid>
+      <FSectionCard title="Invoice Information" icon={Receipt} accent="amber">
         <FField label="Invoice No" htmlFor="invoice_no">
           <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} />
         </FField>
@@ -670,11 +660,9 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         <FField label="Pieces" htmlFor="pieces">
           <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Commission Calculation" />
-
-      <FGrid>
+      <FSectionCard title="Commission Calculation" icon={Calculator} accent="indigo">
         <FField label="Local Commission (%)" htmlFor="local_commission">
           <input type="text" id="local_commission" value={formData.local_commission} readOnly className={inputReadOnlyClass} />
         </FField>
@@ -693,9 +681,9 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         <FField label="Commission in Words" htmlFor="commission_in_words" span="full" hint="Auto-generated">
           <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputReadOnlyClass} resize-y`} rows={2} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-2">
         <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
           <Save className="h-3.5 w-3.5 mr-1.5" />
           {loading ? 'Saving…' : (initialData?.id ? 'Update Debit Note' : 'Save Debit Note')}

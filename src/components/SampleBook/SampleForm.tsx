@@ -9,12 +9,17 @@ import {
   Trash2,
   Underline,
   X,
+  ClipboardList,
+  Building2,
+  Mail,
+  Package,
+  PenLine,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
 
@@ -468,16 +473,14 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 overflow-hidden text-gray-900">
+    <form onSubmit={handleSubmit} className="space-y-3 text-gray-900">
 
-      <ZohoSection title="Basic Information" right={
+      <FSectionCard title="Basic Information" icon={ClipboardList} accent="violet" right={
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-500">Show Company in PDF</span>
           {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
         </div>
-      } />
-
-      <FGrid>
+      }>
         <FField label="Company Name" htmlFor="company_name" required>
           <select id="company_name" value={formData.company_name} onChange={(e) => setField('company_name', e.target.value)} className={zohoInputClass} required>
             <option value="">Select Company</option>
@@ -495,11 +498,9 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             {STATUS_OPTIONS.map((status) => (<option key={status} value={status}>{status}</option>))}
           </select>
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Supplier Information" />
-
-      <FGrid>
+      <FSectionCard title="Supplier Information" icon={Building2} accent="slate">
         <FField label="Supplier Name" htmlFor="supplier_name" required>
           <div className="relative">
             <input id="supplier_name" type="text" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setField('supplier_name', e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={zohoInputClass} placeholder="Search supplier…" autoComplete="off" required />
@@ -516,11 +517,9 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         <FField label="Supplier Address" span="full">
           {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Letter Content" />
-
-      <FGrid>
+      <FSectionCard title="Letter Content" icon={Mail} accent="violet">
         <FField label="Description" htmlFor="description" span="full">
           <input id="description" type="text" value={formData.description} onChange={(e) => setField('description', e.target.value)} className={zohoInputClass} placeholder="Short bold heading for the letter" />
         </FField>
@@ -544,11 +543,9 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             <div ref={editorRef} contentEditable suppressContentEditableWarning onPaste={(event) => { event.preventDefault(); const text = event.clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); }} className="min-h-[180px] px-3 py-2 text-[13px] leading-6 text-gray-800 focus:outline-none" />
           </div>
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Courier & Tracking" />
-
-      <FGrid>
+      <FSectionCard title="Courier & Tracking" icon={Package} accent="teal">
         <FField label="Courier Provider" htmlFor="courier_provider">
           <select id="courier_provider" value={formData.courier_provider || ''} onChange={(e) => setField('courier_provider', e.target.value || null)} className={zohoInputClass}>
             <option value="">— Select courier —</option>
@@ -578,17 +575,15 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         <FField label="Delivered At" htmlFor="delivered_at">
           <DatePicker value={formData.delivered_at || ''} onChange={(val) => setField('delivered_at', val || null)} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Signature" />
-
-      <FGrid>
+      <FSectionCard title="Signature" icon={PenLine} accent="rose">
         <FField label="Signee Name" htmlFor="signee_name">
           <input id="signee_name" type="text" value={formData.customer_comments || ''} onChange={(e) => setField('customer_comments', e.target.value)} className={zohoInputClass} placeholder="Name that appears at the bottom" />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-2">
         <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
           <Save className="h-3.5 w-3.5 mr-1.5" />
           {loading ? 'Saving…' : (initialData ? 'Update Letter' : 'Save Letter')}

@@ -241,3 +241,58 @@ export const FField: React.FC<FFieldProps> = ({ label, required, htmlFor, hint, 
     {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
   </div>
 );
+
+const SECTION_ACCENT = {
+  blue:    { header: 'bg-blue-50/80 border-blue-100',      icon: 'bg-blue-100 text-blue-600'       },
+  emerald: { header: 'bg-emerald-50/80 border-emerald-100', icon: 'bg-emerald-100 text-emerald-600' },
+  violet:  { header: 'bg-violet-50/80 border-violet-100',  icon: 'bg-violet-100 text-violet-600'   },
+  amber:   { header: 'bg-amber-50/80 border-amber-100',    icon: 'bg-amber-100 text-amber-700'     },
+  rose:    { header: 'bg-rose-50/80 border-rose-100',      icon: 'bg-rose-100 text-rose-600'       },
+  indigo:  { header: 'bg-indigo-50/80 border-indigo-100',  icon: 'bg-indigo-100 text-indigo-600'   },
+  slate:   { header: 'bg-slate-50 border-slate-200',       icon: 'bg-slate-100 text-slate-500'     },
+  teal:    { header: 'bg-teal-50/80 border-teal-100',      icon: 'bg-teal-100 text-teal-600'       },
+} as const;
+
+type FSectionAccent = keyof typeof SECTION_ACCENT;
+
+interface FSectionCardProps {
+  title: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  accent?: FSectionAccent;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  noPadding?: boolean;
+}
+
+export const FSectionCard: React.FC<FSectionCardProps> = ({
+  title,
+  icon: Icon,
+  accent = 'blue',
+  right,
+  children,
+  noPadding = false,
+}) => {
+  const s = SECTION_ACCENT[accent];
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+      <div className={`px-4 sm:px-5 py-3 border-b flex items-center justify-between gap-3 ${s.header}`}>
+        <div className="flex items-center gap-2.5">
+          {Icon && (
+            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-md ${s.icon}`}>
+              <Icon className="h-3.5 w-3.5" />
+            </span>
+          )}
+          <span className="text-[13px] font-semibold text-gray-800 tracking-tight">{title}</span>
+        </div>
+        {right && <div className="flex items-center gap-2 shrink-0">{right}</div>}
+      </div>
+      {noPadding ? (
+        <>{children}</>
+      ) : (
+        <div className="px-4 sm:px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};

@@ -59,37 +59,38 @@ const ContractsPage: React.FC = () => {
   );
 
   return (
-    <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            {selectedContract ? 'Edit Contract' : 'New Contract'}
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            {selectedContract
-              ? `Editing contract ${selectedContract.contract_no}`
-              : 'Create a new contract with detailed specifications'}
-          </p>
+    <div className="min-h-full bg-gray-50/60">
+      <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
+        <div className="mb-2 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">Contracts</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+              {selectedContract ? selectedContract.contract_no : 'New Contract'}
+            </h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {selectedContract
+                ? `Contract · ${selectedContract.buyer_name || '—'}`
+                : 'Create a new leather trade contract'}
+            </p>
+          </div>
+          {selectedContract && (
+            <CommunicateButton
+              contextType="contract"
+              contextData={selectedContract as any}
+              getPdfBase64={async () => {
+                const base64 = await generateContractPDF(selectedContract, true, false, undefined, false);
+                return { base64, filename: `contract-${selectedContract.contract_no}.pdf` };
+              }}
+            />
+          )}
         </div>
-        {selectedContract && (
-          <CommunicateButton
-            contextType="contract"
-            contextData={selectedContract as any}
-            getPdfBase64={async () => {
-              const base64 = await generateContractPDF(selectedContract, true, false, undefined, false);
-              return { base64, filename: `contract-${selectedContract.contract_no}.pdf` };
-            }}
-          />
-        )}
-      </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 md:p-4">
         <ContractForm initialContract={selectedContract} />
-      </div>
 
-      {selectedContract && <InvoicesSection contractNumber={selectedContract.contract_no} />}
-      {selectedContract && <DebitNotesSection contractNumber={selectedContract.contract_no} />}
-      {selectedContract && <EmailLogSection contextType="contract" contextId={selectedContract.contract_no} />}
+        {selectedContract && <InvoicesSection contractNumber={selectedContract.contract_no} />}
+        {selectedContract && <DebitNotesSection contractNumber={selectedContract.contract_no} />}
+        {selectedContract && <EmailLogSection contextType="contract" contextId={selectedContract.contract_no} />}
+      </div>
     </div>
   );
 };

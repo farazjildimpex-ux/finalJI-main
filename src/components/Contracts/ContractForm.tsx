@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus } from 'lucide-react';
+import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
@@ -455,16 +455,14 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   );
 
   return (
-    <form onSubmit={handleSave} className="bg-white rounded-lg border border-gray-200 overflow-hidden text-gray-900">
+    <form onSubmit={handleSave} className="space-y-3 text-gray-900">
 
-      <ZohoSection title="Basic Information" right={
+      <FSectionCard title="Basic Information" icon={ClipboardList} accent="blue" right={
         <div className="flex items-center gap-2">
           <span className="text-[11px] text-gray-500">Show Company in PDF</span>
           {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
         </div>
-      } />
-
-      <FGrid>
+      }>
         <FField label="Company Name" htmlFor="company_name">
           <select id="company_name" value={formData.company_name} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); setFormData({ ...formData, company_name: e.target.value }); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
             <option value="">Select Company</option>
@@ -490,11 +488,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             {CURRENCY_OPTIONS.map(currency => (<option key={currency} value={currency}>{currency}</option>))}
           </select>
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Buyer Information" />
-
-      <FGrid>
+      <FSectionCard title="Buyer Information" icon={User} accent="blue">
         <FField label="Buyer Name" htmlFor="buyer_name">
           <div className="relative">
             <input type="text" id="buyer_name" value={buyerSearch} onChange={(e) => setBuyerSearch(e.target.value)} onFocus={() => setShowBuyerDropdown(true)} onBlur={() => setTimeout(() => setShowBuyerDropdown(false), 150)} className={inputClassName} placeholder="Search buyer…" autoComplete="off" />
@@ -509,11 +505,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FField label="Buyer Address" span="full">
           {renderArrayList('buyer_address', formData.buyer_address, 'Address line', 'Add Address Line')}
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Supplier Information" />
-
-      <FGrid>
+      <FSectionCard title="Supplier Information" icon={Building2} accent="slate">
         <FField label="Supplier Name" htmlFor="supplier_name">
           <div className="relative">
             <input type="text" id="supplier_name" value={supplierSearch} onChange={(e) => setSupplierSearch(e.target.value)} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} placeholder="Search supplier…" autoComplete="off" />
@@ -528,11 +522,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FField label="Supplier Address" span="full">
           {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Product Details" />
-
-      <FGrid>
+      <FSectionCard title="Product Details" icon={Package} accent="amber">
         <FField label="Article" htmlFor="article">
           <input type="text" id="article" value={formData.article} onChange={(e) => setFormData({ ...formData, article: e.target.value })} className={inputClassName} />
         </FField>
@@ -551,11 +543,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FField label="Description" htmlFor="description" span="full">
           <textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={zohoTextareaClass} rows={2} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Product Specifications" />
+      <FSectionCard title="Product Specifications" icon={LayoutGrid} accent="indigo" noPadding>
 
-      <div className="px-6 py-3 border-b border-gray-100">
+      <div className="px-4 sm:px-5 py-3">
         <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_28px] gap-2 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide">
           <div>Selection</div><div>Color</div><div>Swatch</div><div>Quantity</div><div>Price</div><div />
         </div>
@@ -595,10 +587,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
           <Plus className="h-3 w-3" /> Add Row
         </button>
       </div>
+      </FSectionCard>
 
-      <ZohoSection title="Delivery & Payment" />
-
-      <FGrid>
+      <FSectionCard title="Delivery & Payment" icon={Truck} accent="emerald">
         <FField label="Local Commission" htmlFor="local_commission">
           <input type="text" id="local_commission" value={formData.local_commission} onChange={(e) => setFormData({ ...formData, local_commission: e.target.value })} className={inputClassName} />
         </FField>
@@ -620,17 +611,15 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FField label="Payment Terms" htmlFor="payment_terms" span="full">
           <textarea id="payment_terms" value={formData.payment_terms} onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })} className={zohoTextareaClass} rows={2} />
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <ZohoSection title="Important Notes" />
-
-      <FGrid>
+      <FSectionCard title="Important Notes" icon={StickyNote} accent="rose">
         <FField label="Notes" span="full">
           {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
         </FField>
-      </FGrid>
+      </FSectionCard>
 
-      <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-2">
         <button type="submit" disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
           <Save className="h-3.5 w-3.5 mr-1.5" />
           {saving ? 'Saving…' : (initialContract ? 'Update Contract' : 'Save Contract')}
