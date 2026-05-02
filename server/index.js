@@ -310,6 +310,7 @@ app.get('/api/zoho/status', (req, res) => {
       ZOHO_REFRESH_TOKEN: !refreshToken,
       ZOHO_FROM_EMAIL: !fromEmail,
     },
+    authBase: process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com',
   });
 });
 

@@ -7,8 +7,17 @@ import {
 } from 'lucide-react';
 
 interface ZohoStatus {
-  configured: boolean; hasFromEmail: boolean; missing: Record<string, boolean>;
+  configured: boolean; hasFromEmail: boolean; missing: Record<string, boolean>; authBase?: string;
 }
+
+const DATA_CENTERS = [
+  { label: 'United States (.com)',  value: 'https://accounts.zoho.com',    api: 'https://mail.zoho.com',    console: 'https://api-console.zoho.com'    },
+  { label: 'Europe (.eu)',          value: 'https://accounts.zoho.eu',     api: 'https://mail.zoho.eu',     console: 'https://api-console.zoho.eu'     },
+  { label: 'India (.in)',           value: 'https://accounts.zoho.in',     api: 'https://mail.zoho.in',     console: 'https://api-console.zoho.in'     },
+  { label: 'Australia (.com.au)',   value: 'https://accounts.zoho.com.au', api: 'https://mail.zoho.com.au', console: 'https://api-console.zoho.com.au' },
+  { label: 'Japan (.jp)',           value: 'https://accounts.zoho.jp',     api: 'https://mail.zoho.jp',     console: 'https://api-console.zoho.jp'     },
+  { label: 'Canada (.ca)',          value: 'https://accounts.zohocloud.ca', api: 'https://mail.zohocloud.ca', console: 'https://api-console.zohocloud.ca' },
+];
 
 const ZohoSetupSection: React.FC = () => {
   const [status, setStatus]         = useState<ZohoStatus | null>(null);
@@ -16,6 +25,7 @@ const ZohoSetupSection: React.FC = () => {
   const [expanded, setExpanded]     = useState(false);
   const [copied, setCopied]         = useState<string | null>(null);
   const [redirectUri, setRedirectUri] = useState('');
+  const [selectedDC, setSelectedDC] = useState(DATA_CENTERS[0]);
 
   const fetchStatus = async () => {
     setLoading(true);
@@ -23,6 +33,10 @@ const ZohoSetupSection: React.FC = () => {
       const r = await fetch('/api/zoho/status');
       const d = await r.json();
       setStatus(d);
+      if (d.authBase) {
+        const match = DATA_CENTERS.find(dc => dc.value === d.authBase);
+        if (match) setSelectedDC(match);
+      }
       if (!d.configured && !expanded) setExpanded(true);
     } catch (_) { setStatus(null); }
     finally { setLoading(false); }
@@ -35,6 +49,8 @@ const ZohoSetupSection: React.FC = () => {
       .then(d => setRedirectUri(d.redirectUri || ''))
       .catch(() => {});
   }, []);
+
+  const isNonUS = selectedDC.value !== 'https://accounts.zoho.com';
 
   const copyText = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -101,11 +117,58 @@ const ZohoSetupSection: React.FC = () => {
               <ExtLink href="https://www.zoho.com/mail/">Open Zoho Mail</ExtLink>
             </Step>
 
-            {/* Step 2 */}
-            <Step num={2} title="Register your app in Zoho API Console">
+            {/* Step 1b — Data center */}
+            <Step num={2} title="Select your Zoho data center">
               <p className="text-sm text-slate-600">
-                Open the Zoho API Console, click <strong>"Add Client"</strong>, choose <strong>"Server-based Applications"</strong>.
-                Set the <strong>Authorized Redirect URI</strong> to exactly the value below — copy it precisely:
+                Zoho has separate servers per region. <strong>Getting this wrong causes the "invalid_client" error</strong> even if your credentials are correct.
+                Choose the region where your Zoho account was created:
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                {DATA_CENTERS.map(dc => (
+                  <button
+                    key={dc.value}
+                    type="button"
+                    onClick={() => setSelectedDC(dc)}
+                    className={`px-3 py-2 rounded-xl border text-xs font-semibold text-left transition ${
+                      selectedDC.value === dc.value
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    {dc.label}
+                  </button>
+                ))}
+              </div>
+              {isNonUS && (
+                <div className="mt-3 space-y-1.5">
+                  <p className="text-xs text-amber-800 font-semibold">Since you're not on US (.com), add these two extra secrets in Replit:</p>
+                  {[
+                    { key: 'ZOHO_AUTH_BASE', val: selectedDC.value },
+                    { key: 'ZOHO_API_BASE',  val: selectedDC.api   },
+                  ].map(({ key, val }) => (
+                    <div key={key} className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                      <div className="flex-1 min-w-0">
+                        <code className="text-xs font-bold text-amber-900">{key}</code>
+                        <code className="block text-xs text-amber-700 break-all mt-0.5">{val}</code>
+                      </div>
+                      <button onClick={() => copyText(val, key)} className="shrink-0 p-1.5 hover:bg-amber-100 rounded-lg">
+                        {copied === key ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5 text-amber-700" />}
+                      </button>
+                    </div>
+                  ))}
+                  <p className="text-xs text-amber-700">After adding those secrets, restart the workflow before continuing.</p>
+                </div>
+              )}
+              <p className="text-xs text-slate-500 mt-1">
+                Not sure which region? Log in at <a href="https://zoho.com/mail" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">zoho.com/mail</a> — the URL in your browser will contain <code className="bg-slate-100 px-1 rounded">.zoho.in</code>, <code className="bg-slate-100 px-1 rounded">.zoho.eu</code>, etc.
+              </p>
+            </Step>
+
+            {/* Step 3 */}
+            <Step num={3} title="Register your app in Zoho API Console">
+              <p className="text-sm text-slate-600">
+                Open the Zoho API Console for your region, click <strong>"Add Client"</strong>, choose <strong>"Server-based Applications"</strong>.
+                Set the <strong>Authorized Redirect URI</strong> to exactly the value below:
               </p>
               {redirectUri && (
                 <div className="flex items-center gap-2 mt-2 p-3 bg-blue-50 rounded-xl border border-blue-200">
@@ -115,26 +178,18 @@ const ZohoSetupSection: React.FC = () => {
                   </button>
                 </div>
               )}
-              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 mt-2 flex items-start gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Important:</strong> This redirect URI must be done from the <strong>Replit preview</strong> (not your Netlify site).
-                  The OAuth flow runs through the backend server on Replit.
-                  Copy the Client ID and Client Secret after creating the app.
-                </span>
-              </p>
-              <ExtLink href="https://api-console.zoho.com/">Open Zoho API Console</ExtLink>
+              <ExtLink href={selectedDC.console}>Open Zoho API Console ({selectedDC.label})</ExtLink>
             </Step>
 
-            {/* Step 3 */}
-            <Step num={3} title="Save your credentials as Replit Secrets">
-              <p className="text-sm text-slate-600 mb-2">In Replit, open <strong>Secrets</strong> and add these four entries (ZOHO_REFRESH_TOKEN comes from step 4):</p>
+            {/* Step 4 */}
+            <Step num={4} title="Save your credentials as Replit Secrets">
+              <p className="text-sm text-slate-600 mb-2">In Replit Secrets, add these entries (ZOHO_REFRESH_TOKEN comes from step 5):</p>
               <div className="space-y-1.5">
                 {([
-                  { key: 'ZOHO_CLIENT_ID',     hint: 'From step 2 — Zoho API Console' },
-                  { key: 'ZOHO_CLIENT_SECRET',  hint: 'From step 2 — Zoho API Console' },
+                  { key: 'ZOHO_CLIENT_ID',     hint: 'From step 3 — Zoho API Console' },
+                  { key: 'ZOHO_CLIENT_SECRET',  hint: 'From step 3 — Zoho API Console' },
                   { key: 'ZOHO_FROM_EMAIL',     hint: 'The email address you send from' },
-                  { key: 'ZOHO_REFRESH_TOKEN',  hint: 'Generated in step 4 below' },
+                  { key: 'ZOHO_REFRESH_TOKEN',  hint: 'Generated in step 5 below' },
                 ] as const).map(s => {
                   const missing = status?.missing[s.key];
                   return (
@@ -153,27 +208,22 @@ const ZohoSetupSection: React.FC = () => {
               </div>
             </Step>
 
-            {/* Step 4 */}
-            <Step num={4} title="Authorize with Zoho to get your Refresh Token">
+            {/* Step 5 */}
+            <Step num={5} title="Authorize with Zoho to get your Refresh Token">
               <div className="space-y-3 text-sm text-slate-600">
                 <p>
                   Make sure you've saved <code className="bg-slate-100 px-1 rounded text-xs">ZOHO_CLIENT_ID</code> and{' '}
-                  <code className="bg-slate-100 px-1 rounded text-xs">ZOHO_CLIENT_SECRET</code> first, then restart the server,
-                  and come back here.
+                  <code className="bg-slate-100 px-1 rounded text-xs">ZOHO_CLIENT_SECRET</code> first, then restarted the server, then come back here.
                 </p>
                 <p>
-                  Click <strong>"Authorize with Zoho"</strong> below — it will open a <strong>popup window</strong>.
-                  Sign in with your Zoho account and click Allow. After approval, the popup will show your <strong>Refresh Token</strong>.
-                </p>
-                <p>
-                  Copy that token, go to Replit Secrets, and save it as{' '}
-                  <code className="bg-slate-100 px-1 rounded text-xs">ZOHO_REFRESH_TOKEN</code>.
+                  Click <strong>"Authorize with Zoho"</strong> — a popup opens. Sign in and click Allow. The popup will show your <strong>Refresh Token</strong>.
+                  Copy it and save as <code className="bg-slate-100 px-1 rounded text-xs">ZOHO_REFRESH_TOKEN</code> in Replit Secrets.
                 </p>
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs text-blue-800">
                   <Info className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>
-                    <strong>This must be done from the Replit preview tab</strong>, not your Netlify site.
-                    Open this Settings page directly from <code className="bg-blue-100 px-1 rounded">{window.location.origin}</code>.
+                    <strong>Must be done from the Replit preview tab</strong>, not your Netlify site.
+                    Open this Settings page from <code className="bg-blue-100 px-1 rounded">{window.location.origin}</code>.
                   </span>
                 </div>
               </div>
@@ -185,11 +235,11 @@ const ZohoSetupSection: React.FC = () => {
               </button>
             </Step>
 
-            {/* Step 5 */}
-            <Step num={5} title="Restart the server and test">
+            {/* Step 6 */}
+            <Step num={6} title="Restart the server and test">
               <p className="text-sm text-slate-600">
-                After saving all four secrets, restart the workflow (<strong>"Start application"</strong>) in Replit.
-                Come back to this page and click the <RefreshCw className="inline h-3.5 w-3.5" /> icon above —
+                After saving all secrets, restart the workflow (<strong>"Start application"</strong>) in Replit.
+                Come back here and click the <RefreshCw className="inline h-3.5 w-3.5" /> icon above —
                 you should see the green <strong>Connected</strong> badge.
               </p>
             </Step>
