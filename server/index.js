@@ -350,7 +350,20 @@ app.get('/api/zoho/oauth/callback', async (req, res) => {
     res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)'));
   } catch (err) {
     const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
-    const detail = `${err.message}\n\nRedirect URI sent to Zoho: ${redirectUri}\n\nMake sure this EXACT URL is saved under "Authorized Redirect URIs" in your Zoho API Console app. Also check that ZOHO_CLIENT_ID and ZOHO_CLIENT_SECRET in Replit Secrets have no extra spaces or newlines.`;
+    const authBase = process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com (default — no ZOHO_AUTH_BASE secret set)';
+    const detail = [
+      err.message,
+      '',
+      `Zoho auth server used:  ${authBase}`,
+      `Redirect URI sent:      ${redirectUri}`,
+      '',
+      'Checklist:',
+      '1. Is the auth server above the correct region for your Zoho account?',
+      '   (If your account is on .in/.eu/.com.au, set ZOHO_AUTH_BASE in Replit Secrets and restart)',
+      '2. Is the redirect URI above saved under "Authorized Redirect URIs" in your Zoho API Console app?',
+      '3. Did you create the API Console app on the same regional console as your Zoho account?',
+      '   (e.g. India accounts must use api-console.zoho.in, not api-console.zoho.com)',
+    ].join('\n');
     res.status(500).type('html').send(renderErrorPage('Zoho token exchange failed', detail));
   }
 });
