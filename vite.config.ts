@@ -17,4 +17,58 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // React core — loaded first, cached aggressively
+          if (id.includes('node_modules/react/') ||
+              id.includes('node_modules/react-dom/') ||
+              id.includes('node_modules/react-router-dom/') ||
+              id.includes('node_modules/scheduler/')) {
+            return 'vendor-react';
+          }
+          // Supabase auth + DB client
+          if (id.includes('node_modules/@supabase/')) {
+            return 'vendor-supabase';
+          }
+          // Firebase — large, only needed for push notifications
+          if (id.includes('node_modules/firebase/') ||
+              id.includes('node_modules/@firebase/')) {
+            return 'vendor-firebase';
+          }
+          // PDF generation — jspdf + autotable + html2canvas
+          if (id.includes('node_modules/jspdf') ||
+              id.includes('node_modules/jspdf-autotable') ||
+              id.includes('node_modules/html2canvas')) {
+            return 'vendor-pdf';
+          }
+          // Word/DOCX generation
+          if (id.includes('node_modules/docxtemplater') ||
+              id.includes('node_modules/pizzip') ||
+              id.includes('node_modules/jszip')) {
+            return 'vendor-docx';
+          }
+          // Icons
+          if (id.includes('node_modules/lucide-react')) {
+            return 'vendor-icons';
+          }
+          // Date utilities
+          if (id.includes('node_modules/date-fns')) {
+            return 'vendor-dates';
+          }
+          // DOMPurify (used by rich text editor)
+          if (id.includes('node_modules/dompurify') ||
+              id.includes('node_modules/isomorphic-dompurify')) {
+            return 'vendor-purify';
+          }
+          // Everything else from node_modules → general vendor chunk
+          if (id.includes('node_modules/')) {
+            return 'vendor-misc';
+          }
+        },
+      },
+    },
+  },
 });
