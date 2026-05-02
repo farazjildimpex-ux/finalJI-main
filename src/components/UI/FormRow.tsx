@@ -163,3 +163,48 @@ export const formInputClass =
 
 export const formInputReadOnlyClass =
   'block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm';
+
+export const zohoInputClass =
+  'block w-full border border-gray-300 rounded-[3px] px-2.5 py-1 text-[13px] text-gray-800 bg-white placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 transition-colors';
+
+export const zohoTextareaClass =
+  'block w-full border border-gray-300 rounded-[3px] px-2.5 py-1.5 text-[13px] text-gray-800 bg-white placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-[3px] focus:ring-blue-500/10 transition-colors resize-y';
+
+export const zohoInputReadOnlyClass =
+  'block w-full border border-gray-200 rounded-[3px] px-2.5 py-1 text-[13px] text-gray-500 bg-gray-50 cursor-default';
+
+interface ZohoRowProps {
+  label: React.ReactNode;
+  required?: boolean;
+  htmlFor?: string;
+  hint?: string;
+  children: React.ReactNode;
+  fullWidth?: boolean;
+}
+
+export const ZohoRow: React.FC<ZohoRowProps> = ({ label, required, htmlFor, hint, children, fullWidth }) => (
+  <div className="px-6 py-2 grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-x-5 items-start border-b border-gray-100 last:border-b-0">
+    <label
+      htmlFor={htmlFor}
+      className={`text-[13px] leading-[30px] shrink-0 ${required ? 'text-[#c0392b]' : 'text-[#555]'}`}
+    >
+      {label}{required && <span className="text-[#c0392b]"> *</span>}
+    </label>
+    <div className={fullWidth ? 'w-full min-w-0' : 'max-w-[520px] min-w-0'}>
+      {children}
+      {hint && <p className="mt-0.5 text-[11px] text-gray-400">{hint}</p>}
+    </div>
+  </div>
+);
+
+interface ZohoSectionProps {
+  title: string;
+  right?: React.ReactNode;
+}
+
+export const ZohoSection: React.FC<ZohoSectionProps> = ({ title, right }) => (
+  <div className="px-6 pt-3 pb-2 bg-gray-50 border-y border-gray-200 flex items-center justify-between">
+    <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{title}</span>
+    {right && <div className="flex items-center gap-2">{right}</div>}
+  </div>
+);

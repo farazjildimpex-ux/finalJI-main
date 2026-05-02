@@ -8,7 +8,7 @@ import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
 const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
@@ -512,8 +512,8 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   };
 
 
-  const inputClassName = formInputClass;
-  const inputReadOnlyClass = formInputReadOnlyClass;
+  const inputClassName = zohoInputClass;
+  const inputReadOnlyClass = zohoInputReadOnlyClass;
 
   const renderToggle = (checked: boolean, onClick: () => void) => (
     <button
@@ -532,459 +532,201 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 overflow-hidden text-gray-900">
       {validationError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <div className="flex items-start">
-            <AlertCircle className="h-4 w-4 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="text-sm font-medium text-red-800">Validation Error</h3>
-              <p className="text-xs text-red-700 mt-1">{validationError}</p>
-            </div>
+        <div className="mx-6 mt-4 bg-red-50 border border-red-200 rounded-[3px] p-3 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-[13px] font-medium text-red-800">Validation Error</p>
+            <p className="text-[12px] text-red-700 mt-0.5">{validationError}</p>
           </div>
         </div>
       )}
 
-      {/* Basic Information */}
-      <CollapsibleFormSection
-        title="Basic Information"
-        summaryFields={[
-          { label: 'Debit Note No', value: formData.debit_note_no },
-          { label: 'Date', value: formData.debit_note_date },
-          { label: 'Status', value: formData.status },
-          { label: 'Currency', value: formData.currency },
-        ]}
-      >
-        <FormRow label="Debit Note No" htmlFor="debit_note_no" required alt>
-          <input
-            type="text"
-            id="debit_note_no"
-            name="debit_note_no"
-            value={formData.debit_note_no}
-            onChange={handleChange}
-            className={inputClassName}
-            required
-          />
-        </FormRow>
-        <FormRow label="Debit Note Date">
-          <DatePicker
-            value={formData.debit_note_date || ''}
-            onChange={(val) => setFormData({ ...formData, debit_note_date: val })}
-          />
-        </FormRow>
-        <FormRow label="Status" htmlFor="status">
-          <select
-            id="status"
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors font-semibold ${STATUS_COLORS[formData.status || 'Issued'] || inputClassName}`}
-          >
-            {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
-          </select>
-        </FormRow>
-        <FormRow label="Currency" htmlFor="currency">
-          <input
-            type="text"
-            id="currency"
-            name="currency"
-            value={formData.currency}
-            readOnly
-            className={inputReadOnlyClass}
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoSection title="Basic Information" />
 
-      {/* Company */}
-      <CollapsibleFormSection
-        title="Company"
-        summaryFields={[{ label: 'Company', value: formData.company }]}
-        right={
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show in PDF</span>
-            {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
-          </div>
-        }
-      >
-        <FormRow label="Company" htmlFor="company">
-          <select
-            id="company"
-            name="company"
-            value={formData.company}
-            onChange={(e) => {
-              const selected = companies.find(c => c.name === e.target.value);
-              handleChange(e);
-              setCompanyLetterheadUrl(selected?.letterhead_url || null);
-            }}
-            className={inputClassName}
-          >
-            <option value="">Select a company</option>
-            {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Debit Note No" htmlFor="debit_note_no" required>
+        <input type="text" id="debit_note_no" name="debit_note_no" value={formData.debit_note_no} onChange={handleChange} className={inputClassName} required />
+      </ZohoRow>
 
-      {/* Supplier Information */}
-      <CollapsibleFormSection
-        title="Supplier Information"
-        summaryFields={[
-          { label: 'Supplier Name', value: formData.supplier_name },
-          { label: 'Address', value: (formData.supplier_address || []).filter(Boolean).join(', ') },
-        ]}
-      >
-        <FormRow label="Supplier" htmlFor="supplier_name">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              id="supplier_name"
-              name="supplier_name"
-              value={supplierSearch}
-              onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }}
-              onFocus={() => setShowSupplierDropdown(true)}
-              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
-              className={`${inputClassName} pl-9`}
-              autoComplete="off"
-              placeholder="Search supplier..."
-            />
-            {showSupplierDropdown && filteredContacts.length > 0 && (
-              <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-300 bg-white shadow-lg">
-                {filteredContacts.map(contact => (
-                  <li
-                    key={contact.id}
-                    onMouseDown={() => handleSupplierSelect(contact)}
-                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700"
-                  >
-                    {contact.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </FormRow>
-        <FormRow label="Supplier Address">
-          <div className="space-y-2">
-            {(formData.supplier_address || ['']).map((address, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)}
-                  className={inputClassName}
-                  placeholder={`Address Line ${index + 1}`}
-                />
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => removeArrayField('supplier_address', index)}
-                    className="text-gray-400 hover:text-red-600 p-1.5"
-                    title="Remove"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => addArrayField('supplier_address')}
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-            >
-              <Plus className="h-3 w-3" /> Add Address Line
-            </button>
-          </div>
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Debit Note Date">
+        <DatePicker value={formData.debit_note_date || ''} onChange={(val) => setFormData({ ...formData, debit_note_date: val })} />
+      </ZohoRow>
 
-      {/* Contract Information */}
-      <CollapsibleFormSection
-        title="Contract Information"
-        summaryFields={[
-          { label: 'Contract No(s)', value: formData.contract_no },
-          { label: 'Contract Date', value: formData.contract_date },
-          { label: 'Buyer Name', value: formData.buyer_name },
-          { label: 'Destination', value: formData.destination },
-        ]}
-      >
-        <FormRow label="Contract(s)">
-          <div className="space-y-2">
-            {contractSearches.map((searchTerm, index) => (
-              <div key={index} className="relative flex gap-2">
-                <div className="relative flex-grow">
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={e => {
-                      const newSearches = [...contractSearches];
-                      newSearches[index] = e.target.value;
-                      setContractSearches(newSearches);
-                      const newDropdowns = [...showContractDropdowns];
-                      newDropdowns[index] = true;
-                      setShowContractDropdowns(newDropdowns);
-                    }}
-                    onFocus={() => {
-                      const newDropdowns = [...showContractDropdowns];
-                      newDropdowns[index] = true;
-                      setShowContractDropdowns(newDropdowns);
-                    }}
-                    onBlur={() => setTimeout(() => {
-                      const newDropdowns = [...showContractDropdowns];
-                      newDropdowns[index] = false;
-                      setShowContractDropdowns(newDropdowns);
-                    }, 150)}
-                    className={inputClassName}
-                    placeholder="Search by Contract No, Buyer, or Supplier"
-                    autoComplete="off"
-                  />
-                  {showContractDropdowns[index] && (
-                    <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-gray-300 bg-white shadow-lg">
-                      {getFilteredContracts(searchTerm).map(contract => (
-                        <li
-                          key={contract.id}
-                          onMouseDown={() => handleContractSelect(contract, index)}
-                          className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm text-gray-700"
-                        >
-                          <strong>{contract.contract_no}</strong> — {contract.buyer_name} / {contract.supplier_name}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => removeContractField(index)}
-                    className="text-gray-400 hover:text-red-600 p-1.5"
-                    title="Remove"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addContractField}
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
-            >
-              <Plus className="h-3 w-3" /> Add Contract
-            </button>
-          </div>
-        </FormRow>
-        <FormRow label="Contract Date" htmlFor="contract_date">
-          <input
-            type="text"
-            id="contract_date"
-            value={formData.contract_date ? new Date(formData.contract_date).toLocaleDateString('en-GB') : ''}
-            readOnly
-            className={inputReadOnlyClass}
-            placeholder="Auto-filled"
-          />
-        </FormRow>
-        <FormRow label="Buyer Name" htmlFor="buyer_name">
-          <input
-            type="text"
-            id="buyer_name"
-            value={formData.buyer_name}
-            readOnly
-            className={inputReadOnlyClass}
-          />
-        </FormRow>
-        <FormRow label="Destination" htmlFor="destination">
-          <input
-            type="text"
-            id="destination"
-            value={formData.destination}
-            readOnly
-            className={inputReadOnlyClass}
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Status" htmlFor="status">
+        <select id="status" name="status" value={formData.status} onChange={handleChange} className={`${inputClassName} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
+          {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
+        </select>
+      </ZohoRow>
 
-      {/* Invoice Information */}
-      <CollapsibleFormSection
-        title="Invoice Information"
-        summaryFields={[
-          { label: 'Invoice No', value: formData.invoice_no },
-          { label: 'Invoice Date', value: formData.invoice_date },
-          { label: 'Quantity', value: formData.quantity },
-          { label: 'Pieces', value: formData.pieces },
-        ]}
-        defaultOpen={false}
-      >
-        <FormRow label="Invoice No" htmlFor="invoice_no">
-          <input
-            type="text"
-            id="invoice_no"
-            name="invoice_no"
-            value={formData.invoice_no}
-            onChange={handleChange}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Invoice Date">
-          <DatePicker
-            value={formData.invoice_date || ''}
-            onChange={(val) => setFormData({ ...formData, invoice_date: val })}
-          />
-        </FormRow>
-        <FormRow label="Quantity" htmlFor="quantity">
-          <input
-            type="text"
-            id="quantity"
-            name="quantity"
-            value={formData.quantity}
-            onChange={handleChange}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Pieces" htmlFor="pieces">
-          <input
-            type="text"
-            id="pieces"
-            name="pieces"
-            value={formData.pieces}
-            onChange={handleChange}
-            className={inputClassName}
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Currency" htmlFor="currency">
+        <input type="text" id="currency" name="currency" value={formData.currency} readOnly className={inputReadOnlyClass} />
+      </ZohoRow>
 
-      {/* Commission Calculation */}
-      <CollapsibleFormSection
-        title="Commission Calculation"
-        summaryFields={[
-          { label: 'Local Commission', value: formData.local_commission },
-          { label: 'Invoice Value', value: formData.invoice_value },
-          { label: 'Exchange Rate', value: formData.exchange_rate ? String(formData.exchange_rate) : '' },
-          { label: 'Commissioning', value: formData.commissioning ? formData.commissioning.toFixed(2) : '' },
-          { label: 'Commission (₹)', value: formData.commission_in_rupees ? `₹ ${formData.commission_in_rupees.toFixed(2)}` : '' },
-          { label: 'In Words', value: formData.commission_in_words },
-        ]}
-        defaultOpen={false}
-      >
-        <FormRow label="Local Commission (%)" htmlFor="local_commission">
-          <input
-            type="text"
-            id="local_commission"
-            value={formData.local_commission}
-            readOnly
-            className={inputReadOnlyClass}
-          />
-        </FormRow>
-        <FormRow label="Invoice Value" htmlFor="invoice_value">
-          <input
-            type="number"
-            id="invoice_value"
-            name="invoice_value"
-            value={formData.invoice_value}
-            onChange={handleChange}
-            className={inputClassName}
-            placeholder="0.00"
-          />
-        </FormRow>
-        <FormRow label="Exchange Rate" htmlFor="exchange_rate">
-          <input
-            type="number"
-            step="0.01"
-            id="exchange_rate"
-            name="exchange_rate"
-            value={formData.exchange_rate}
-            onChange={handleChange}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
-          <input
-            type="number"
-            id="commissioning"
-            value={formData.commissioning.toFixed(2)}
-            readOnly
-            className={inputReadOnlyClass}
-          />
-        </FormRow>
-        <FormRow label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
-          <input
-            type="text"
-            id="commission_in_rupees"
-            value={formData.commission_in_rupees.toFixed(2)}
-            readOnly
-            className={inputReadOnlyClass}
-          />
-        </FormRow>
-        <FormRow label="Commission in Words" htmlFor="commission_in_words" hint="Auto-generated">
-          <textarea
-            id="commission_in_words"
-            value={formData.commission_in_words}
-            readOnly
-            className={`${inputReadOnlyClass} resize-y`}
-            rows={2}
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoSection title="Company" right={
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500">Show in PDF</span>
+          {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
+        </div>
+      } />
 
-      {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
-        {initialData?.id && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="inline-flex items-center justify-center px-4 py-2 border border-red-300 text-xs font-bold uppercase rounded-md text-red-700 bg-white hover:bg-red-50 w-full sm:w-auto"
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Delete
+      <ZohoRow label="Company" htmlFor="company">
+        <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
+          <option value="">Select a company</option>
+          {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
+      </ZohoRow>
+
+      <ZohoSection title="Supplier Information" />
+
+      <ZohoRow label="Supplier" htmlFor="supplier_name">
+        <div className="relative">
+          <input type="text" id="supplier_name" name="supplier_name" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} autoComplete="off" placeholder="Search supplier…" />
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          {showSupplierDropdown && filteredContacts.length > 0 && (
+            <div className="absolute z-20 mt-1 max-h-60 w-full max-w-[520px] overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+              {filteredContacts.map(contact => (
+                <div key={contact.id} onMouseDown={() => handleSupplierSelect(contact)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">{contact.name}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      </ZohoRow>
+
+      <ZohoRow label="Supplier Address">
+        <div className="space-y-1.5">
+          {(formData.supplier_address || ['']).map((address, index) => (
+            <div key={index} className="flex gap-2">
+              <input type="text" value={address} onChange={(e) => handleArrayFieldChange('supplier_address', index, e.target.value)} className={inputClassName} placeholder={`Address Line ${index + 1}`} />
+              {index > 0 && (
+                <button type="button" onClick={() => removeArrayField('supplier_address', index)} className="text-gray-400 hover:text-red-600 p-1" title="Remove">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={() => addArrayField('supplier_address')} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5">
+            <Plus className="h-3 w-3" /> Add Address Line
           </button>
-        )}
-        <div
-          className="relative w-full sm:w-auto"
-          onMouseEnter={() => {
-            if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current);
-            setShowExportMenu(true);
-          }}
-          onMouseLeave={() => {
-            exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200);
-          }}
-        >
-          <button
-            type="button"
-            disabled={loading || generatingWord}
-            className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-200 text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 rounded-md"
-          >
+        </div>
+      </ZohoRow>
+
+      <ZohoSection title="Contract Information" />
+
+      <ZohoRow label="Contract(s)" fullWidth>
+        <div className="space-y-1.5">
+          {contractSearches.map((searchTerm, index) => (
+            <div key={index} className="flex gap-2">
+              <div className="relative flex-grow">
+                <input type="text" value={searchTerm} onChange={e => { const ns = [...contractSearches]; ns[index] = e.target.value; setContractSearches(ns); const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onFocus={() => { const nd = [...showContractDropdowns]; nd[index] = true; setShowContractDropdowns(nd); }} onBlur={() => setTimeout(() => { const nd = [...showContractDropdowns]; nd[index] = false; setShowContractDropdowns(nd); }, 150)} className={inputClassName} placeholder="Search by Contract No, Buyer, or Supplier" autoComplete="off" />
+                {showContractDropdowns[index] && (
+                  <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+                    {getFilteredContracts(searchTerm).map(contract => (
+                      <div key={contract.id} onMouseDown={() => handleContractSelect(contract, index)} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50">
+                        <strong>{contract.contract_no}</strong> — {contract.buyer_name} / {contract.supplier_name}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {index > 0 && (
+                <button type="button" onClick={() => removeContractField(index)} className="text-gray-400 hover:text-red-600 p-1" title="Remove">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+          <button type="button" onClick={addContractField} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5">
+            <Plus className="h-3 w-3" /> Add Contract
+          </button>
+        </div>
+      </ZohoRow>
+
+      <ZohoRow label="Contract Date" htmlFor="contract_date">
+        <input type="text" id="contract_date" value={formData.contract_date ? new Date(formData.contract_date).toLocaleDateString('en-GB') : ''} readOnly className={inputReadOnlyClass} placeholder="Auto-filled" />
+      </ZohoRow>
+
+      <ZohoRow label="Buyer Name" htmlFor="buyer_name">
+        <input type="text" id="buyer_name" value={formData.buyer_name} readOnly className={inputReadOnlyClass} />
+      </ZohoRow>
+
+      <ZohoRow label="Destination" htmlFor="destination">
+        <input type="text" id="destination" value={formData.destination} readOnly className={inputReadOnlyClass} />
+      </ZohoRow>
+
+      <ZohoSection title="Invoice Information" />
+
+      <ZohoRow label="Invoice No" htmlFor="invoice_no">
+        <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Invoice Date">
+        <DatePicker value={formData.invoice_date || ''} onChange={(val) => setFormData({ ...formData, invoice_date: val })} />
+      </ZohoRow>
+
+      <ZohoRow label="Quantity" htmlFor="quantity">
+        <input type="text" id="quantity" name="quantity" value={formData.quantity} onChange={handleChange} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Pieces" htmlFor="pieces">
+        <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoSection title="Commission Calculation" />
+
+      <ZohoRow label="Local Commission (%)" htmlFor="local_commission">
+        <input type="text" id="local_commission" value={formData.local_commission} readOnly className={inputReadOnlyClass} />
+      </ZohoRow>
+
+      <ZohoRow label="Invoice Value" htmlFor="invoice_value">
+        <input type="number" id="invoice_value" name="invoice_value" value={formData.invoice_value} onChange={handleChange} className={inputClassName} placeholder="0.00" />
+      </ZohoRow>
+
+      <ZohoRow label="Exchange Rate" htmlFor="exchange_rate">
+        <input type="number" step="0.01" id="exchange_rate" name="exchange_rate" value={formData.exchange_rate} onChange={handleChange} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
+        <input type="number" id="commissioning" value={formData.commissioning.toFixed(2)} readOnly className={inputReadOnlyClass} />
+      </ZohoRow>
+
+      <ZohoRow label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
+        <input type="text" id="commission_in_rupees" value={formData.commission_in_rupees.toFixed(2)} readOnly className={inputReadOnlyClass} />
+      </ZohoRow>
+
+      <ZohoRow label="Commission in Words" htmlFor="commission_in_words" hint="Auto-generated">
+        <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputReadOnlyClass} resize-y`} rows={2} />
+      </ZohoRow>
+
+      <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
+          <Save className="h-3.5 w-3.5 mr-1.5" />
+          {loading ? 'Saving…' : (initialData?.id ? 'Update Debit Note' : 'Save Debit Note')}
+        </button>
+        <div className="relative" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
+          <button type="button" disabled={loading || generatingWord} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
             <FileDown className="h-3.5 w-3.5 mr-1.5" />
-            {generatingWord ? 'Generating Word...' : 'Export'}
+            {generatingWord ? 'Generating Word…' : 'Export'}
             <ChevronDown className="h-3 w-3 ml-1.5" />
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full mb-1 right-0 z-30 min-w-[140px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
-              <button
-                type="button"
-                onClick={handleExportPDF}
-                disabled={loading || generatingWord}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
-              >
-                <FileDown className="h-4 w-4 shrink-0" />
-                Export PDF
+            <div className="absolute bottom-full mb-1 left-0 z-30 min-w-[140px] overflow-hidden rounded-[3px] border border-gray-200 bg-white shadow-xl">
+              <button type="button" onClick={handleExportPDF} disabled={loading || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50">
+                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export PDF
               </button>
-              <button
-                type="button"
-                onClick={handleExportWord}
-                disabled={loading || generatingWord}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 border-t border-gray-100"
-              >
-                <FileDown className="h-4 w-4 shrink-0" />
-                Export Word
+              <button type="button" onClick={handleExportWord} disabled={loading || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100">
+                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export Word
               </button>
             </div>
           )}
         </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex items-center justify-center px-4 py-2 text-xs font-bold uppercase text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 disabled:opacity-50 w-full sm:w-auto"
-        >
-          <Save className="h-3.5 w-3.5 mr-1.5" />
-          {loading ? 'Saving...' : initialData?.id ? 'Update' : 'Save'}
+        {initialData?.id && (
+          <button type="button" onClick={handleDelete} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-red-700 bg-white border border-gray-300 hover:bg-red-50">
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+          </button>
+        )}
+        <button type="button" onClick={() => navigate('/app/debit-notes')} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 ml-auto">
+          Cancel
         </button>
       </div>
     </form>

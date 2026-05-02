@@ -3,7 +3,7 @@ import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus } from 'lucide-react
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
@@ -396,9 +396,9 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     contact.name.toLowerCase().includes(supplierSearch.toLowerCase())
   );
 
-  const inputClassName = formInputClass;
-  const dropdownClassName = "absolute z-50 mt-1 w-full max-w-xl max-h-60 overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg";
-  const dropdownItemClassName = "cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-blue-50";
+  const inputClassName = zohoInputClass;
+  const dropdownClassName = "absolute z-50 mt-1 w-full max-w-[520px] max-h-60 overflow-y-auto rounded-[3px] border border-gray-300 bg-white shadow-lg";
+  const dropdownItemClassName = "cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50";
 
   const renderToggle = (checked: boolean, onClick: () => void) => (
     <button
@@ -422,7 +422,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     placeholder: string,
     addLabel: string
   ) => (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {(items || ['']).map((value, index) => (
         <div key={index} className="flex gap-2">
           <input
@@ -436,10 +436,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             <button
               type="button"
               onClick={() => removeArrayField(field, index)}
-              className="text-gray-400 hover:text-red-600 p-1.5"
+              className="text-gray-400 hover:text-red-600 p-1"
               title="Remove"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -447,7 +447,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       <button
         type="button"
         onClick={() => addArrayField(field)}
-        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+        className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5"
       >
         <Plus className="h-3 w-3" /> {addLabel}
       </button>
@@ -455,498 +455,219 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   );
 
   return (
-    <form onSubmit={handleSave} className="space-y-4 text-gray-900">
-      {/* Basic Information */}
-      <CollapsibleFormSection
-        title="Basic Information"
-        summaryFields={[
-          { label: 'Company', value: formData.company_name },
-          { label: 'Contract No', value: formData.contract_no },
-          { label: 'Date', value: formData.contract_date },
-          { label: "Buyer's Ref", value: formData.buyers_reference },
-          { label: 'Status', value: formData.status },
-          { label: 'Currency', value: formData.currency },
-        ]}
-        right={
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show Company in PDF</span>
-            {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
-          </div>
-        }
-      >
-        <FormRow label="Company Name" htmlFor="company_name" alt>
-          <select
-            id="company_name"
-            value={formData.company_name}
-            onChange={(e) => {
-              const selected = companies.find(c => c.name === e.target.value);
-              setFormData({ ...formData, company_name: e.target.value });
-              setCompanyLetterheadUrl(selected?.letterhead_url || null);
-            }}
-            className={inputClassName}
-          >
-            <option value="">Select Company</option>
-            {companies.map(company => (
-              <option key={company.id} value={company.name}>{company.name}</option>
-            ))}
-          </select>
-        </FormRow>
+    <form onSubmit={handleSave} className="bg-white rounded-lg border border-gray-200 overflow-hidden text-gray-900">
 
-        <FormRow label="Contract Number" htmlFor="contract_no" required>
-          <input
-            type="text"
-            id="contract_no"
-            value={formData.contract_no}
-            onChange={(e) => setFormData({ ...formData, contract_no: e.target.value })}
-            className={inputClassName}
-            required
-          />
-        </FormRow>
+      <ZohoSection title="Basic Information" right={
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500">Show Company in PDF</span>
+          {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
+        </div>
+      } />
 
-        <FormRow label="Contract Date">
-          <DatePicker
-            value={formData.contract_date || ''}
-            onChange={(val) => setFormData({ ...formData, contract_date: val })}
-          />
-        </FormRow>
+      <ZohoRow label="Company Name" htmlFor="company_name">
+        <select id="company_name" value={formData.company_name} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); setFormData({ ...formData, company_name: e.target.value }); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
+          <option value="">Select Company</option>
+          {companies.map(company => (<option key={company.id} value={company.name}>{company.name}</option>))}
+        </select>
+      </ZohoRow>
 
-        <FormRow label="Buyer's Reference" htmlFor="buyers_reference">
-          <input
-            type="text"
-            id="buyers_reference"
-            value={formData.buyers_reference}
-            onChange={(e) => setFormData({ ...formData, buyers_reference: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
+      <ZohoRow label="Contract Number" htmlFor="contract_no" required>
+        <input type="text" id="contract_no" value={formData.contract_no} onChange={(e) => setFormData({ ...formData, contract_no: e.target.value })} className={inputClassName} required />
+      </ZohoRow>
 
-        <FormRow label="Status" htmlFor="status">
-          <select
-            id="status"
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value as typeof STATUS_OPTIONS[number] })}
-            className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors font-semibold ${STATUS_COLORS[formData.status || 'Issued'] || inputClassName}`}
-          >
-            {STATUS_OPTIONS.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </FormRow>
+      <ZohoRow label="Contract Date">
+        <DatePicker value={formData.contract_date || ''} onChange={(val) => setFormData({ ...formData, contract_date: val })} />
+      </ZohoRow>
 
-        <FormRow label="Currency" htmlFor="currency">
-          <select
-            id="currency"
-            value={formData.currency}
-            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-            className={inputClassName}
-          >
-            {CURRENCY_OPTIONS.map(currency => (
-              <option key={currency} value={currency}>{currency}</option>
-            ))}
-          </select>
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Buyer's Reference" htmlFor="buyers_reference">
+        <input type="text" id="buyers_reference" value={formData.buyers_reference} onChange={(e) => setFormData({ ...formData, buyers_reference: e.target.value })} className={inputClassName} />
+      </ZohoRow>
 
-      {/* Buyer Information */}
-      <CollapsibleFormSection
-        title="Buyer Information"
-        summaryFields={[
-          { label: 'Buyer Name', value: formData.buyer_name },
-          { label: 'Address', value: (formData.buyer_address || []).filter(Boolean).join(', ') },
-        ]}
-      >
-        <FormRow label="Buyer Name" htmlFor="buyer_name">
-          <div className="relative">
-            <input
-              type="text"
-              id="buyer_name"
-              value={buyerSearch}
-              onChange={(e) => setBuyerSearch(e.target.value)}
-              onFocus={() => setShowBuyerDropdown(true)}
-              onBlur={() => setTimeout(() => setShowBuyerDropdown(false), 150)}
-              className={inputClassName}
-              placeholder="Search buyer..."
-              autoComplete="off"
-            />
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            {showBuyerDropdown && filteredBuyerContacts.length > 0 && (
-              <div className={dropdownClassName}>
-                {filteredBuyerContacts.map(contact => (
-                  <div
-                    key={contact.id}
-                    className={dropdownItemClassName}
-                    onMouseDown={() => handleContactSelect('buyer', contact.name)}
-                  >
-                    {contact.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </FormRow>
+      <ZohoRow label="Status" htmlFor="status">
+        <select id="status" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value as typeof STATUS_OPTIONS[number] })} className={`${inputClassName} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
+          {STATUS_OPTIONS.map(status => (<option key={status} value={status}>{status}</option>))}
+        </select>
+      </ZohoRow>
 
-        <FormRow label="Buyer Address">
-          {renderArrayList('buyer_address', formData.buyer_address, 'Address line', 'Add Address Line')}
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Currency" htmlFor="currency">
+        <select id="currency" value={formData.currency} onChange={(e) => setFormData({ ...formData, currency: e.target.value })} className={inputClassName}>
+          {CURRENCY_OPTIONS.map(currency => (<option key={currency} value={currency}>{currency}</option>))}
+        </select>
+      </ZohoRow>
 
-      {/* Supplier Information */}
-      <CollapsibleFormSection
-        title="Supplier Information"
-        summaryFields={[
-          { label: 'Supplier Name', value: formData.supplier_name },
-          { label: 'Address', value: (formData.supplier_address || []).filter(Boolean).join(', ') },
-        ]}
-      >
-        <FormRow label="Supplier Name" htmlFor="supplier_name">
-          <div className="relative">
-            <input
-              type="text"
-              id="supplier_name"
-              value={supplierSearch}
-              onChange={(e) => setSupplierSearch(e.target.value)}
-              onFocus={() => setShowSupplierDropdown(true)}
-              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
-              className={inputClassName}
-              placeholder="Search supplier..."
-              autoComplete="off"
-            />
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            {showSupplierDropdown && filteredSupplierContacts.length > 0 && (
-              <div className={dropdownClassName}>
-                {filteredSupplierContacts.map(contact => (
-                  <div
-                    key={contact.id}
-                    className={dropdownItemClassName}
-                    onMouseDown={() => handleContactSelect('supplier', contact.name)}
-                  >
-                    {contact.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </FormRow>
+      <ZohoSection title="Buyer Information" />
 
-        <FormRow label="Supplier Address">
-          {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Buyer Name" htmlFor="buyer_name">
+        <div className="relative">
+          <input type="text" id="buyer_name" value={buyerSearch} onChange={(e) => setBuyerSearch(e.target.value)} onFocus={() => setShowBuyerDropdown(true)} onBlur={() => setTimeout(() => setShowBuyerDropdown(false), 150)} className={inputClassName} placeholder="Search buyer…" autoComplete="off" />
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          {showBuyerDropdown && filteredBuyerContacts.length > 0 && (
+            <div className={dropdownClassName}>
+              {filteredBuyerContacts.map(contact => (<div key={contact.id} className={dropdownItemClassName} onMouseDown={() => handleContactSelect('buyer', contact.name)}>{contact.name}</div>))}
+            </div>
+          )}
+        </div>
+      </ZohoRow>
 
-      {/* Product Details */}
-      <CollapsibleFormSection
-        title="Product Details"
-        summaryFields={[
-          { label: 'Description', value: formData.description },
-          { label: 'Article', value: formData.article },
-          { label: 'Size', value: formData.size },
-          { label: 'Average', value: formData.average },
-          { label: 'Substance', value: formData.substance },
-          { label: 'Measurement', value: formData.measurement },
-        ]}
-      >
-        <FormRow label="Description" htmlFor="description">
-          <textarea
-            id="description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            className={`${inputClassName} resize-y`}
-            rows={2}
-          />
-        </FormRow>
-        <FormRow label="Article" htmlFor="article">
-          <input
-            type="text"
-            id="article"
-            value={formData.article}
-            onChange={(e) => setFormData({ ...formData, article: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Size" htmlFor="size">
-          <input
-            type="text"
-            id="size"
-            value={formData.size}
-            onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Average" htmlFor="average">
-          <input
-            type="text"
-            id="average"
-            value={formData.average}
-            onChange={(e) => setFormData({ ...formData, average: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Substance" htmlFor="substance">
-          <input
-            type="text"
-            id="substance"
-            value={formData.substance}
-            onChange={(e) => setFormData({ ...formData, substance: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Measurement" htmlFor="measurement">
-          <input
-            type="text"
-            id="measurement"
-            value={formData.measurement}
-            onChange={(e) => setFormData({ ...formData, measurement: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Buyer Address">
+        {renderArrayList('buyer_address', formData.buyer_address, 'Address line', 'Add Address Line')}
+      </ZohoRow>
 
-      {/* Product Specifications Table */}
-      <CollapsibleFormSection
-        title="Product Specifications"
-        summaryFields={[
-          { label: 'Rows', value: `${(formData.selection || []).filter(Boolean).length}` },
-          { label: 'Selections', value: (formData.selection || []).filter(Boolean).join(', ') },
-          { label: 'Colors', value: (formData.color || []).filter(Boolean).join(', ') },
-          { label: 'Swatches', value: (formData.swatch || []).filter(Boolean).join(', ') },
-          { label: 'Quantities', value: (formData.quantity || []).filter(Boolean).join(', ') },
-          { label: 'Prices', value: (formData.price || []).filter(Boolean).join(', ') },
-        ]}
-        defaultOpen={false}
-      >
-        <div className="px-4 sm:px-6 py-4 space-y-2">
-          {/* Header row (desktop only) */}
-          <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 px-1 pb-1 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-            <div>Selection</div>
-            <div>Color</div>
-            <div>Swatch</div>
-            <div>Quantity</div>
-            <div>Price</div>
-            <div></div>
-          </div>
-          {formData.selection?.map((_, index) => (
-            <div key={index} className="border border-gray-200 rounded-md p-2 bg-gray-50/40 md:bg-transparent md:border-0 md:p-0">
-              {/* Mobile */}
-              <div className="md:hidden space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <input type="text" placeholder="Selection" value={formData.selection?.[index] || ''} onChange={(e) => handleArrayFieldChange('selection', index, e.target.value)} className={inputClassName} />
-                  <input type="text" placeholder="Color" value={formData.color?.[index] || ''} onChange={(e) => handleArrayFieldChange('color', index, e.target.value)} className={inputClassName} />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <input type="text" placeholder="Swatch" value={formData.swatch?.[index] || ''} onChange={(e) => handleArrayFieldChange('swatch', index, e.target.value)} className={inputClassName} />
-                  <input type="text" placeholder="Qty" value={formData.quantity?.[index] || ''} onChange={(e) => handleArrayFieldChange('quantity', index, e.target.value)} className={inputClassName} />
-                  <input type="text" placeholder="Price" value={formData.price?.[index] || ''} onChange={(e) => handleArrayFieldChange('price', index, e.target.value)} className={inputClassName} />
-                </div>
-                {index > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      removeArrayField('selection', index);
-                      removeArrayField('color', index);
-                      removeArrayField('swatch', index);
-                      removeArrayField('quantity', index);
-                      removeArrayField('price', index);
-                    }}
-                    className="inline-flex items-center px-2 py-1 text-[10px] font-bold uppercase rounded text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-3 w-3 mr-1" /> Remove Row
-                  </button>
-                )}
-              </div>
-              {/* Desktop */}
-              <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 items-center">
+      <ZohoSection title="Supplier Information" />
+
+      <ZohoRow label="Supplier Name" htmlFor="supplier_name">
+        <div className="relative">
+          <input type="text" id="supplier_name" value={supplierSearch} onChange={(e) => setSupplierSearch(e.target.value)} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={inputClassName} placeholder="Search supplier…" autoComplete="off" />
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          {showSupplierDropdown && filteredSupplierContacts.length > 0 && (
+            <div className={dropdownClassName}>
+              {filteredSupplierContacts.map(contact => (<div key={contact.id} className={dropdownItemClassName} onMouseDown={() => handleContactSelect('supplier', contact.name)}>{contact.name}</div>))}
+            </div>
+          )}
+        </div>
+      </ZohoRow>
+
+      <ZohoRow label="Supplier Address">
+        {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
+      </ZohoRow>
+
+      <ZohoSection title="Product Details" />
+
+      <ZohoRow label="Description" htmlFor="description">
+        <textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={zohoTextareaClass} rows={2} />
+      </ZohoRow>
+
+      <ZohoRow label="Article" htmlFor="article">
+        <input type="text" id="article" value={formData.article} onChange={(e) => setFormData({ ...formData, article: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Size" htmlFor="size">
+        <input type="text" id="size" value={formData.size} onChange={(e) => setFormData({ ...formData, size: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Average" htmlFor="average">
+        <input type="text" id="average" value={formData.average} onChange={(e) => setFormData({ ...formData, average: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Substance" htmlFor="substance">
+        <input type="text" id="substance" value={formData.substance} onChange={(e) => setFormData({ ...formData, substance: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Measurement" htmlFor="measurement">
+        <input type="text" id="measurement" value={formData.measurement} onChange={(e) => setFormData({ ...formData, measurement: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoSection title="Product Specifications" />
+
+      <div className="px-6 py-3 border-b border-gray-100">
+        <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_28px] gap-2 pb-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wide">
+          <div>Selection</div><div>Color</div><div>Swatch</div><div>Quantity</div><div>Price</div><div />
+        </div>
+        {formData.selection?.map((_, index) => (
+          <div key={index} className="mb-1.5">
+            <div className="md:hidden space-y-1.5 border border-gray-200 rounded-[3px] p-2 bg-gray-50/50 mb-1">
+              <div className="grid grid-cols-2 gap-1.5">
                 <input type="text" placeholder="Selection" value={formData.selection?.[index] || ''} onChange={(e) => handleArrayFieldChange('selection', index, e.target.value)} className={inputClassName} />
                 <input type="text" placeholder="Color" value={formData.color?.[index] || ''} onChange={(e) => handleArrayFieldChange('color', index, e.target.value)} className={inputClassName} />
-                <input type="text" placeholder="Swatch" value={formData.swatch?.[index] || ''} onChange={(e) => handleArrayFieldChange('swatch', index, e.target.value)} className={inputClassName} />
-                <input type="text" placeholder="Quantity" value={formData.quantity?.[index] || ''} onChange={(e) => handleArrayFieldChange('quantity', index, e.target.value)} className={inputClassName} />
-                <input type="text" placeholder="Price" value={formData.price?.[index] || ''} onChange={(e) => handleArrayFieldChange('price', index, e.target.value)} className={inputClassName} />
-                {index > 0 ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      removeArrayField('selection', index);
-                      removeArrayField('color', index);
-                      removeArrayField('swatch', index);
-                      removeArrayField('quantity', index);
-                      removeArrayField('price', index);
-                    }}
-                    className="text-gray-400 hover:text-red-600 p-1 justify-self-center"
-                    title="Remove row"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                ) : <span />}
               </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <input type="text" placeholder="Swatch" value={formData.swatch?.[index] || ''} onChange={(e) => handleArrayFieldChange('swatch', index, e.target.value)} className={inputClassName} />
+                <input type="text" placeholder="Qty" value={formData.quantity?.[index] || ''} onChange={(e) => handleArrayFieldChange('quantity', index, e.target.value)} className={inputClassName} />
+                <input type="text" placeholder="Price" value={formData.price?.[index] || ''} onChange={(e) => handleArrayFieldChange('price', index, e.target.value)} className={inputClassName} />
+              </div>
+              {index > 0 && (
+                <button type="button" onClick={() => { removeArrayField('selection', index); removeArrayField('color', index); removeArrayField('swatch', index); removeArrayField('quantity', index); removeArrayField('price', index); }} className="inline-flex items-center text-[11px] font-medium text-red-600 hover:text-red-800">
+                  <Trash2 className="h-3 w-3 mr-1" /> Remove Row
+                </button>
+              )}
             </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => {
-              addArrayField('selection');
-              addArrayField('color');
-              addArrayField('swatch');
-              addArrayField('quantity');
-              addArrayField('price');
-            }}
-            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium mt-1"
-          >
-            <Plus className="h-3 w-3" /> Add Row
-          </button>
-        </div>
-      </CollapsibleFormSection>
+            <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_28px] gap-2 items-center">
+              <input type="text" placeholder="Selection" value={formData.selection?.[index] || ''} onChange={(e) => handleArrayFieldChange('selection', index, e.target.value)} className={inputClassName} />
+              <input type="text" placeholder="Color" value={formData.color?.[index] || ''} onChange={(e) => handleArrayFieldChange('color', index, e.target.value)} className={inputClassName} />
+              <input type="text" placeholder="Swatch" value={formData.swatch?.[index] || ''} onChange={(e) => handleArrayFieldChange('swatch', index, e.target.value)} className={inputClassName} />
+              <input type="text" placeholder="Quantity" value={formData.quantity?.[index] || ''} onChange={(e) => handleArrayFieldChange('quantity', index, e.target.value)} className={inputClassName} />
+              <input type="text" placeholder="Price" value={formData.price?.[index] || ''} onChange={(e) => handleArrayFieldChange('price', index, e.target.value)} className={inputClassName} />
+              {index > 0 ? (
+                <button type="button" onClick={() => { removeArrayField('selection', index); removeArrayField('color', index); removeArrayField('swatch', index); removeArrayField('quantity', index); removeArrayField('price', index); }} className="text-gray-400 hover:text-red-600 p-1 justify-self-center" title="Remove row">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              ) : <span />}
+            </div>
+          </div>
+        ))}
+        <button type="button" onClick={() => { addArrayField('selection'); addArrayField('color'); addArrayField('swatch'); addArrayField('quantity'); addArrayField('price'); }} className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-1">
+          <Plus className="h-3 w-3" /> Add Row
+        </button>
+      </div>
 
-      {/* Delivery & Payment */}
-      <CollapsibleFormSection
-        title="Delivery & Payment"
-        summaryFields={[
-          { label: 'Delivery Schedule', value: (formData.delivery_schedule || []).filter(Boolean).join(', ') },
-          { label: 'Destination', value: (formData.destination || []).filter(Boolean).join(', ') },
-          { label: 'Local Commission', value: formData.local_commission },
-          { label: 'Foreign Commission', value: formData.foreign_commission },
-          { label: 'Payment Terms', value: formData.payment_terms },
-          { label: 'Notify Party', value: formData.notify_party },
-          { label: 'Bank Documents', value: formData.bank_documents },
-        ]}
-        defaultOpen={false}
-      >
-        <FormRow label="Delivery Schedule">
-          {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}
-        </FormRow>
-        <FormRow label="Destination">
-          {renderArrayList('destination', formData.destination, 'Destination', 'Add Destination')}
-        </FormRow>
-        <FormRow label="Local Commission" htmlFor="local_commission">
-          <input
-            type="text"
-            id="local_commission"
-            value={formData.local_commission}
-            onChange={(e) => setFormData({ ...formData, local_commission: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Foreign Commission" htmlFor="foreign_commission">
-          <input
-            type="text"
-            id="foreign_commission"
-            value={formData.foreign_commission}
-            onChange={(e) => setFormData({ ...formData, foreign_commission: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Payment Terms" htmlFor="payment_terms">
-          <textarea
-            id="payment_terms"
-            value={formData.payment_terms}
-            onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
-            className={`${inputClassName} resize-y`}
-            rows={2}
-          />
-        </FormRow>
-        <FormRow label="Notify Party" htmlFor="notify_party">
-          <input
-            type="text"
-            id="notify_party"
-            value={formData.notify_party}
-            onChange={(e) => setFormData({ ...formData, notify_party: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-        <FormRow label="Bank to Present Documents" htmlFor="bank_documents">
-          <input
-            type="text"
-            id="bank_documents"
-            value={formData.bank_documents}
-            onChange={(e) => setFormData({ ...formData, bank_documents: e.target.value })}
-            className={inputClassName}
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoSection title="Delivery & Payment" />
 
-      {/* Important Notes */}
-      <CollapsibleFormSection
-        title="Important Notes"
-        summaryFields={(formData.important_notes || []).filter(Boolean).map((note, i) => ({
-          label: `Note ${i + 1}`,
-          value: note,
-        }))}
-        defaultOpen={false}
-      >
-        <div className="px-4 sm:px-6 py-3">
-          {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
-        </div>
-      </CollapsibleFormSection>
+      <ZohoRow label="Delivery Schedule">
+        {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}
+      </ZohoRow>
 
-      {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
-        {initialContract && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={saving}
-            className="inline-flex items-center justify-center px-4 py-2 border border-red-300 text-xs font-bold uppercase rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 w-full sm:w-auto"
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Delete
-          </button>
-        )}
-        <div
-          className="relative w-full sm:w-auto"
-          onMouseEnter={() => {
-            if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current);
-            setShowExportMenu(true);
-          }}
-          onMouseLeave={() => {
-            exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200);
-          }}
-        >
-          <button
-            type="button"
-            disabled={saving || generatingPdf || generatingWord}
-            className="inline-flex items-center justify-center w-full px-4 py-2 border border-blue-200 text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 rounded-md"
-          >
+      <ZohoRow label="Destination">
+        {renderArrayList('destination', formData.destination, 'Destination', 'Add Destination')}
+      </ZohoRow>
+
+      <ZohoRow label="Local Commission" htmlFor="local_commission">
+        <input type="text" id="local_commission" value={formData.local_commission} onChange={(e) => setFormData({ ...formData, local_commission: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Foreign Commission" htmlFor="foreign_commission">
+        <input type="text" id="foreign_commission" value={formData.foreign_commission} onChange={(e) => setFormData({ ...formData, foreign_commission: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Payment Terms" htmlFor="payment_terms">
+        <textarea id="payment_terms" value={formData.payment_terms} onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })} className={zohoTextareaClass} rows={2} />
+      </ZohoRow>
+
+      <ZohoRow label="Notify Party" htmlFor="notify_party">
+        <input type="text" id="notify_party" value={formData.notify_party} onChange={(e) => setFormData({ ...formData, notify_party: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoRow label="Bank to Present Documents" htmlFor="bank_documents">
+        <input type="text" id="bank_documents" value={formData.bank_documents} onChange={(e) => setFormData({ ...formData, bank_documents: e.target.value })} className={inputClassName} />
+      </ZohoRow>
+
+      <ZohoSection title="Important Notes" />
+
+      <ZohoRow label="Notes" fullWidth>
+        {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
+      </ZohoRow>
+
+      <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
+          <Save className="h-3.5 w-3.5 mr-1.5" />
+          {saving ? 'Saving…' : (initialContract ? 'Update Contract' : 'Save Contract')}
+        </button>
+        <button type="button" onClick={handleSaveAsNew} disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
+          <Copy className="h-3.5 w-3.5 mr-1.5" /> Save as New
+        </button>
+        <div className="relative" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
+          <button type="button" disabled={saving || generatingPdf || generatingWord} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
             <FileDown className="h-3.5 w-3.5 mr-1.5" />
-            {generatingPdf ? 'Generating PDF...' : generatingWord ? 'Generating Word...' : 'Export'}
+            {generatingPdf ? 'Generating PDF…' : generatingWord ? 'Generating Word…' : 'Export'}
             <ChevronDown className="h-3 w-3 ml-1.5" />
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full mb-1 right-0 z-30 min-w-[140px] overflow-hidden rounded-md border border-gray-200 bg-white shadow-xl">
-              <button
-                type="button"
-                onClick={handleExportPDF}
-                disabled={generatingPdf || generatingWord}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50"
-              >
-                <FileDown className="h-4 w-4 shrink-0" />
-                Export PDF
+            <div className="absolute bottom-full mb-1 left-0 z-30 min-w-[140px] overflow-hidden rounded-[3px] border border-gray-200 bg-white shadow-xl">
+              <button type="button" onClick={handleExportPDF} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50">
+                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export PDF
               </button>
-              <button
-                type="button"
-                onClick={handleExportWord}
-                disabled={generatingPdf || generatingWord}
-                className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 disabled:opacity-50 border-t border-gray-100"
-              >
-                <FileDown className="h-4 w-4 shrink-0" />
-                Export Word
+              <button type="button" onClick={handleExportWord} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2 text-[13px] text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100">
+                <FileDown className="h-3.5 w-3.5 shrink-0" /> Export Word
               </button>
             </div>
           )}
         </div>
-        <button
-          type="button"
-          onClick={handleSaveAsNew}
-          disabled={saving}
-          className="inline-flex items-center justify-center px-4 py-2 border border-blue-200 text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 rounded-md w-full sm:w-auto"
-        >
-          <Copy className="h-3.5 w-3.5 mr-1.5" />
-          Save as New
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-xs font-bold uppercase rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 w-full sm:w-auto"
-        >
-          <Save className="h-3.5 w-3.5 mr-1.5" />
-          {saving ? 'Saving...' : (initialContract ? 'Update' : 'Save')}
+        {initialContract && (
+          <button type="button" onClick={handleDelete} disabled={saving} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-red-700 bg-white border border-gray-300 hover:bg-red-50 disabled:opacity-50">
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
+          </button>
+        )}
+        <button type="button" onClick={() => navigate('/app/contracts')} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 ml-auto">
+          Cancel
         </button>
       </div>
     </form>

@@ -14,7 +14,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
 
@@ -435,24 +435,24 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
     placeholder: string,
     addLabel: string
   ) => (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {(items || ['']).map((value, index) => (
         <div key={index} className="flex gap-2">
           <input
             type="text"
             value={value}
             onChange={(e) => handleArrayFieldChange(field, index, e.target.value)}
-            className={formInputClass}
+            className={zohoInputClass}
             placeholder={placeholder}
           />
           {index > 0 && (
             <button
               type="button"
               onClick={() => removeArrayField(field, index)}
-              className="text-gray-400 hover:text-rose-600 p-1.5"
+              className="text-gray-400 hover:text-rose-600 p-1"
               title="Remove"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -460,7 +460,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       <button
         type="button"
         onClick={() => addArrayField(field)}
-        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+        className="inline-flex items-center gap-1 text-[12px] text-blue-600 hover:text-blue-800 font-medium mt-0.5"
       >
         <Plus className="h-3 w-3" /> {addLabel}
       </button>
@@ -468,351 +468,142 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 text-gray-900">
-      {/* Basic Information */}
-      <CollapsibleFormSection
-        title="Basic Information"
-        summaryFields={[
-          { label: 'Company', value: formData.company_name },
-          { label: 'Letter Number', value: formData.sample_number },
-          { label: 'Date', value: formData.date },
-          { label: 'Status', value: formData.status },
-        ]}
-        right={
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">
-              Show Company in PDF
-            </span>
-            {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
-          </div>
-        }
-      >
-        <FormRow label="Company Name" htmlFor="company_name" alt required>
-          <select
-            id="company_name"
-            value={formData.company_name}
-            onChange={(e) => setField('company_name', e.target.value)}
-            className={formInputClass}
-            required
-          >
-            <option value="">Select Company</option>
-            {companies.map((company) => (
-              <option key={company.id} value={company.name}>
-                {company.name}
-              </option>
-            ))}
-          </select>
-        </FormRow>
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 overflow-hidden text-gray-900">
 
-        <FormRow label="Letter Number" htmlFor="sample_number" required>
-          <input
-            id="sample_number"
-            type="text"
-            value={formData.sample_number}
-            onChange={(e) => setField('sample_number', e.target.value)}
-            className={formInputClass}
-            required
-          />
-        </FormRow>
+      <ZohoSection title="Basic Information" right={
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500">Show Company in PDF</span>
+          {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
+        </div>
+      } />
 
-        <FormRow label="Date">
-          <DatePicker
-            value={formData.date || ''}
-            onChange={(val) => setField('date', val)}
-          />
-        </FormRow>
+      <ZohoRow label="Company Name" htmlFor="company_name" required>
+        <select id="company_name" value={formData.company_name} onChange={(e) => setField('company_name', e.target.value)} className={zohoInputClass} required>
+          <option value="">Select Company</option>
+          {companies.map((company) => (<option key={company.id} value={company.name}>{company.name}</option>))}
+        </select>
+      </ZohoRow>
 
-        <FormRow label="Status" htmlFor="status">
-          <select
-            id="status"
-            value={formData.status}
-            onChange={(e) => setField('status', e.target.value as Sample['status'])}
-            className={`block w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors font-semibold ${STATUS_COLORS[formData.status || 'Issued'] || formInputClass}`}
-          >
-            {STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Letter Number" htmlFor="sample_number" required>
+        <input id="sample_number" type="text" value={formData.sample_number} onChange={(e) => setField('sample_number', e.target.value)} className={zohoInputClass} required />
+      </ZohoRow>
 
-      {/* Supplier Information */}
-      <CollapsibleFormSection
-        title="Supplier Information"
-        summaryFields={[
-          { label: 'Supplier Name', value: formData.supplier_name },
-          { label: 'Address', value: (formData.supplier_address || []).filter(Boolean).join(', ') },
-        ]}
-      >
-        <FormRow label="Supplier Name" htmlFor="supplier_name" required>
-          <div className="relative">
-            <input
-              id="supplier_name"
-              type="text"
-              value={supplierSearch}
-              onChange={(e) => {
-                setSupplierSearch(e.target.value);
-                setField('supplier_name', e.target.value);
-                setShowSupplierDropdown(true);
-              }}
-              onFocus={() => setShowSupplierDropdown(true)}
-              onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)}
-              className={formInputClass}
-              placeholder="Search supplier..."
-              autoComplete="off"
-              required
-            />
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-            {showSupplierDropdown && filteredContacts.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full max-w-xl max-h-60 overflow-y-auto rounded-md border border-gray-300 bg-white shadow-lg">
-                {filteredContacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    className="cursor-pointer px-3 py-2 text-sm text-gray-700 hover:bg-blue-50"
-                    onMouseDown={() => handleSupplierSelect(contact)}
-                  >
-                    {contact.name}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </FormRow>
+      <ZohoRow label="Date">
+        <DatePicker value={formData.date || ''} onChange={(val) => setField('date', val)} />
+      </ZohoRow>
 
-        <FormRow label="Supplier Address">
-          {renderArrayList(
-            'supplier_address',
-            formData.supplier_address,
-            'Address line',
-            'Add Address Line'
-          )}
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Status" htmlFor="status">
+        <select id="status" value={formData.status} onChange={(e) => setField('status', e.target.value as Sample['status'])} className={`${zohoInputClass} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
+          {STATUS_OPTIONS.map((status) => (<option key={status} value={status}>{status}</option>))}
+        </select>
+      </ZohoRow>
 
-      {/* Letter Content */}
-      <CollapsibleFormSection
-        title="Letter Content"
-        summaryFields={[
-          { label: 'Description', value: formData.description },
-          { label: 'Content Preview', value: formData.notes ? formData.notes.replace(/<[^>]*>/g, '').trim().slice(0, 150) + (formData.notes.replace(/<[^>]*>/g, '').trim().length > 150 ? '…' : '') : '' },
-        ]}
-      >
-        <FormRow label="Description" htmlFor="description">
-          <input
-            id="description"
-            type="text"
-            value={formData.description}
-            onChange={(e) => setField('description', e.target.value)}
-            className={formInputClass}
-            placeholder="Short bold heading for the letter"
-          />
-        </FormRow>
+      <ZohoSection title="Supplier Information" />
 
-        <FormRow
-          label="Letter Details"
-          hint="Basic formatting: bold, underline, font size and color."
-        >
-          <div className="rounded-md border border-gray-300 bg-white shadow-sm overflow-hidden">
-            <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
-              <button
-                type="button"
-                onClick={() => applyCommand('bold')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
-                title="Bold"
-              >
-                <Bold className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => applyCommand('underline')}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700 hover:border-blue-200"
-                title="Underline"
-              >
-                <Underline className="h-3.5 w-3.5" />
-              </button>
-
-              <select
-                value={selectedFontSize}
-                onChange={(e) => {
-                  const next = e.target.value as (typeof FONT_SIZES)[number];
-                  setSelectedFontSize(next);
-                  applyInlineStyle({ fontSize: next });
-                }}
-                className="h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                title="Font size"
-              >
-                {FONT_SIZES.map((size) => (
-                  <option key={size} value={size}>
-                    {size}
-                  </option>
-                ))}
-              </select>
-
-              <label className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-700">
-                Color
-                <input
-                  type="color"
-                  value={selectedColor}
-                  onChange={(e) => {
-                    setSelectedColor(e.target.value);
-                    applyInlineStyle({ color: e.target.value });
-                  }}
-                  className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0"
-                  title="Text color"
-                />
-              </label>
+      <ZohoRow label="Supplier Name" htmlFor="supplier_name" required>
+        <div className="relative">
+          <input id="supplier_name" type="text" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setField('supplier_name', e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={zohoInputClass} placeholder="Search supplier…" autoComplete="off" required />
+          <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          {showSupplierDropdown && filteredContacts.length > 0 && (
+            <div className="absolute z-50 mt-1 w-full max-w-[520px] max-h-60 overflow-y-auto rounded-[3px] border border-gray-300 bg-white shadow-lg">
+              {filteredContacts.map((contact) => (
+                <div key={contact.id} className="cursor-pointer px-3 py-2 text-[13px] text-gray-700 hover:bg-blue-50" onMouseDown={() => handleSupplierSelect(contact)}>{contact.name}</div>
+              ))}
             </div>
+          )}
+        </div>
+      </ZohoRow>
 
-            <div
-              ref={editorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onPaste={(event) => {
-                event.preventDefault();
-                const text = event.clipboardData.getData('text/plain');
-                document.execCommand('insertText', false, text);
-              }}
-              className="min-h-[200px] px-3 py-2 text-sm leading-6 text-gray-800 focus:outline-none"
-            />
-          </div>
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoRow label="Supplier Address">
+        {renderArrayList('supplier_address', formData.supplier_address, 'Address line', 'Add Address Line')}
+      </ZohoRow>
 
-      {/* Courier / Tracking */}
-      <CollapsibleFormSection
-        title="Courier & Tracking"
-        summaryFields={[
-          { label: 'Courier', value: formData.courier_provider },
-          { label: 'Tracking No', value: formData.courier_reference },
-          { label: 'Status', value: formData.courier_status },
-          { label: 'Delivered', value: formData.delivered_at ? new Date(formData.delivered_at).toLocaleDateString('en-GB') : '' },
-        ]}
-        defaultOpen={false}
-      >
-        <FormRow label="Courier Provider" htmlFor="courier_provider">
-          <select
-            id="courier_provider"
-            value={formData.courier_provider || ''}
-            onChange={(e) => setField('courier_provider', e.target.value || null)}
-            className={formInputClass}
-          >
-            <option value="">— Select courier —</option>
-            {COURIERS.map((c) => (
-              <option key={c.id} value={c.id}>{c.label}</option>
-            ))}
-          </select>
-        </FormRow>
-        <FormRow label="Tracking / AWB Number" htmlFor="courier_reference">
-          <div className="flex gap-2">
-            <input
-              id="courier_reference"
-              type="text"
-              value={formData.courier_reference || ''}
-              onChange={(e) => setField('courier_reference', e.target.value || null)}
-              className={formInputClass}
-              placeholder="e.g. 1234567890"
-            />
-            {(() => {
-              const url = buildTrackingUrl(formData.courier_provider, formData.courier_reference);
-              return url ? (
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-700 whitespace-nowrap"
-                >
-                  Track
-                </a>
-              ) : null;
-            })()}
-          </div>
-        </FormRow>
-        <FormRow label="Latest Status" htmlFor="courier_status">
-          <input
-            id="courier_status"
-            type="text"
-            value={formData.courier_status || ''}
-            onChange={(e) => setField('courier_status', e.target.value || null)}
-            className={formInputClass}
-            placeholder="e.g. In Transit / Out for Delivery / Delivered"
-          />
-        </FormRow>
-        <FormRow label="">
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const now = new Date().toISOString();
-                setField('delivered_at', now);
-                setField('courier_status', 'Delivered');
-                setField('status', 'Completed');
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-md bg-emerald-600 text-white hover:bg-emerald-700"
-            >
-              Mark Delivered
+      <ZohoSection title="Letter Content" />
+
+      <ZohoRow label="Description" htmlFor="description">
+        <input id="description" type="text" value={formData.description} onChange={(e) => setField('description', e.target.value)} className={zohoInputClass} placeholder="Short bold heading for the letter" />
+      </ZohoRow>
+
+      <ZohoRow label="Letter Details" hint="Basic formatting: bold, underline, font size and color." fullWidth>
+        <div className="rounded-[3px] border border-gray-300 bg-white overflow-hidden">
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-gray-200 bg-gray-50 px-2 py-1.5">
+            <button type="button" onClick={() => applyCommand('bold')} className="inline-flex h-7 w-7 items-center justify-center rounded border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700" title="Bold">
+              <Bold className="h-3.5 w-3.5" />
             </button>
-            {formData.delivered_at && (
-              <span className="inline-flex items-center px-3 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-md">
-                Delivered {new Date(formData.delivered_at).toLocaleDateString()}
-              </span>
-            )}
+            <button type="button" onClick={() => applyCommand('underline')} className="inline-flex h-7 w-7 items-center justify-center rounded border border-gray-200 bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-700" title="Underline">
+              <Underline className="h-3.5 w-3.5" />
+            </button>
+            <select value={selectedFontSize} onChange={(e) => { const next = e.target.value as (typeof FONT_SIZES)[number]; setSelectedFontSize(next); applyInlineStyle({ fontSize: next }); }} className="h-7 rounded border border-gray-200 bg-white px-2 text-[12px] text-gray-700 focus:outline-none" title="Font size">
+              {FONT_SIZES.map((size) => (<option key={size} value={size}>{size}</option>))}
+            </select>
+            <label className="inline-flex h-7 items-center gap-1.5 rounded border border-gray-200 bg-white px-2 text-[12px] text-gray-700">
+              Color
+              <input type="color" value={selectedColor} onChange={(e) => { setSelectedColor(e.target.value); applyInlineStyle({ color: e.target.value }); }} className="h-4 w-4 cursor-pointer rounded border-0 bg-transparent p-0" title="Text color" />
+            </label>
           </div>
-        </FormRow>
-      </CollapsibleFormSection>
+          <div ref={editorRef} contentEditable suppressContentEditableWarning onPaste={(event) => { event.preventDefault(); const text = event.clipboardData.getData('text/plain'); document.execCommand('insertText', false, text); }} className="min-h-[180px] px-3 py-2 text-[13px] leading-6 text-gray-800 focus:outline-none" />
+        </div>
+      </ZohoRow>
 
-      {/* Signature */}
-      <CollapsibleFormSection
-        title="Signature"
-        summaryFields={[
-          { label: 'Signee Name', value: formData.customer_comments },
-        ]}
-        defaultOpen={false}
-      >
-        <FormRow label="Signee Name" htmlFor="signee_name">
-          <input
-            id="signee_name"
-            type="text"
-            value={formData.customer_comments || ''}
-            onChange={(e) => setField('customer_comments', e.target.value)}
-            className={formInputClass}
-            placeholder="Name to show under the signature"
-          />
-        </FormRow>
-      </CollapsibleFormSection>
+      <ZohoSection title="Courier & Tracking" />
 
-      {/* Form Actions */}
-      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 pt-2">
-        {initialData?.id && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={loading}
-            className="inline-flex items-center justify-center px-4 py-2 border border-red-300 text-xs font-bold uppercase rounded-md text-red-700 bg-white hover:bg-red-50 disabled:opacity-50 w-full sm:w-auto"
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-            Delete
+      <ZohoRow label="Courier Provider" htmlFor="courier_provider">
+        <select id="courier_provider" value={formData.courier_provider || ''} onChange={(e) => setField('courier_provider', e.target.value || null)} className={zohoInputClass}>
+          <option value="">— Select courier —</option>
+          {COURIERS.map((c) => (<option key={c.id} value={c.id}>{c.label}</option>))}
+        </select>
+      </ZohoRow>
+
+      <ZohoRow label="Tracking / AWB Number" htmlFor="courier_reference">
+        <div className="flex gap-2">
+          <input id="courier_reference" type="text" value={formData.courier_reference || ''} onChange={(e) => setField('courier_reference', e.target.value || null)} className={zohoInputClass} placeholder="e.g. 1234567890" />
+          {(() => {
+            const url = buildTrackingUrl(formData.courier_provider, formData.courier_reference);
+            return url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center px-3 py-1 rounded-[3px] border border-gray-300 text-[12px] text-blue-600 hover:bg-blue-50 whitespace-nowrap">Track</a>
+            ) : null;
+          })()}
+        </div>
+      </ZohoRow>
+
+      <ZohoRow label="Courier Status" htmlFor="courier_status">
+        <select id="courier_status" value={formData.courier_status || ''} onChange={(e) => setField('courier_status', e.target.value || null)} className={zohoInputClass}>
+          <option value="">— Select status —</option>
+          <option value="Pending">Pending</option>
+          <option value="In Transit">In Transit</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Returned">Returned</option>
+        </select>
+      </ZohoRow>
+
+      <ZohoRow label="Delivered At" htmlFor="delivered_at">
+        <DatePicker value={formData.delivered_at || ''} onChange={(val) => setField('delivered_at', val || null)} />
+      </ZohoRow>
+
+      <ZohoSection title="Signature" />
+
+      <ZohoRow label="Signee Name" htmlFor="signee_name">
+        <input id="signee_name" type="text" value={formData.customer_comments || ''} onChange={(e) => setField('customer_comments', e.target.value)} className={zohoInputClass} placeholder="Name that appears at the bottom" />
+      </ZohoRow>
+
+      <div className="px-6 py-3.5 border-t border-gray-200 bg-gray-50 flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 border border-blue-700">
+          <Save className="h-3.5 w-3.5 mr-1.5" />
+          {loading ? 'Saving…' : (initialData ? 'Update Letter' : 'Save Letter')}
+        </button>
+        <button type="button" onClick={handleExportPDF} disabled={generatingPdf || loading} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50">
+          <FileDown className="h-3.5 w-3.5 mr-1.5" />
+          {generatingPdf ? 'Generating…' : 'Export PDF'}
+        </button>
+        {initialData && (
+          <button type="button" onClick={handleDelete} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-red-700 bg-white border border-gray-300 hover:bg-red-50">
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" /> Delete
           </button>
         )}
-        <button
-          type="button"
-          onClick={handleExportPDF}
-          disabled={generatingPdf}
-          className="inline-flex items-center justify-center px-4 py-2 border border-blue-200 text-xs font-bold uppercase text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 rounded-md w-full sm:w-auto"
-        >
-          <FileDown className="h-3.5 w-3.5 mr-1.5" />
-          {generatingPdf ? 'Generating...' : 'Export PDF'}
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-xs font-bold uppercase rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 w-full sm:w-auto"
-        >
-          <Save className="h-3.5 w-3.5 mr-1.5" />
-          {loading ? 'Saving...' : initialData?.id ? 'Update' : 'Save'}
+        <button type="button" onClick={() => navigate('/app/home')} className="inline-flex items-center px-4 py-1.5 rounded-[3px] text-[13px] font-medium text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 ml-auto">
+          Cancel
         </button>
       </div>
     </form>
   );
-};
-
-export default SampleForm;
+}
