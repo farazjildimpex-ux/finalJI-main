@@ -11,6 +11,7 @@ import { dialogService } from '../../lib/dialogService';
 import { VARIABLE_DOCS } from '../../lib/emailCompose';
 import type { EmailTemplate } from '../../types';
 import ComposeModal from '../Email/ComposeModal';
+import RichTextEditor from '../Email/RichTextEditor';
 
 const CONTEXT_LABELS: Record<string, string> = {
   general:  'General',
@@ -241,16 +242,12 @@ const TemplateModal: React.FC<TemplateModalProps> = ({ template, userId, onSaved
 
           <div>
             <label className="block text-[10px] font-bold text-slate-500 mb-1 uppercase tracking-wider">Body</label>
-            <textarea
+            <RichTextEditor
               value={body}
-              onChange={(e) => setBody(e.target.value)}
-              rows={12}
+              onChange={setBody}
+              minHeight={280}
               placeholder={"Dear {{contact_person}},\n\nPlease find attached the contract {{contract_no}}…"}
-              className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none resize-y font-mono"
             />
-            <p className="text-[10px] text-slate-400 mt-1">
-              HTML tags are supported. The compose window has a formatting toolbar for rich text.
-            </p>
           </div>
         </div>
 

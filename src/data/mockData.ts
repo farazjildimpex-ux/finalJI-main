@@ -32,7 +32,7 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
-    name: 'Templates',
+    name: 'Emails',
     path: '/app/email-templates',
     icon: 'mail',
     mobile: false,

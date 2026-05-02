@@ -9,13 +9,13 @@ const MobileBottomNav: React.FC = () => {
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const navItems = [
-    { name: 'Home', path: '/app/home', icon: Home },
-    { name: 'Contacts', path: '/app/contacts', icon: Users },
-    { name: 'Contracts', path: '/app/contracts', icon: FileText },
-    { name: 'Letters', path: '/app/samples', icon: Bookmark },
-    { name: 'Payments', path: '/app/debit-notes', icon: CreditCard },
-    { name: 'Templates', path: '/app/email-templates', icon: Mail },
-    { name: 'Data', path: '/app/settings', icon: Database },
+    { name: 'Home',      path: '/app/home',            icon: Home },
+    { name: 'Contacts',  path: '/app/contacts',         icon: Users },
+    { name: 'Contracts', path: '/app/contracts',        icon: FileText },
+    { name: 'Letters',   path: '/app/samples',          icon: Bookmark },
+    { name: 'Payments',  path: '/app/debit-notes',      icon: CreditCard },
+    { name: 'Emails',    path: '/app/email-templates',  icon: Mail },
+    { name: 'Data',      path: '/app/settings',         icon: Database },
   ];
 
   const activeIndex = navItems.findIndex((i) => location.pathname.startsWith(i.path));
@@ -46,7 +46,7 @@ const MobileBottomNav: React.FC = () => {
               key={item.name}
               to={item.path}
               className="relative flex flex-col items-center justify-center flex-shrink-0 h-full snap-start"
-              style={{ minWidth: '14.28%' }}
+              style={{ minWidth: '25%' }}
             >
               <div className={`
                 flex flex-col items-center justify-center transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]

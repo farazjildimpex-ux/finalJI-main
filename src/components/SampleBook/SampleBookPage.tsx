@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Bookmark } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import SampleForm from './SampleForm';
 import CommunicateButton from '../Email/CommunicateButton';
@@ -30,41 +29,36 @@ const SampleBookPage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-4 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="p-4 flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+    </div>
+  );
 
   return (
-    <div className="p-2 md:p-3 max-w-5xl mx-auto">
-      <div className="mb-4 md:mb-6 flex flex-col items-center text-center">
-        <div className="flex items-center justify-center mb-2">
-          <Bookmark className="h-6 w-6 md:h-8 md:w-8 text-blue-600 mr-2" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+    <div className="px-4 py-6 max-w-5xl mx-auto space-y-4">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             {id ? 'Edit Letter' : 'New Letter'}
           </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            {id ? 'Update letter details' : 'Create a new letter entry'}
+          </p>
         </div>
-        <p className="text-xs md:text-sm text-gray-600">
-          {id ? 'Update letter details' : 'Create a new letter entry'}
-        </p>
         {sample && (
-          <div className="mt-3">
-            <CommunicateButton
-              contextType="letter"
-              contextData={sample as any}
-              getPdfBase64={async () => {
-                const base64 = await generateSamplePDF(sample, null, true, false);
-                return { base64, filename: `letter-${sample.sample_number}.pdf` };
-              }}
-            />
-          </div>
+          <CommunicateButton
+            contextType="letter"
+            contextData={sample as any}
+            getPdfBase64={async () => {
+              const base64 = await generateSamplePDF(sample, null, true, false);
+              return { base64, filename: `letter-${sample.sample_number}.pdf` };
+            }}
+          />
         )}
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white p-2 md:p-3 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 shadow-sm">
         <SampleForm initialData={sample} />
       </div>
 

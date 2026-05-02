@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Receipt } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import DebitNoteForm from './DebitNoteForm';
 import CommunicateButton from '../Email/CommunicateButton';
@@ -35,40 +34,37 @@ const DebitNotePage: React.FC = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-4 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="p-4 flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />
+    </div>
+  );
 
   return (
-    <div className="p-2 md:p-3 max-w-5xl mx-auto page-fade-in">
-      <div className="mb-4 md:mb-6 flex flex-col items-center text-center">
-        <div className="flex items-center justify-center mb-2">
-          <Receipt className="h-6 w-6 md:h-8 md:w-8 text-green-600 mr-2" />
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">
+    <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             {id ? 'Edit Payment' : 'New Payment'}
           </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            {id ? 'Update payment details' : 'Create a new payment entry'}
+          </p>
         </div>
-        <p className="text-xs md:text-sm text-gray-600">
-          {id ? 'Update payment details' : 'Create a new payment entry'}
-        </p>
         {debitNote && (
-          <div className="mt-3">
-            <CommunicateButton
-              contextType="payment"
-              contextData={debitNote as any}
-              getPdfBase64={async () => {
-                const base64 = generateDebitNotePDF(debitNote, true, false, undefined, false);
-                return { base64, filename: `debit-note-${debitNote.debit_note_no}.pdf` };
-              }}
-            />
-          </div>
+          <CommunicateButton
+            contextType="payment"
+            contextData={debitNote as any}
+            getPdfBase64={async () => {
+              const base64 = generateDebitNotePDF(debitNote, true, false, undefined, false);
+              return { base64, filename: `debit-note-${debitNote.debit_note_no}.pdf` };
+            }}
+          />
         )}
       </div>
+
       <DebitNoteForm initialData={debitNote} />
+
       {debitNote && (
         <EmailLogSection contextType="payment" contextId={debitNote.id} />
       )}
