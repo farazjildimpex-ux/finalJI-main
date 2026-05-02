@@ -27,9 +27,7 @@ const FormRow: React.FC<FormRowProps> = ({
       <div className="flex items-center justify-between sm:block sm:pt-2 mb-1 sm:mb-0">
         <label
           htmlFor={htmlFor}
-          className={`text-sm leading-snug ${
-            required ? 'text-rose-500' : 'text-gray-700'
-          }`}
+          className={`text-sm leading-snug ${required ? 'text-rose-500' : 'text-gray-700'}`}
         >
           {label}
         </label>
@@ -65,9 +63,14 @@ export const FormSection: React.FC<FormSectionProps> = ({ title, right, children
   </div>
 );
 
+export interface SummaryField {
+  label: string;
+  value: React.ReactNode;
+}
+
 interface CollapsibleFormSectionProps {
   title: string;
-  summary?: React.ReactNode;
+  summaryFields?: SummaryField[];
   right?: React.ReactNode;
   defaultOpen?: boolean;
   children: React.ReactNode;
@@ -75,38 +78,81 @@ interface CollapsibleFormSectionProps {
 
 export const CollapsibleFormSection: React.FC<CollapsibleFormSectionProps> = ({
   title,
-  summary,
+  summaryFields,
   right,
   defaultOpen = true,
   children,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
+  const filled = (summaryFields || []).filter(
+    f => f.value !== '' && f.value !== null && f.value !== undefined
+  );
 
   return (
-    <div className={`border rounded-lg bg-white transition-shadow ${open ? 'border-gray-200 shadow-sm' : 'border-gray-200'}`}>
+    <div className="border border-gray-200 rounded-xl bg-white overflow-hidden shadow-sm">
+
+      {/* ── Section header ── */}
       <button
         type="button"
         onClick={() => setOpen(p => !p)}
-        className="w-full px-4 sm:px-6 py-3 bg-gray-50 flex items-center justify-between gap-3 rounded-t-lg hover:bg-gray-100/80 active:bg-gray-100 transition-colors"
-        style={{ borderRadius: open ? '0.5rem 0.5rem 0 0' : '0.5rem' }}
+        className={`w-full flex items-center justify-between px-4 sm:px-5 py-3.5 transition-colors group ${
+          open
+            ? 'bg-white border-b border-gray-100 hover:bg-gray-50/50'
+            : 'bg-gray-50/60 hover:bg-gray-100/70'
+        }`}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wider shrink-0">{title}</h3>
-          {!open && summary && (
-            <span className="text-sm text-gray-500 truncate">{summary}</span>
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* Accent bar */}
+          <span
+            className={`shrink-0 w-[3px] h-[18px] rounded-full transition-colors ${
+              open ? 'bg-blue-500' : 'bg-gray-300 group-hover:bg-gray-400'
+            }`}
+          />
+          <span className="text-[13px] font-semibold text-gray-800 tracking-tight">{title}</span>
+          {!open && filled.length > 0 && (
+            <span className="text-[10px] font-semibold text-gray-400 bg-gray-200/60 px-1.5 py-0.5 rounded-full leading-none">
+              {filled.length} field{filled.length !== 1 ? 's' : ''}
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0">
           {right && (
-            <div onClick={e => e.stopPropagation()}>
+            <div onClick={e => e.stopPropagation()} className="flex items-center">
               {right}
             </div>
           )}
+          <span className="text-[11px] text-gray-400 font-medium hidden sm:block">
+            {open ? 'Collapse' : 'Expand'}
+          </span>
           {open
-            ? <ChevronUp className="h-4 w-4 text-gray-400" />
-            : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            ? <ChevronUp className="h-3.5 w-3.5 text-gray-400" />
+            : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
         </div>
       </button>
+
+      {/* ── Collapsed: compact field grid ── */}
+      {!open && (
+        <div className="bg-white border-t border-gray-100">
+          {filled.length > 0 ? (
+            <div className="px-4 sm:px-5 py-4 grid grid-cols-2 sm:grid-cols-3 gap-x-5 gap-y-4">
+              {filled.map((field, i) => (
+                <div key={i} className="min-w-0">
+                  <p className="text-[9px] font-bold uppercase tracking-widest text-gray-400 mb-0.5 leading-tight">
+                    {field.label}
+                  </p>
+                  <p className="text-[12px] text-gray-800 leading-snug break-words font-medium">
+                    {field.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="px-5 py-3 text-xs text-gray-400 italic">No data entered yet</p>
+          )}
+        </div>
+      )}
+
+      {/* ── Expanded: full form rows ── */}
       {open && <div className="divide-y divide-gray-100">{children}</div>}
     </div>
   );

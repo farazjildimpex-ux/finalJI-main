@@ -472,7 +472,12 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       {/* Basic Information */}
       <CollapsibleFormSection
         title="Basic Information"
-        summary={`${formData.sample_number || 'New'} · ${formData.date || '—'} · ${formData.status || 'Issued'}`}
+        summaryFields={[
+          { label: 'Company', value: formData.company_name },
+          { label: 'Letter Number', value: formData.sample_number },
+          { label: 'Date', value: formData.date },
+          { label: 'Status', value: formData.status },
+        ]}
         right={
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">
@@ -532,7 +537,13 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Supplier Information */}
-      <CollapsibleFormSection title="Supplier Information" summary={formData.supplier_name || '—'}>
+      <CollapsibleFormSection
+        title="Supplier Information"
+        summaryFields={[
+          { label: 'Supplier Name', value: formData.supplier_name },
+          { label: 'Address', value: (formData.supplier_address || []).filter(Boolean).join(', ') },
+        ]}
+      >
         <FormRow label="Supplier Name" htmlFor="supplier_name" required>
           <div className="relative">
             <input
@@ -579,7 +590,13 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Letter Content */}
-      <CollapsibleFormSection title="Letter Content" summary={formData.description || '—'}>
+      <CollapsibleFormSection
+        title="Letter Content"
+        summaryFields={[
+          { label: 'Description', value: formData.description },
+          { label: 'Content Preview', value: formData.notes ? formData.notes.replace(/<[^>]*>/g, '').trim().slice(0, 150) + (formData.notes.replace(/<[^>]*>/g, '').trim().length > 150 ? '…' : '') : '' },
+        ]}
+      >
         <FormRow label="Description" htmlFor="description">
           <input
             id="description"
@@ -662,7 +679,16 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Courier / Tracking */}
-      <CollapsibleFormSection title="Courier & Tracking" summary={formData.courier_reference ? `${formData.courier_provider || ''} · ${formData.courier_reference}` : (formData.courier_status || '—')} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Courier & Tracking"
+        summaryFields={[
+          { label: 'Courier', value: formData.courier_provider },
+          { label: 'Tracking No', value: formData.courier_reference },
+          { label: 'Status', value: formData.courier_status },
+          { label: 'Delivered', value: formData.delivered_at ? new Date(formData.delivered_at).toLocaleDateString('en-GB') : '' },
+        ]}
+        defaultOpen={false}
+      >
         <FormRow label="Courier Provider" htmlFor="courier_provider">
           <select
             id="courier_provider"
@@ -735,7 +761,13 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Signature */}
-      <CollapsibleFormSection title="Signature" summary={formData.customer_comments || '—'} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Signature"
+        summaryFields={[
+          { label: 'Signee Name', value: formData.customer_comments },
+        ]}
+        defaultOpen={false}
+      >
         <FormRow label="Signee Name" htmlFor="signee_name">
           <input
             id="signee_name"

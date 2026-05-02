@@ -459,7 +459,14 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       {/* Basic Information */}
       <CollapsibleFormSection
         title="Basic Information"
-        summary={`${formData.contract_no || 'New'} · ${formData.contract_date || '—'} · ${formData.status || 'Issued'}`}
+        summaryFields={[
+          { label: 'Company', value: formData.company_name },
+          { label: 'Contract No', value: formData.contract_no },
+          { label: 'Date', value: formData.contract_date },
+          { label: "Buyer's Ref", value: formData.buyers_reference },
+          { label: 'Status', value: formData.status },
+          { label: 'Currency', value: formData.currency },
+        ]}
         right={
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show Company in PDF</span>
@@ -541,7 +548,13 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </CollapsibleFormSection>
 
       {/* Buyer Information */}
-      <CollapsibleFormSection title="Buyer Information" summary={formData.buyer_name || '—'}>
+      <CollapsibleFormSection
+        title="Buyer Information"
+        summaryFields={[
+          { label: 'Buyer Name', value: formData.buyer_name },
+          { label: 'Address', value: (formData.buyer_address || []).filter(Boolean).join(', ') },
+        ]}
+      >
         <FormRow label="Buyer Name" htmlFor="buyer_name">
           <div className="relative">
             <input
@@ -578,7 +591,13 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </CollapsibleFormSection>
 
       {/* Supplier Information */}
-      <CollapsibleFormSection title="Supplier Information" summary={formData.supplier_name || '—'}>
+      <CollapsibleFormSection
+        title="Supplier Information"
+        summaryFields={[
+          { label: 'Supplier Name', value: formData.supplier_name },
+          { label: 'Address', value: (formData.supplier_address || []).filter(Boolean).join(', ') },
+        ]}
+      >
         <FormRow label="Supplier Name" htmlFor="supplier_name">
           <div className="relative">
             <input
@@ -615,7 +634,17 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </CollapsibleFormSection>
 
       {/* Product Details */}
-      <CollapsibleFormSection title="Product Details" summary={formData.description || formData.article || '—'}>
+      <CollapsibleFormSection
+        title="Product Details"
+        summaryFields={[
+          { label: 'Description', value: formData.description },
+          { label: 'Article', value: formData.article },
+          { label: 'Size', value: formData.size },
+          { label: 'Average', value: formData.average },
+          { label: 'Substance', value: formData.substance },
+          { label: 'Measurement', value: formData.measurement },
+        ]}
+      >
         <FormRow label="Description" htmlFor="description">
           <textarea
             id="description"
@@ -673,7 +702,18 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </CollapsibleFormSection>
 
       {/* Product Specifications Table */}
-      <CollapsibleFormSection title="Product Specifications" summary={`${(formData.selection || []).filter(Boolean).length} item(s)`} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Product Specifications"
+        summaryFields={[
+          { label: 'Rows', value: `${(formData.selection || []).filter(Boolean).length}` },
+          { label: 'Selections', value: (formData.selection || []).filter(Boolean).join(', ') },
+          { label: 'Colors', value: (formData.color || []).filter(Boolean).join(', ') },
+          { label: 'Swatches', value: (formData.swatch || []).filter(Boolean).join(', ') },
+          { label: 'Quantities', value: (formData.quantity || []).filter(Boolean).join(', ') },
+          { label: 'Prices', value: (formData.price || []).filter(Boolean).join(', ') },
+        ]}
+        defaultOpen={false}
+      >
         <div className="px-4 sm:px-6 py-4 space-y-2">
           {/* Header row (desktop only) */}
           <div className="hidden md:grid grid-cols-[1fr_1fr_1fr_1fr_1fr_32px] gap-2 px-1 pb-1 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
@@ -756,7 +796,19 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </CollapsibleFormSection>
 
       {/* Delivery & Payment */}
-      <CollapsibleFormSection title="Delivery & Payment" summary={formData.payment_terms || '—'} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Delivery & Payment"
+        summaryFields={[
+          { label: 'Delivery Schedule', value: (formData.delivery_schedule || []).filter(Boolean).join(', ') },
+          { label: 'Destination', value: (formData.destination || []).filter(Boolean).join(', ') },
+          { label: 'Local Commission', value: formData.local_commission },
+          { label: 'Foreign Commission', value: formData.foreign_commission },
+          { label: 'Payment Terms', value: formData.payment_terms },
+          { label: 'Notify Party', value: formData.notify_party },
+          { label: 'Bank Documents', value: formData.bank_documents },
+        ]}
+        defaultOpen={false}
+      >
         <FormRow label="Delivery Schedule">
           {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}
         </FormRow>
@@ -811,7 +863,14 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </CollapsibleFormSection>
 
       {/* Important Notes */}
-      <CollapsibleFormSection title="Important Notes" summary={`${(formData.important_notes || []).filter(Boolean).length} note(s)`} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Important Notes"
+        summaryFields={(formData.important_notes || []).filter(Boolean).map((note, i) => ({
+          label: `Note ${i + 1}`,
+          value: note,
+        }))}
+        defaultOpen={false}
+      >
         <div className="px-4 sm:px-6 py-3">
           {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
         </div>

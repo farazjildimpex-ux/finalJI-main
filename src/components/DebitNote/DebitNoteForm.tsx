@@ -546,7 +546,15 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       )}
 
       {/* Basic Information */}
-      <CollapsibleFormSection title="Basic Information" summary={`${formData.debit_note_no || 'New'} · ${formData.debit_note_date || '—'} · ${formData.status || 'Issued'}`}>
+      <CollapsibleFormSection
+        title="Basic Information"
+        summaryFields={[
+          { label: 'Debit Note No', value: formData.debit_note_no },
+          { label: 'Date', value: formData.debit_note_date },
+          { label: 'Status', value: formData.status },
+          { label: 'Currency', value: formData.currency },
+        ]}
+      >
         <FormRow label="Debit Note No" htmlFor="debit_note_no" required alt>
           <input
             type="text"
@@ -590,7 +598,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       {/* Company */}
       <CollapsibleFormSection
         title="Company"
-        summary={formData.company || '—'}
+        summaryFields={[{ label: 'Company', value: formData.company }]}
         right={
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wide">Show in PDF</span>
@@ -617,7 +625,13 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Supplier Information */}
-      <CollapsibleFormSection title="Supplier Information" summary={formData.supplier_name || '—'}>
+      <CollapsibleFormSection
+        title="Supplier Information"
+        summaryFields={[
+          { label: 'Supplier Name', value: formData.supplier_name },
+          { label: 'Address', value: (formData.supplier_address || []).filter(Boolean).join(', ') },
+        ]}
+      >
         <FormRow label="Supplier" htmlFor="supplier_name">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -683,7 +697,15 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Contract Information */}
-      <CollapsibleFormSection title="Contract Information" summary={formData.buyer_name || '—'}>
+      <CollapsibleFormSection
+        title="Contract Information"
+        summaryFields={[
+          { label: 'Contract No(s)', value: formData.contract_no },
+          { label: 'Contract Date', value: formData.contract_date },
+          { label: 'Buyer Name', value: formData.buyer_name },
+          { label: 'Destination', value: formData.destination },
+        ]}
+      >
         <FormRow label="Contract(s)">
           <div className="space-y-2">
             {contractSearches.map((searchTerm, index) => (
@@ -780,7 +802,16 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Invoice Information */}
-      <CollapsibleFormSection title="Invoice Information" summary={formData.invoice_no || '—'} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Invoice Information"
+        summaryFields={[
+          { label: 'Invoice No', value: formData.invoice_no },
+          { label: 'Invoice Date', value: formData.invoice_date },
+          { label: 'Quantity', value: formData.quantity },
+          { label: 'Pieces', value: formData.pieces },
+        ]}
+        defaultOpen={false}
+      >
         <FormRow label="Invoice No" htmlFor="invoice_no">
           <input
             type="text"
@@ -820,7 +851,18 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       </CollapsibleFormSection>
 
       {/* Commission Calculation */}
-      <CollapsibleFormSection title="Commission Calculation" summary={formData.invoice_value ? `₹ ${Number(formData.commission_in_rupees || 0).toFixed(2)}` : '—'} defaultOpen={false}>
+      <CollapsibleFormSection
+        title="Commission Calculation"
+        summaryFields={[
+          { label: 'Local Commission', value: formData.local_commission },
+          { label: 'Invoice Value', value: formData.invoice_value },
+          { label: 'Exchange Rate', value: formData.exchange_rate ? String(formData.exchange_rate) : '' },
+          { label: 'Commissioning', value: formData.commissioning ? formData.commissioning.toFixed(2) : '' },
+          { label: 'Commission (₹)', value: formData.commission_in_rupees ? `₹ ${formData.commission_in_rupees.toFixed(2)}` : '' },
+          { label: 'In Words', value: formData.commission_in_words },
+        ]}
+        defaultOpen={false}
+      >
         <FormRow label="Local Commission (%)" htmlFor="local_commission">
           <input
             type="text"
