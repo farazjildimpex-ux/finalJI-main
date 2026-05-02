@@ -4,11 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Users, FileText, Bookmark, CreditCard, Database, Mail } from 'lucide-react';
 
-interface MobileBottomNavProps {
-  onOpenMenu?: () => void;
-}
-
-const MobileBottomNav: React.FC<MobileBottomNavProps> = () => {
+const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
