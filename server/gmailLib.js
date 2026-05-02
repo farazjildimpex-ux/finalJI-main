@@ -251,14 +251,21 @@ export function escapeHtml(s) {
   );
 }
 
-export function renderSuccessPage(refreshToken) {
+export function renderSuccessPage(refreshToken, {
+  title      = 'Gmail connected!',
+  secretName = 'GOOGLE_REFRESH_TOKEN',
+  step3      = 'Return to the app and click <strong>"Test Gmail Connection"</strong>. You\'re done!',
+  footer     = 'This token never expires. The app uses it to read your Gmail messages. Revoke any time at <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>.',
+} = {}) {
   const token = escapeHtml(refreshToken);
+  const safeTitle = escapeHtml(title);
+  const safeSecret = escapeHtml(secretName);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Gmail connected!</title>
+<title>${safeTitle}</title>
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 16px; background: #f9fafb; color: #1f2937; }
@@ -280,8 +287,8 @@ export function renderSuccessPage(refreshToken) {
 <body>
   <div class="card">
     <div class="check">✅</div>
-    <h1>Gmail connected!</h1>
-    <p class="lead">Save the refresh token below as a Replit Secret — that's the last step.</p>
+    <h1>${safeTitle}</h1>
+    <p class="lead">Copy the refresh token below and save it as a Replit Secret — that's the last step.</p>
 
     <div class="step">
       <span class="num">1</span>
@@ -295,17 +302,17 @@ export function renderSuccessPage(refreshToken) {
     <div class="step">
       <span class="num">2</span>
       <div>In Replit, open <strong>Secrets</strong> in the left sidebar and add:<br>
-        <div style="margin-top:6px"><code>GOOGLE_REFRESH_TOKEN</code> = <em>paste the token above</em></div>
-        <div class="warn">After saving, the secret loads live (no restart needed).</div>
+        <div style="margin-top:6px"><code>${safeSecret}</code> = <em>paste the token above</em></div>
+        <div class="warn">After saving, restart the workflow so the server picks up the new secret.</div>
       </div>
     </div>
 
     <div class="step">
       <span class="num">3</span>
-      <div>Return to the app and click <strong>"Test Gmail Connection"</strong>. You're done!</div>
+      <div>${step3}</div>
     </div>
 
-    <p class="footer">This token never expires. The app uses it to read your Gmail messages from the last 7 days when you click <strong>Sync Now</strong>. Revoke any time at <a href="https://myaccount.google.com/permissions" target="_blank">myaccount.google.com/permissions</a>.</p>
+    <p class="footer">${footer}</p>
   </div>
   <script>
     function copyToken() {

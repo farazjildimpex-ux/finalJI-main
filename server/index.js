@@ -347,7 +347,12 @@ app.get('/api/zoho/oauth/callback', async (req, res) => {
   try {
     const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
     const data = await exchangeZohoCode(String(code), redirectUri);
-    res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)'));
+    res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)', {
+      title:      'Zoho Mail connected!',
+      secretName: 'ZOHO_REFRESH_TOKEN',
+      step3:      'Return to the app Settings page, restart the workflow, then refresh — you should see the green <strong>Connected</strong> badge.',
+      footer:     'This token gives the app permission to send emails on your behalf via Zoho Mail. Revoke any time in your Zoho API Console.',
+    }));
   } catch (err) {
     const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
     const authBase = process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com (default — no ZOHO_AUTH_BASE secret set)';
