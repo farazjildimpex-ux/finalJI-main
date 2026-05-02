@@ -7,7 +7,7 @@ import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
 import PullToRefresh from '../UI/PullToRefresh';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import { Building2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import type { Order, JournalEntry } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -185,15 +185,7 @@ const HomePage: React.FC = () => {
   return (
     <PullToRefresh onRefresh={handlePullRefresh}>
     <div className="max-w-7xl mx-auto page-fade-in px-4">
-      <div className="mb-6 md:mb-8 flex flex-col items-center text-center pt-4">
-        <div className="flex items-center justify-center mb-2">
-          <Building2 className="h-8 w-8 text-blue-600 mr-2" />
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900">JILD IMPEX</h1>
-        </div>
-        <p className="text-sm md:text-base text-gray-600">Leather Import/Export Management System</p>
-      </div>
-
-      <div className="mb-6 md:mb-8">
+      <div className="mb-6 md:mb-8 pt-4">
         <SearchBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
