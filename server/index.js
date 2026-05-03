@@ -3,6 +3,7 @@ import cors from 'cors';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
+import * as cheerio from 'cheerio';
 import { initReplitSecretWatcher } from './replitSecrets.js';
 import {
   GMAIL_SCOPE,
@@ -452,6 +453,121 @@ app.post('/api/email/send', async (req, res) => {
 
   if (!result.ok) return res.status(500).json({ error: result.error });
   res.json({ ok: true, messageId: result.messageId });
+});
+
+// ─── LWG Certified Suppliers Scraper ──────────────────────────────────────
+// Country IDs from LWG's filter form
+const LWG_COUNTRIES = {
+  'Albania':19,'Algeria':59,'Argentina':11,'Australia':14,'Austria':13,
+  'Azerbaijan':16,'Bangladesh':19,'Belgium':20,'Bolivia':28,'Bosnia and Herzegovina':17,
+  'Brazil':29,'Bulgaria':22,'Cambodia':110,'Canada':36,'Chile':44,'China':46,
+  'Colombia':47,'Croatia':93,'Czech Republic':53,'Denmark':56,
+  'Dominican Republic':58,'Ecuador':60,'Egypt':62,'Ethiopia':66,'France':72,
+  'Germany':54,'Hungary':95,'India':99,'Indonesia':96,'Iran':102,'Italy':104,
+  'Japan':107,'Kazakhstan':118,'Kenya':108,'Lithuania':126,'Mexico':148,
+  'Morocco':130,'Netherlands':157,'New Zealand':162,'Nigeria':155,'Norway':158,
+  'Pakistan':169,'Paraguay':176,'Poland':170,'Portugal':174,'Romania':179,
+  'Saudi Arabia':182,'Serbia':243,'Singapore':187,'Slovakia':191,'Slovenia':189,
+  'South Africa':235,'South Korea':115,'Spain':65,'Sweden':186,'Syria':199,
+  'Taiwan':215,'Tajikistan':206,'Thailand':205,'Tunisia':209,'Turkiye':212,
+  'Uganda':218,'Ukraine':217,'United Arab Emirates':2,'United Kingdom':74,
+  'United States':220,'Uruguay':221,'Uzbekistan':222,'Vietnam':228,
+};
+
+// Rating IDs
+const LWG_RATINGS = { 'Gold':8, 'Silver':2, 'Bronze':24, 'Audited':13, 'Approved':541 };
+
+async function fetchLWGPage(pageIndex, params) {
+  const base = pageIndex === 0
+    ? 'https://www.leatherworkinggroup.com/get-involved/our-community/certified-suppliers/'
+    : `https://www.leatherworkinggroup.com/get-involved/our-community/certified-suppliers/${pageIndex}/`;
+
+  const qs = new URLSearchParams();
+  if (params.countryId) qs.set('tx_llcatalog_pi[filters][country][]', params.countryId);
+  if (params.ratingId)  qs.set('tx_llcatalog_pi[filters][rating][]',  params.ratingId);
+  if (params.keywords)  qs.set('tx_llcatalog_pi[filters][keywords]',   params.keywords);
+
+  const url = qs.toString() ? `${base}?${qs}` : base;
+
+  const resp = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!resp.ok) throw new Error(`LWG returned ${resp.status}`);
+  return resp.text();
+}
+
+function parseLWGPage(html, countryLabel, certLabel) {
+  const $ = cheerio.load(html);
+  const suppliers = [];
+
+  $('.record.card').each((_, el) => {
+    const $el = $(el);
+    const nameEl = $el.find('.details h2 a').first();
+    const name = nameEl.text().trim();
+    if (!name) return;
+    const href = nameEl.attr('href') || '';
+    const detailUrl = href.startsWith('http') ? href : `https://www.leatherworkinggroup.com${href}`;
+
+    suppliers.push({
+      company_name: name,
+      country: countryLabel || '',
+      certification_type: certLabel || '',
+      website: detailUrl,
+      address: '',
+    });
+  });
+
+  // Extract total count
+  const paginationText = $('.pagination p').text().trim();
+  const totalMatch = paginationText.match(/out of\s+(\d[\d,]*)/i);
+  const total = totalMatch ? parseInt(totalMatch[1].replace(/,/g, '')) : suppliers.length;
+
+  return { suppliers, total };
+}
+
+app.get('/api/scrape/lwg', async (req, res) => {
+  try {
+    const maxPages = Math.min(parseInt(req.query.pages || '3'), 10);
+
+    // Fetch first page (no filter params — LWG filters require authenticated session)
+    const html0 = await fetchLWGPage(0, {});
+    const { suppliers: page0, total } = parseLWGPage(html0, '', '');
+    const allSuppliers = [...page0];
+
+    // Fetch additional pages in parallel (12 per page)
+    const pagesToFetch = Math.min(maxPages, Math.ceil(total / 12));
+    const pagePromises = [];
+    for (let p = 1; p < pagesToFetch; p++) {
+      pagePromises.push(
+        fetchLWGPage(p, {})
+          .then(html => parseLWGPage(html, '', '').suppliers)
+          .catch(() => [])
+      );
+    }
+    const extraPages = await Promise.all(pagePromises);
+    for (const pg of extraPages) allSuppliers.push(...pg);
+
+    // Deduplicate by company name
+    const seen = new Set();
+    const unique = allSuppliers.filter(s => {
+      if (seen.has(s.company_name)) return false;
+      seen.add(s.company_name);
+      return true;
+    });
+
+    return res.json({
+      ok: true,
+      suppliers: unique,
+      total: unique.length,
+      lwg_total: total,
+      countries: Object.keys(LWG_COUNTRIES).sort(),
+      ratings: Object.keys(LWG_RATINGS),
+    });
+  } catch (err) {
+    console.error('[scrape/lwg]', err.message);
+    return res.json({ ok: false, error: err.message });
+  }
 });
 
 // ─── SPA static + fallback (production only) ──────────────────────────────
