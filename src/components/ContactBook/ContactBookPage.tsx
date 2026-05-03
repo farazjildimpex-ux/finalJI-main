@@ -62,7 +62,7 @@ const ContactBookPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-full bg-gray-50/60">
+    <div className="min-h-full bg-gray-50/60 contact-mobile-zoom">
       <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
 
         {/* ── Page header ── */}

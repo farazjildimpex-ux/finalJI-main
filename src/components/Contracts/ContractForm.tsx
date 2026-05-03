@@ -10,6 +10,14 @@ import { generateContractWord, extractLetterheadImages } from '../../utils/contr
 import { useNavigate } from 'react-router-dom';
 import { dialogService } from '../../lib/dialogService';
 
+/** Increment the trailing number in any document reference, preserving zero-padding and prefix. */
+function getNextNumber(last: string): string {
+  const match = last.match(/^(.*\D|)(\d+)(\D*)$/);
+  if (!match) return last;
+  const [, prefix, numStr, suffix] = match;
+  return prefix + String(parseInt(numStr, 10) + 1).padStart(numStr.length, '0') + suffix;
+}
+
 const STATUS_OPTIONS = ['Issued', 'Inspected', 'Completed', 'Cancelled'] as const;
 const STATUS_COLORS: Record<string, string> = {
   Issued:    'bg-blue-50 text-blue-900 border-blue-300',
@@ -89,6 +97,19 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       setCompanyLetterheadUrl(co?.letterhead_url || null);
     }
   }, [initialContract, companies]);
+
+  useEffect(() => {
+    if (initialContract) return;
+    supabase
+      .from('contracts')
+      .select('contract_no')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        const last = data?.[0]?.contract_no;
+        if (last) setFormData(prev => ({ ...prev, contract_no: getNextNumber(last) }));
+      });
+  }, []);
 
   const fetchContacts = async () => {
     try {
