@@ -24,6 +24,7 @@ export function getZohoCreds() {
     fromEmail:    (process.env.ZOHO_FROM_EMAIL     || '').trim(),
     fromName:     (process.env.ZOHO_FROM_NAME      || '').trim(),
     accountId:    (process.env.ZOHO_ACCOUNT_ID     || '').trim(),
+    smtpPassword: (process.env.ZOHO_SMTP_PASSWORD  || '').trim(),
   };
 }
 
@@ -95,60 +96,78 @@ export async function getZohoAccountId() {
  */
 export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html', attachmentBuffer, attachmentName, attachmentMime }) {
   try {
-    const token     = await getZohoAccessToken();
-    const accountId = await getZohoAccountId();
-    const { fromEmail, fromName } = getZohoCreds();
-
+    const { fromEmail, fromName, smtpPassword } = getZohoCreds();
     if (!fromEmail) throw new Error('ZOHO_FROM_EMAIL is not set in Replit Secrets.');
 
-    const toArr  = Array.isArray(to) ? to : [to];
-    const ccArr  = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
+    const toArr = Array.isArray(to) ? to : [to];
+    const ccArr = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
 
-    // If there is an attachment we must upload it first, then send.
-    let uploadId = null;
-    if (attachmentBuffer && attachmentName) {
-      const mime = attachmentMime || 'application/pdf';
-      const formData = new FormData();
-      const blob = attachmentBuffer instanceof Buffer
-        ? new Blob([attachmentBuffer], { type: mime })
-        : new Blob([Buffer.from(attachmentBuffer, 'base64')], { type: mime });
-      formData.append('attach', blob, attachmentName);
+    const hasAttachment = !!(attachmentBuffer && attachmentName);
 
-      const uploadUrl = `${ZOHO_API_BASE}/api/accounts/${accountId}/messages/attachments`;
-      console.log('[zoho-attach] uploading to:', uploadUrl, 'filename:', attachmentName, 'mime:', mime);
-      const upResp = await fetch(
-        uploadUrl,
-        { method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}` }, body: formData },
-      );
-      const upText = await upResp.text();
-      console.log('[zoho-attach] response status:', upResp.status, 'body:', upText);
-      let upData;
-      try { upData = JSON.parse(upText); } catch { upData = { raw: upText }; }
-      if (!upResp.ok || !upData.data?.[0]?.attachmentId) {
-        throw new Error(`Attachment upload failed (${upResp.status}): ${upText}`);
+    // ── Path A: SMTP via nodemailer (required for attachments) ────────────
+    if (hasAttachment || smtpPassword) {
+      if (!smtpPassword) {
+        throw new Error(
+          'ZOHO_SMTP_PASSWORD is not set. Please add your Zoho app password to Replit Secrets ' +
+          '(Zoho Mail → Settings → Security → App Passwords). ' +
+          'This secret is required to send emails with PDF attachments.'
+        );
       }
-      uploadId = upData.data[0].attachmentId;
-      console.log('[zoho-attach] upload success, attachmentId:', uploadId);
+
+      // Derive SMTP host from ZOHO_API_BASE: mail.zoho.in → smtpout.zoho.in
+      const smtpHost = new URL(ZOHO_API_BASE).hostname.replace(/^mail\./, 'smtpout.');
+
+      const nodemailer = (await import('nodemailer')).default;
+      const transporter = nodemailer.createTransport({
+        host:   smtpHost,
+        port:   465,
+        secure: true,
+        auth:   { user: fromEmail, pass: smtpPassword },
+      });
+
+      const mailOpts = {
+        from:    fromName ? `"${fromName}" <${fromEmail}>` : fromEmail,
+        to:      toArr.join(', '),
+        subject,
+        [contentType === 'html' ? 'html' : 'text']: body,
+      };
+      if (ccArr.length) mailOpts.cc = ccArr.join(', ');
+
+      if (hasAttachment) {
+        const buf = attachmentBuffer instanceof Buffer
+          ? attachmentBuffer
+          : Buffer.from(attachmentBuffer, 'base64');
+        mailOpts.attachments = [{
+          filename:    attachmentName,
+          content:     buf,
+          contentType: attachmentMime || 'application/pdf',
+        }];
+      }
+
+      console.log('[zoho-smtp] sending via', smtpHost, '→', toArr.join(', '), hasAttachment ? `with attachment: ${attachmentName}` : '(no attachment)');
+      const info = await transporter.sendMail(mailOpts);
+      console.log('[zoho-smtp] sent, messageId:', info.messageId);
+      return { ok: true, messageId: info.messageId };
     }
+
+    // ── Path B: REST API (no attachment, no SMTP password configured) ─────
+    const token     = await getZohoAccessToken();
+    const accountId = await getZohoAccountId();
 
     const payload = {
       fromAddress: fromEmail,
       ...(fromName ? { senderName: fromName } : {}),
-      toAddress:   toArr.join(','),
-      ccAddress:   ccArr.join(','),
+      toAddress:  toArr.join(','),
+      ccAddress:  ccArr.join(','),
       subject,
-      content:     body,
-      mailFormat:  contentType,
+      content:    body,
+      mailFormat: contentType,
     };
-    if (uploadId) payload.attachmentId = [uploadId];
 
     const resp = await fetch(`${ZOHO_API_BASE}/api/accounts/${accountId}/messages`, {
       method:  'POST',
-      headers: {
-        Authorization:  `Zoho-oauthtoken ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
     });
 
     const data = await resp.json();
