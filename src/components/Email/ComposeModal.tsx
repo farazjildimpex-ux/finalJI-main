@@ -449,34 +449,42 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
 
                 {/* Attachment */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Attachment</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">PDF Document</label>
                   {attachB64 ? (
-                    <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm">
-                      <Paperclip className="h-4 w-4 text-blue-500 shrink-0" />
-                      <span className="flex-1 truncate font-medium text-blue-800">{attachName}</span>
-                      <button type="button" onClick={clearAttach} className="text-blue-400 hover:text-red-500 transition">
-                        <X className="h-4 w-4" />
-                      </button>
+                    <div>
+                      <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm">
+                        <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <span className="block truncate font-medium text-blue-800">{attachName}</span>
+                          <span className="text-xs text-blue-500">Recipient gets a download button in the email</span>
+                        </div>
+                        <button type="button" onClick={clearAttach} className="text-blue-400 hover:text-red-500 transition shrink-0">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => fileRef.current?.click()}
-                        className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-slate-300 text-slate-600 hover:bg-slate-50 transition">
-                        <Paperclip className="h-4 w-4" /> Local file
-                      </button>
-                      <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} />
-
-                      {getPdfBase64 && (
-                        <button type="button" onClick={attachPdf} disabled={genPdf}
-                          className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 transition disabled:opacity-50">
-                          {genPdf ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><FileText className="h-4 w-4" /> Attach PDF</>}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => fileRef.current?.click()}
+                          className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-slate-300 text-slate-600 hover:bg-slate-50 transition">
+                          <Paperclip className="h-4 w-4" /> Local file
                         </button>
-                      )}
+                        <input ref={fileRef} type="file" className="hidden" onChange={handleFileChange} />
 
-                      <button type="button" onClick={openGmail}
-                        className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-violet-300 text-violet-700 hover:bg-violet-50 transition">
-                        <Inbox className="h-4 w-4" /> From Gmail
-                      </button>
+                        {getPdfBase64 && (
+                          <button type="button" onClick={attachPdf} disabled={genPdf}
+                            className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 transition disabled:opacity-50">
+                            {genPdf ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><FileText className="h-4 w-4" /> Include PDF</>}
+                          </button>
+                        )}
+
+                        <button type="button" onClick={openGmail}
+                          className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-violet-300 text-violet-700 hover:bg-violet-50 transition">
+                          <Inbox className="h-4 w-4" /> From Gmail
+                        </button>
+                      </div>
+                      <p className="text-xs text-slate-400">PDF is stored securely and the recipient receives a download button — expires in 72 h.</p>
                     </div>
                   )}
                 </div>

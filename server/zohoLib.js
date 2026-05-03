@@ -81,89 +81,64 @@ export async function getZohoAccountId() {
 }
 
 /**
- * Send an email via Zoho Mail API.
+ * Send an email via Zoho Mail REST API.
  *
- * @param {object} opts
+ * When `pdfDownloadUrl` is supplied the function injects a styled download
+ * button at the bottom of the HTML body so recipients can fetch the PDF
+ * directly — no attachment upload required.
+ *
+ * @param {object}        opts
  * @param {string|string[]} opts.to
  * @param {string|string[]} [opts.cc]
- * @param {string} opts.subject
- * @param {string} opts.body          HTML or plain text
- * @param {string} [opts.contentType] 'html' | 'plaintext'  (default 'html')
- * @param {Buffer|string} [opts.attachmentBuffer]
- * @param {string} [opts.attachmentName]
- * @param {string} [opts.attachmentMime]
+ * @param {string}        opts.subject
+ * @param {string}        opts.body          HTML content
+ * @param {string}        [opts.contentType] 'html' | 'plaintext' (default 'html')
+ * @param {string}        [opts.pdfDownloadUrl]  Public URL where recipient can download the PDF
+ * @param {string}        [opts.pdfFilename]     Display filename shown in the button label
  * @returns {Promise<{ok: boolean, messageId?: string, error?: string}>}
  */
-export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html', attachmentBuffer, attachmentName, attachmentMime }) {
+export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html', pdfDownloadUrl, pdfFilename }) {
   try {
-    const { fromEmail, fromName, smtpPassword } = getZohoCreds();
+    const { fromEmail, fromName } = getZohoCreds();
     if (!fromEmail) throw new Error('ZOHO_FROM_EMAIL is not set in Replit Secrets.');
 
     const toArr = Array.isArray(to) ? to : [to];
     const ccArr = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
 
-    const hasAttachment = !!(attachmentBuffer && attachmentName);
-
-    // ── Path A: SMTP via nodemailer (required for attachments) ────────────
-    if (hasAttachment || smtpPassword) {
-      if (!smtpPassword) {
-        throw new Error(
-          'ZOHO_SMTP_PASSWORD is not set. Please add your Zoho app password to Replit Secrets ' +
-          '(Zoho Mail → Settings → Security → App Passwords). ' +
-          'This secret is required to send emails with PDF attachments.'
-        );
-      }
-
-      // Derive SMTP host from ZOHO_API_BASE: mail.zoho.in → smtpout.zoho.in
-      const smtpHost = new URL(ZOHO_API_BASE).hostname.replace(/^mail\./, 'smtpout.');
-
-      const nodemailer = (await import('nodemailer')).default;
-      const transporter = nodemailer.createTransport({
-        host:   smtpHost,
-        port:   465,
-        secure: true,
-        auth:   { user: fromEmail, pass: smtpPassword },
-      });
-
-      const mailOpts = {
-        from:    fromName ? `"${fromName}" <${fromEmail}>` : fromEmail,
-        to:      toArr.join(', '),
-        subject,
-        [contentType === 'html' ? 'html' : 'text']: body,
-      };
-      if (ccArr.length) mailOpts.cc = ccArr.join(', ');
-
-      if (hasAttachment) {
-        const buf = attachmentBuffer instanceof Buffer
-          ? attachmentBuffer
-          : Buffer.from(attachmentBuffer, 'base64');
-        mailOpts.attachments = [{
-          filename:    attachmentName,
-          content:     buf,
-          contentType: attachmentMime || 'application/pdf',
-        }];
-      }
-
-      console.log('[zoho-smtp] sending via', smtpHost, '→', toArr.join(', '), hasAttachment ? `with attachment: ${attachmentName}` : '(no attachment)');
-      const info = await transporter.sendMail(mailOpts);
-      console.log('[zoho-smtp] sent, messageId:', info.messageId);
-      return { ok: true, messageId: info.messageId };
+    // Append download button when a PDF link is provided
+    let finalBody = body;
+    if (pdfDownloadUrl && contentType === 'html') {
+      const label = pdfFilename || 'Download PDF';
+      finalBody += `
+<div style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
+  <a href="${pdfDownloadUrl}"
+     style="display:inline-block;padding:12px 28px;background:#1d4ed8;color:#ffffff;
+            font-family:sans-serif;font-size:15px;font-weight:600;text-decoration:none;
+            border-radius:8px;letter-spacing:0.01em;">
+    ⬇ ${label}
+  </a>
+  <p style="margin-top:10px;font-family:sans-serif;font-size:12px;color:#6b7280;">
+    This link expires in 72 hours.
+  </p>
+</div>`;
     }
 
-    // ── Path B: REST API (no attachment, no SMTP password configured) ─────
     const token     = await getZohoAccessToken();
     const accountId = await getZohoAccountId();
 
+    // Zoho uses "Display Name <email>" format in fromAddress for sender name
+    const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+
     const payload = {
-      fromAddress: fromEmail,
-      ...(fromName ? { senderName: fromName } : {}),
-      toAddress:  toArr.join(','),
-      ccAddress:  ccArr.join(','),
+      fromAddress: from,
+      toAddress:   toArr.join(','),
+      ...(ccArr.length ? { ccAddress: ccArr.join(',') } : {}),
       subject,
-      content:    body,
+      content:    finalBody,
       mailFormat: contentType,
     };
 
+    console.log('[zoho-rest] sending →', toArr.join(', '), pdfDownloadUrl ? `with PDF link` : '(no PDF)');
     const resp = await fetch(`${ZOHO_API_BASE}/api/accounts/${accountId}/messages`, {
       method:  'POST',
       headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },

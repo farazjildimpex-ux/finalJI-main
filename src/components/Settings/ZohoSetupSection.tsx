@@ -15,7 +15,6 @@ interface ZohoStatus {
     ZOHO_REFRESH_TOKEN: boolean;
     ZOHO_FROM_EMAIL: boolean;
     ZOHO_FROM_NAME: boolean;
-    ZOHO_SMTP_PASSWORD: boolean;
   };
   authBase?: string;
 }
@@ -193,7 +192,7 @@ const ZohoSetupSection: React.FC = () => {
 
             {/* Step 4 */}
             <Step num={4} title="Save your credentials as Replit Secrets">
-              <p className="text-sm text-slate-600 mb-2">In Replit Secrets, add these entries (ZOHO_REFRESH_TOKEN comes from step 5, ZOHO_SMTP_PASSWORD from step 5b):</p>
+              <p className="text-sm text-slate-600 mb-2">In Replit Secrets, add these entries (ZOHO_REFRESH_TOKEN comes from step 5):</p>
               <div className="space-y-1.5">
                 {([
                   { key: 'ZOHO_CLIENT_ID',      hint: 'From step 3 — Zoho API Console' },
@@ -201,7 +200,6 @@ const ZohoSetupSection: React.FC = () => {
                   { key: 'ZOHO_FROM_EMAIL',      hint: 'The email address you send from' },
                   { key: 'ZOHO_FROM_NAME',       hint: 'Display name recipients see, e.g. JILD IMPEX' },
                   { key: 'ZOHO_REFRESH_TOKEN',   hint: 'Generated in step 5 below' },
-                  { key: 'ZOHO_SMTP_PASSWORD',   hint: 'App password — required to send PDF attachments' },
                 ] as const).map(s => {
                   const missing = status?.missing[s.key as keyof typeof status.missing];
                   return (
@@ -217,6 +215,12 @@ const ZohoSetupSection: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs text-blue-800">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  <strong>PDF attachments work on the free plan.</strong> When you include a PDF, it is stored securely on the server and the recipient gets a download button in the email. The link expires after 72 hours.
+                </span>
               </div>
             </Step>
 
@@ -247,32 +251,8 @@ const ZohoSetupSection: React.FC = () => {
               </button>
             </Step>
 
-            {/* Step 5b */}
-            <Step num={6} title="Generate a Zoho App Password (for PDF attachments)">
-              <div className="space-y-2 text-sm text-slate-600">
-                <p>
-                  Zoho's REST API does not support file uploads from servers, so PDF attachments are sent via SMTP.
-                  You need a Zoho <strong>App Password</strong> — a special password just for this integration
-                  (not your main Zoho login password).
-                </p>
-                <ol className="list-decimal list-inside space-y-1 text-xs text-slate-600 pl-1">
-                  <li>Log in to <strong>Zoho Mail</strong> and go to <strong>Settings → Security</strong></li>
-                  <li>Click <strong>"App Passwords"</strong> and then <strong>"Generate New Password"</strong></li>
-                  <li>Name it anything (e.g. "JILD IMPEX Portal") and click <strong>Generate</strong></li>
-                  <li>Copy the generated password and save it as <code className="bg-slate-100 px-1 rounded">ZOHO_SMTP_PASSWORD</code> in Replit Secrets</li>
-                </ol>
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-800">
-                  <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>
-                    The app password is shown <strong>only once</strong>. Copy it immediately and save it to Replit Secrets before closing the dialog.
-                  </span>
-                </div>
-              </div>
-              <ExtLink href={`${selectedDC.value.replace('accounts', 'mail')}/`}>Open Zoho Mail Settings</ExtLink>
-            </Step>
-
-            {/* Step 7 */}
-            <Step num={7} title="Restart the server and test">
+            {/* Step 6 */}
+            <Step num={6} title="Restart the server and test">
               <p className="text-sm text-slate-600">
                 After saving all secrets, restart the workflow (<strong>"Start application"</strong>) in Replit.
                 Come back here and click the <RefreshCw className="inline h-3.5 w-3.5" /> icon above —

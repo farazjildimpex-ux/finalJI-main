@@ -12,7 +12,8 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Email System** — Zoho Mail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal with rich-text editor (bold/italic/underline/font size/color), email log history
 - **Rich Text Email Editor** — `src/components/Email/RichTextEditor.tsx` — contenteditable toolbar with formatting, preview uses app system font
 - **CommunicateButton** — `src/components/Email/CommunicateButton.tsx` — WhatsApp/Email choice popup on Contract/Letter/Payment pages. WhatsApp flow generates a pre-filled message and opens wa.me. Email flow opens template picker → ComposeModal.
-- **PDF Attachment Without Save** — PDF generators (`contractPdfGenerator`, `samplePdfGenerator`, `debitNotePdfGenerator`) now accept a `download` boolean and return base64 string. Email compose can attach the document PDF without downloading locally.
+- **PDF Attachment Without Save** — PDF generators (`contractPdfGenerator`, `samplePdfGenerator`, `debitNotePdfGenerator`) now accept a `download` boolean and return base64 string. Email compose can include the document PDF via a download link.
+- **PDF Download Link Flow** — Zoho free plan blocks SMTP and REST API file upload. Solution: when an email includes a PDF, the server stores it in `server/.pdf-cache/` with a UUID token (72-hour TTL) via `server/pdfLinks.js`, and injects a styled "Download PDF" button into the email HTML body. Recipients click to download. Endpoint: `GET /api/pdf-download/:token`. No additional secrets or plan upgrades needed.
 - **Gmail Attachment Picker** — In ComposeModal, "From Gmail (recent)" button calls `/api/gmail/recent-attachments` to list PDF attachments from the last 3 days, then `/api/gmail/attachment` to fetch selected one's base64.
 - **Gmail Push** — Cloud Pub/Sub webhook at `/api/gmail/push` for true push delivery (no polling)
 - **Zoho Setup Guide** — `src/components/Settings/ZohoSetupSection.tsx` — step-by-step setup instructions with live connection status badge. Added to Settings page.
@@ -38,6 +39,7 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - `ZOHO_CLIENT_SECRET` — Zoho Client Secret
 - `ZOHO_REFRESH_TOKEN` — Zoho refresh token obtained via `/api/zoho/oauth/start` (one-time)
 - `ZOHO_FROM_EMAIL` — The Zoho Mail address to send from
+- `ZOHO_FROM_NAME` — Display name shown to recipients (e.g. "JILD IMPEX")
 - `ZOHO_ACCOUNT_ID` — (optional) Zoho numeric account ID; auto-fetched and cached if omitted
 - `ZOHO_AUTH_BASE` — (optional) Zoho auth DC base URL, defaults to `https://accounts.zoho.com`
 - `ZOHO_API_BASE` — (optional) Zoho API DC base URL, defaults to `https://mail.zoho.com`

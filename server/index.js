@@ -23,6 +23,7 @@ import {
   exchangeZohoCode,
   sendZohoEmail,
 } from './zohoLib.js';
+import { storePdf, retrievePdf } from './pdfLinks.js';
 
 initReplitSecretWatcher();
 
@@ -299,7 +300,7 @@ app.get('/api/google/oauth/callback', async (req, res) => {
 // ─── Zoho Mail OAuth ──────────────────────────────────────────────────────
 
 app.get('/api/zoho/status', (req, res) => {
-  const { clientId, clientSecret, refreshToken, fromEmail, fromName, smtpPassword } = getZohoCreds();
+  const { clientId, clientSecret, refreshToken, fromEmail, fromName } = getZohoCreds();
   res.json({
     configured: !!(clientId && clientSecret && refreshToken),
     hasFromEmail: !!fromEmail,
@@ -309,7 +310,6 @@ app.get('/api/zoho/status', (req, res) => {
       ZOHO_REFRESH_TOKEN: !refreshToken,
       ZOHO_FROM_EMAIL: !fromEmail,
       ZOHO_FROM_NAME: !fromName,
-      ZOHO_SMTP_PASSWORD: !smtpPassword,
     },
     authBase: process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com',
   });
@@ -374,6 +374,21 @@ app.get('/api/zoho/oauth/callback', async (req, res) => {
   }
 });
 
+// ─── PDF download endpoint ─────────────────────────────────────────────────
+app.get('/api/pdf-download/:token', (req, res) => {
+  const result = retrievePdf(req.params.token);
+  if (!result) {
+    return res.status(404).send('PDF not found or link has expired.');
+  }
+  res.set({
+    'Content-Type':        'application/pdf',
+    'Content-Disposition': `attachment; filename="${encodeURIComponent(result.filename)}"`,
+    'Content-Length':      result.buffer.length,
+    'Cache-Control':       'private, no-cache',
+  });
+  res.send(result.buffer);
+});
+
 // ─── Email send (via Zoho) ────────────────────────────────────────────────
 /**
  * POST /api/email/send
@@ -381,14 +396,16 @@ app.get('/api/zoho/oauth/callback', async (req, res) => {
  *   to: string[],
  *   cc?: string[],
  *   subject: string,
- *   body: string,          // HTML
- *   attachmentBase64?: string,
- *   attachmentName?: string,
- *   attachmentMime?: string,
+ *   body: string,               // HTML
+ *   attachmentBase64?: string,  // base64-encoded PDF
+ *   attachmentName?: string,    // e.g. "Contract_2026.pdf"
  * }
+ *
+ * When an attachment is provided, the PDF is stored temporarily and a
+ * download link is injected into the email body (Zoho free plan compatible).
  */
 app.post('/api/email/send', async (req, res) => {
-  const { to, cc, subject, body, attachmentBase64, attachmentName, attachmentMime } = req.body || {};
+  const { to, cc, subject, body, attachmentBase64, attachmentName } = req.body || {};
 
   if (!to?.length) return res.status(400).json({ error: 'to is required' });
   if (!subject)    return res.status(400).json({ error: 'subject is required' });
@@ -400,19 +417,34 @@ app.post('/api/email/send', async (req, res) => {
     });
   }
 
+  let pdfDownloadUrl = null;
+  let pdfFilename    = null;
+
+  if (attachmentBase64 && attachmentName) {
+    // Store PDF and build a public download URL valid for 72 hours
+    const pdfBuf = Buffer.from(attachmentBase64, 'base64');
+    const token  = storePdf(pdfBuf, attachmentName);
+    // Build public base: prefer REPLIT_DEV_DOMAIN, then HOST header
+    const host = process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : `${req.protocol}://${req.get('host')}`;
+    pdfDownloadUrl = `${host}/api/pdf-download/${token}`;
+    pdfFilename    = attachmentName;
+    console.log('[email/send] PDF stored, download URL:', pdfDownloadUrl);
+  }
+
   const result = await sendZohoEmail({
     to,
     cc,
     subject,
     body,
-    contentType: 'html',
-    attachmentBuffer: attachmentBase64 || null,
-    attachmentName:   attachmentName   || null,
-    attachmentMime:   attachmentMime   || null,
+    contentType:    'html',
+    pdfDownloadUrl,
+    pdfFilename,
   });
 
   if (!result.ok) return res.status(500).json({ error: result.error });
-  res.json({ ok: true, messageId: result.messageId });
+  res.json({ ok: true, messageId: result.messageId, pdfDownloadUrl });
 });
 
 // ─── SPA static + fallback (production only) ──────────────────────────────
