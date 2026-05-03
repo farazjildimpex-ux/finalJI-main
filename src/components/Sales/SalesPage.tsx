@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Zap, Plus, Search, Mail, Phone, Globe, MapPin,
-  RefreshCw, Filter, Clock, X, Upload
+  RefreshCw, Filter, Clock, X, Upload, Users
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import LeadDetailsModal from './LeadDetailsModal';
