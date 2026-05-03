@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Zap, Plus, Search, Mail, Phone, Globe, MapPin,
-  RefreshCw, Filter, ChevronDown, Calendar, Users,
-  TrendingUp, Award, Clock, X, Upload
+  RefreshCw, Filter, Clock, X, Upload
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import LeadDetailsModal from './LeadDetailsModal';
@@ -84,13 +83,6 @@ const SalesPage: React.FC = () => {
     setLoading(false);
   };
 
-  const stats = {
-    total: leads.length,
-    newLeads: leads.filter(l => l.status === 'new').length,
-    followUpDue: leads.filter(l => isFollowUpDue(l.next_follow_up)).length,
-    wonRate: leads.length ? Math.round((leads.filter(l => l.status === 'won').length / leads.length) * 100) : 0,
-  };
-
   const handleNewLead = () => { setSelectedLead(null); setIsLeadModalOpen(true); };
   const handleEditLead = (lead: Lead) => { setSelectedLead(lead); setIsLeadModalOpen(true); };
   const handleEmailLead = (lead: Lead, e: React.MouseEvent) => { e.stopPropagation(); setSelectedLead(lead); setIsEmailModalOpen(true); };
@@ -120,13 +112,6 @@ const SalesPage: React.FC = () => {
                 Import LWG
               </button>
               <button
-                onClick={() => setIsTemplatesModalOpen(true)}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                <Mail className="h-4 w-4" />
-                Templates
-              </button>
-              <button
                 onClick={handleNewLead}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -140,42 +125,6 @@ const SalesPage: React.FC = () => {
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-5 space-y-5">
-        {/* ── Stats ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total</p>
-              <Users className="h-4 w-4 text-blue-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            <p className="text-xs text-gray-400 mt-0.5">All leads</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">New</p>
-              <TrendingUp className="h-4 w-4 text-emerald-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.newLeads}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Untouched</p>
-          </div>
-          <div className={`rounded-xl border p-4 ${stats.followUpDue > 0 ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-200'}`}>
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Follow-up</p>
-              <Clock className={`h-4 w-4 ${stats.followUpDue > 0 ? 'text-orange-500' : 'text-gray-400'}`} />
-            </div>
-            <p className={`text-2xl font-bold ${stats.followUpDue > 0 ? 'text-orange-600' : 'text-gray-900'}`}>{stats.followUpDue}</p>
-            <p className="text-xs text-gray-400 mt-0.5">Due today</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Won rate</p>
-              <Award className="h-4 w-4 text-purple-500" />
-            </div>
-            <p className="text-2xl font-bold text-gray-900">{stats.wonRate}%</p>
-            <p className="text-xs text-gray-400 mt-0.5">Conversion</p>
-          </div>
-        </div>
-
         {/* ── Mobile quick actions ── */}
         <div className="flex sm:hidden gap-2">
           <button
@@ -184,13 +133,6 @@ const SalesPage: React.FC = () => {
           >
             <Upload className="h-4 w-4" />
             Import LWG
-          </button>
-          <button
-            onClick={() => setIsTemplatesModalOpen(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg"
-          >
-            <Mail className="h-4 w-4" />
-            Templates
           </button>
         </div>
 

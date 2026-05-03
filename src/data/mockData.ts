@@ -38,12 +38,6 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
-    name: 'Emails',
-    path: '/app/email-templates',
-    icon: 'mail',
-    mobile: false,
-  },
-  {
     name: 'Data',
     path: '/app/settings',
     icon: 'database',

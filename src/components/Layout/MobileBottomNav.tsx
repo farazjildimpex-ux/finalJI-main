@@ -2,21 +2,20 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Bookmark, CreditCard, Database, Mail, Zap } from 'lucide-react';
+import { Home, Users, FileText, Bookmark, CreditCard, Database, Zap } from 'lucide-react';
 
 const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
   const navItems = [
-    { name: 'Home',      path: '/app/home',           icon: Home },
-    { name: 'Contacts',  path: '/app/contacts',        icon: Users },
-    { name: 'Lead IQ',   path: '/app/sales',           icon: Zap },
-    { name: 'Contracts', path: '/app/contracts',       icon: FileText },
-    { name: 'Letters',   path: '/app/samples',         icon: Bookmark },
-    { name: 'Payments',  path: '/app/debit-notes',     icon: CreditCard },
-    { name: 'Emails',    path: '/app/email-templates', icon: Mail },
-    { name: 'Settings',  path: '/app/settings',        icon: Database },
+    { name: 'Home',      path: '/app/home',       icon: Home },
+    { name: 'Contacts',  path: '/app/contacts',    icon: Users },
+    { name: 'Lead IQ',   path: '/app/sales',       icon: Zap },
+    { name: 'Contracts', path: '/app/contracts',   icon: FileText },
+    { name: 'Letters',   path: '/app/samples',     icon: Bookmark },
+    { name: 'Payments',  path: '/app/debit-notes', icon: CreditCard },
+    { name: 'Settings',  path: '/app/settings',    icon: Database },
   ];
 
   const activeIndex = navItems.findIndex((i) => location.pathname.startsWith(i.path));

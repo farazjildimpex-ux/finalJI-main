@@ -110,29 +110,46 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
       return;
     }
     setImporting(true);
-    let success = 0, skipped = 0, errors = 0;
-    for (const s of toImport) {
-      try {
-        const notes: string[] = [];
-        if (s.certification_type) notes.push(`LWG Rating: ${s.certification_type}`);
-        notes.push('Imported from LWG certified-suppliers directory');
-        const { error } = await supabase.from('leads').insert([{
-          company_name: s.company_name,
-          contact_person: s.company_name,
-          email: '',
-          country: s.country || '',
-          website: s.website || '',
-          source: 'leatherworkinggroup' as const,
-          status: 'new' as const,
-          industry_focus: 'Leather',
-          notes: notes.join('. '),
-          address: [],
-          tags: ['lwg', 'certified-supplier'],
-        }]);
-        if (error) { if (error.code === '23505') skipped++; else errors++; }
-        else success++;
-      } catch { errors++; }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      dialogService.alert({ title: 'Not signed in', message: 'Please sign in to import leads.', tone: 'danger' });
+      setImporting(false);
+      return;
     }
+
+    const rows = toImport.map(s => {
+      const noteParts: string[] = [];
+      if (s.certification_type) noteParts.push(`LWG Rating: ${s.certification_type}`);
+      noteParts.push('Imported from LWG certified-suppliers directory');
+      return {
+        user_id: user.id,
+        company_name: s.company_name,
+        contact_person: s.company_name,
+        email: '',
+        country: s.country || '',
+        website: s.website || '',
+        source: 'leatherworkinggroup' as const,
+        status: 'new' as const,
+        industry_focus: 'Leather',
+        notes: noteParts.join('. '),
+        tags: ['lwg', 'certified-supplier'],
+      };
+    });
+
+    const CHUNK = 50;
+    let success = 0, skipped = 0, errors = 0;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const chunk = rows.slice(i, i + CHUNK);
+      const { error, data } = await supabase.from('leads').insert(chunk).select('id');
+      if (error) {
+        if (error.code === '23505') skipped += chunk.length;
+        else errors += chunk.length;
+      } else {
+        success += (data?.length ?? chunk.length);
+      }
+    }
+
     setImportResult({ success, skipped, errors });
     setStep('done');
     if (success > 0) onLeadsImported();
