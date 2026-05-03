@@ -37,9 +37,9 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
   };
 
   return (
-    <div className="flex items-center gap-2">
-      {/* Search input — shrinks to give filters room */}
-      <div className="relative min-w-0 flex-1">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      {/* Search input — full width on mobile, flex-1 on sm+ */}
+      <div className="relative w-full sm:flex-1 sm:min-w-0">
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
           <Search className={`h-3.5 w-3.5 transition-colors duration-200 ${isFocused ? 'text-blue-600' : 'text-slate-400'}`} />
         </div>
@@ -52,7 +52,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
           className={`block w-full py-2 pl-9 pr-8 bg-white border rounded-xl text-sm text-slate-900
             transition-all duration-200 focus:outline-none
             ${isFocused ? 'border-blue-500 shadow-md shadow-blue-500/10' : 'border-slate-200 shadow-sm hover:border-slate-300'}`}
-          placeholder="Search..."
+          placeholder="Search orders, suppliers, articles…"
           aria-label="Search"
         />
         {searchTerm && (
@@ -68,20 +68,20 @@ const SearchBar: React.FC<SearchBarProps> = ({ searchTerm, setSearchTerm, active
         )}
       </div>
 
-      {/* Filter pills — inline, scrollable on very small screens */}
-      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+      {/* Filter pills — full-width scrollable row on mobile, inline on sm+ */}
+      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:shrink-0">
         {quickFilters.map((filter) => {
           const isActive = activeFilter === filter.id;
           return (
             <button
               key={filter.id}
               onClick={() => handleFilterClick(filter.id)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-2 border rounded-xl text-xs font-semibold
+              className={`inline-flex items-center gap-1.5 px-3 py-2 border rounded-xl text-xs font-semibold
                 transition-all duration-200 shrink-0 active:scale-95
                 ${isActive ? filter.activeClass : filter.inactiveClass}`}
             >
               <filter.icon className={`h-3 w-3 ${isActive ? 'text-white' : filter.iconColor}`} />
-              <span className="hidden sm:inline">{filter.label}</span>
+              <span>{filter.label}</span>
             </button>
           );
         })}
