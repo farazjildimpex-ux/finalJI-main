@@ -3,7 +3,10 @@
 // IMPORTANT: pdf-parse is intentionally NOT imported at module top — it's
 // loaded lazily inside fetchGmailEmailsViaAPI so OAuth endpoints stay fast.
 
-export const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+export const GMAIL_SCOPE = [
+  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.send',
+].join(' ');
 
 export function getOAuthCreds() {
   return {
@@ -242,6 +245,75 @@ export async function fetchGmailEmailsViaAPI() {
     }
   }
   return { emails };
+}
+
+// ─── Send email via Gmail API (supports real PDF attachments) ─────────────
+/**
+ * Builds an RFC 2822 MIME email and sends it via the Gmail API.
+ * @param {{ to: string[], cc?: string[], subject: string, body: string,
+ *           attachmentBase64?: string, attachmentName?: string }} opts
+ */
+export async function sendGmailEmail({ to, cc, subject, body, attachmentBase64, attachmentName }) {
+  const token = await getAccessToken();
+
+  const toStr  = Array.isArray(to) ? to.join(', ') : String(to);
+  const ccStr  = Array.isArray(cc) ? cc.filter(Boolean).join(', ') : (cc || '');
+  const subB64 = Buffer.from(subject || '', 'utf8').toString('base64');
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+  const headerLines = [
+    `To: ${toStr}`,
+    ccStr ? `Cc: ${ccStr}` : null,
+    `Subject: =?UTF-8?B?${subB64}?=`,
+    'MIME-Version: 1.0',
+    attachmentBase64
+      ? `Content-Type: multipart/mixed; boundary="${boundary}"`
+      : 'Content-Type: text/html; charset="UTF-8"\r\nContent-Transfer-Encoding: base64',
+  ].filter(Boolean).join('\r\n');
+
+  let mime = headerLines + '\r\n\r\n';
+
+  if (attachmentBase64 && attachmentName) {
+    // HTML body part
+    mime += `--${boundary}\r\n`;
+    mime += 'Content-Type: text/html; charset="UTF-8"\r\n';
+    mime += 'Content-Transfer-Encoding: base64\r\n\r\n';
+    mime += Buffer.from(body || '', 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+    mime += '\r\n';
+    // PDF attachment part
+    const safeName = attachmentName.replace(/["\r\n]/g, '_');
+    mime += `--${boundary}\r\n`;
+    mime += `Content-Type: application/pdf; name="${safeName}"\r\n`;
+    mime += 'Content-Transfer-Encoding: base64\r\n';
+    mime += `Content-Disposition: attachment; filename="${safeName}"\r\n\r\n`;
+    mime += attachmentBase64.replace(/(.{76})/g, '$1\r\n');
+    mime += '\r\n';
+    mime += `--${boundary}--`;
+  } else {
+    // Plain HTML-only email
+    mime += Buffer.from(body || '', 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+  }
+
+  const raw = Buffer.from(mime).toString('base64url');
+
+  const resp = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method:  'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ raw }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    const hasScopeIssue = text.includes('insufficientPermissions') || text.includes('PERMISSION_DENIED') || resp.status === 403;
+    const msg = hasScopeIssue
+      ? 'Gmail send permission missing. Go to Settings → Email and click "Re-authorize Google" to add send permission.'
+      : `Gmail send failed (${resp.status}): ${text}`;
+    return { ok: false, error: msg };
+  }
+
+  const data = await resp.json();
+  console.log('[gmail-send] sent OK, messageId:', data.id);
+  return { ok: true, messageId: data.id };
 }
 
 // ─── HTML for the OAuth callback page ─────────────────────────────────────

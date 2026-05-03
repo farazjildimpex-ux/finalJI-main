@@ -12,6 +12,7 @@ import {
   gmailFetch,
   clearAccessTokenCache,
   fetchGmailEmailsViaAPI,
+  sendGmailEmail,
   renderSuccessPage,
   renderErrorPage,
 } from './gmailLib.js';
@@ -23,7 +24,7 @@ import {
   exchangeZohoCode,
   sendZohoEmail,
 } from './zohoLib.js';
-import { storePdf, retrievePdf } from './pdfLinks.js';
+import { retrievePdf } from './pdfLinks.js';
 
 initReplitSecretWatcher();
 
@@ -389,7 +390,26 @@ app.get('/api/pdf-download/:token', (req, res) => {
   res.send(result.buffer);
 });
 
-// ─── Email send (via Zoho) ────────────────────────────────────────────────
+// ─── Gmail send status ────────────────────────────────────────────────────
+app.get('/api/gmail/send-status', async (req, res) => {
+  const { clientId, clientSecret, refreshToken } = getOAuthCreds();
+  if (!clientId || !clientSecret || !refreshToken) {
+    return res.json({ configured: false, hasSendScope: false, email: null });
+  }
+  try {
+    const token = await getAccessToken();
+    // tokeninfo reveals which scopes this access token has
+    const info = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
+    const data = await info.json();
+    const scopes = (data.scope || '').split(' ');
+    const hasSendScope = scopes.includes('https://www.googleapis.com/auth/gmail.send');
+    res.json({ configured: true, hasSendScope, email: data.email || null });
+  } catch (err) {
+    res.json({ configured: false, hasSendScope: false, email: null, error: err.message });
+  }
+});
+
+// ─── Email send (via Gmail API — real PDF attachments) ────────────────────
 /**
  * POST /api/email/send
  * Body: {
@@ -397,12 +417,9 @@ app.get('/api/pdf-download/:token', (req, res) => {
  *   cc?: string[],
  *   subject: string,
  *   body: string,               // HTML
- *   attachmentBase64?: string,  // base64-encoded PDF
+ *   attachmentBase64?: string,  // base64-encoded PDF (real attachment)
  *   attachmentName?: string,    // e.g. "Contract_2026.pdf"
  * }
- *
- * When an attachment is provided, the PDF is stored temporarily and a
- * download link is injected into the email body (Zoho free plan compatible).
  */
 app.post('/api/email/send', async (req, res) => {
   const { to, cc, subject, body, attachmentBase64, attachmentName } = req.body || {};
@@ -411,40 +428,30 @@ app.post('/api/email/send', async (req, res) => {
   if (!subject)    return res.status(400).json({ error: 'subject is required' });
   if (!body)       return res.status(400).json({ error: 'body is required' });
 
-  if (!zohoConfigured()) {
+  const { clientId, clientSecret, refreshToken } = getOAuthCreds();
+  if (!clientId || !clientSecret || !refreshToken) {
     return res.status(503).json({
-      error: 'Zoho Mail is not connected. Complete the Zoho OAuth setup in Settings first.',
+      error: 'Gmail is not connected. Complete the Google OAuth setup in Settings → Email.',
     });
   }
 
-  let pdfDownloadUrl = null;
-  let pdfFilename    = null;
-
   if (attachmentBase64 && attachmentName) {
-    // Store PDF and build a public download URL valid for 72 hours
-    const pdfBuf = Buffer.from(attachmentBase64, 'base64');
-    const token  = storePdf(pdfBuf, attachmentName);
-    // Build public base: prefer REPLIT_DEV_DOMAIN, then HOST header
-    const host = process.env.REPLIT_DEV_DOMAIN
-      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-      : `${req.protocol}://${req.get('host')}`;
-    pdfDownloadUrl = `${host}/api/pdf-download/${token}`;
-    pdfFilename    = attachmentName;
-    console.log('[email/send] PDF stored, download URL:', pdfDownloadUrl);
+    console.log(`[email/send] Sending via Gmail with attachment: ${attachmentName}`);
+  } else {
+    console.log(`[email/send] Sending via Gmail (no attachment)`);
   }
 
-  const result = await sendZohoEmail({
+  const result = await sendGmailEmail({
     to,
-    cc,
+    cc: cc?.length ? cc : undefined,
     subject,
     body,
-    contentType:    'html',
-    pdfDownloadUrl,
-    pdfFilename,
+    attachmentBase64: attachmentBase64 || undefined,
+    attachmentName:   attachmentName   || undefined,
   });
 
   if (!result.ok) return res.status(500).json({ error: result.error });
-  res.json({ ok: true, messageId: result.messageId, pdfDownloadUrl });
+  res.json({ ok: true, messageId: result.messageId });
 });
 
 // ─── SPA static + fallback (production only) ──────────────────────────────
