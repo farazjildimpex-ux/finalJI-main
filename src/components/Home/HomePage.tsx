@@ -208,9 +208,9 @@ const HomePage: React.FC = () => {
 
       {/* ── Welcome header ── */}
       <div className="pt-6 pb-5">
-        <p className="text-xs font-semibold text-blue-500 uppercase tracking-widest mb-1">JILD IMPEX Management</p>
-        <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-          {getGreeting()}{firstName ? `, ${firstName}` : ''} 👋
+        <p className="text-2xl font-bold text-blue-600 leading-tight">JILD IMPEX Management</p>
+        <h1 className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">
+          {getGreeting()} 👋
         </h1>
         <p className="text-sm text-gray-400 mt-0.5">{formatToday()}</p>
       </div>
