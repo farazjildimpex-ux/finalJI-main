@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Users, FileText, Bookmark, CreditCard, Database, Mail } from 'lucide-react';
+import { Home, Users, FileText, Bookmark, CreditCard, Database, Mail, Zap } from 'lucide-react';
 
 const MobileBottomNav: React.FC = () => {
   const location = useLocation();
@@ -11,6 +11,7 @@ const MobileBottomNav: React.FC = () => {
   const navItems = [
     { name: 'Home',      path: '/app/home',           icon: Home },
     { name: 'Contacts',  path: '/app/contacts',        icon: Users },
+    { name: 'Lead IQ',   path: '/app/sales',           icon: Zap },
     { name: 'Contracts', path: '/app/contracts',       icon: FileText },
     { name: 'Letters',   path: '/app/samples',         icon: Bookmark },
     { name: 'Payments',  path: '/app/debit-notes',     icon: CreditCard },

@@ -14,6 +14,12 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
+    name: 'Lead IQ',
+    path: '/app/sales',
+    icon: 'zap',
+    mobile: true,
+  },
+  {
     name: 'Contracts',
     path: '/app/contracts',
     icon: 'fileText',
