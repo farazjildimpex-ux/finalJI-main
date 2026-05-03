@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus } from 'lucide-react';
+import { X, Plus, Trash2, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { dialogService } from '../../lib/dialogService';
 
@@ -8,6 +8,17 @@ interface AddContactModalProps {
   onClose: () => void;
   onContactAdded: () => void;
 }
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div>
+    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5 ml-1">
+      {label}
+    </label>
+    {children}
+  </div>
+);
+
+const inputCls = 'w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder-slate-400';
 
 const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onContactAdded }) => {
   const [name, setName] = useState('');
@@ -19,278 +30,195 @@ const AddContactModal: React.FC<AddContactModalProps> = ({ isOpen, onClose, onCo
   const [contactPerson, setContactPerson] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const resetForm = () => {
+    setName(''); setAddresses(['']); setEmails(['']); setEmailCc(['']);
+    setPhones(['']); setMark(''); setContactPerson('');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!name.trim()) return;
     setLoading(true);
-
     try {
-      const { error } = await supabase
-        .from('contact_book')
-        .insert([
-          {
-            name,
-            address:        addresses.filter(addr  => addr.trim()  !== ''),
-            email:          emails.filter(email => email.trim() !== ''),
-            email_cc:       emailCc.filter(e    => e.trim()     !== ''),
-            contact_no:     phones.filter(phone => phone.trim()  !== ''),
-            mark:           mark.trim() !== '' ? mark : null,
-            contact_person: contactPerson.trim() !== '' ? contactPerson.trim() : null,
-          },
-        ]);
-
+      const { error } = await supabase.from('contact_book').insert([{
+        name:           name.trim(),
+        address:        addresses.filter(a => a.trim()),
+        email:          emails.filter(e => e.trim()),
+        email_cc:       emailCc.filter(e => e.trim()),
+        contact_no:     phones.filter(p => p.trim()),
+        mark:           mark.trim() || null,
+        contact_person: contactPerson.trim() || null,
+      }]);
       if (error) throw error;
-
       onContactAdded();
       onClose();
       resetForm();
     } catch (error: any) {
       console.error('Error adding contact:', error);
-      dialogService.alert({
-        title: 'Failed to add contact',
-        message: error?.message || 'Please try again.',
-        tone: 'danger',
-      });
+      dialogService.alert({ title: 'Failed to add contact', message: error?.message || 'Please try again.', tone: 'danger' });
     } finally {
       setLoading(false);
     }
   };
 
-  const resetForm = () => {
-    setName('');
-    setAddresses(['']);
-    setEmails(['']);
-    setEmailCc(['']);
-    setPhones(['']);
-    setMark('');
-    setContactPerson('');
+  /* ── Array field helpers ── */
+  const setAt = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[], i: number, val: string) => {
+    const next = [...arr]; next[i] = val; setter(next);
+  };
+  const addRow = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[]) => setter([...arr, '']);
+  const removeRow = (setter: React.Dispatch<React.SetStateAction<string[]>>, arr: string[], i: number) => {
+    if (arr.length > 1) setter(arr.filter((_, idx) => idx !== i));
   };
 
-  const handleArrayFieldChange = (
-    index: number,
-    value: string,
-    setter: React.Dispatch<React.SetStateAction<string[]>>,
-    array: string[]
-  ) => {
-    const newArray = [...array];
-    newArray[index] = value;
-    setter(newArray);
-  };
-
-  const addField = (setter: React.Dispatch<React.SetStateAction<string[]>>, array: string[]) => {
-    setter([...array, '']);
-  };
-
-  const removeField = (
-    index: number,
-    setter: React.Dispatch<React.SetStateAction<string[]>>,
-    array: string[]
-  ) => {
-    if (array.length > 1) {
-      const newArray = array.filter((_, i) => i !== index);
-      setter(newArray);
-    }
-  };
+  const ArraySection: React.FC<{
+    label: string;
+    addLabel: string;
+    type?: string;
+    placeholder?: string;
+    arr: string[];
+    setter: React.Dispatch<React.SetStateAction<string[]>>;
+  }> = ({ label, addLabel, type = 'text', placeholder, arr, setter }) => (
+    <Field label={label}>
+      <div className="space-y-2">
+        {arr.map((val, i) => (
+          <div key={i} className="flex gap-2">
+            <input
+              type={type}
+              value={val}
+              placeholder={placeholder}
+              onChange={(e) => setAt(setter, arr, i, e.target.value)}
+              className={inputCls}
+            />
+            <button
+              type="button"
+              onClick={() => removeRow(setter, arr, i)}
+              disabled={arr.length === 1}
+              className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors disabled:opacity-30"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => addRow(setter, arr)}
+          className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline"
+        >
+          <Plus className="h-3.5 w-3.5" /> {addLabel}
+        </button>
+      </div>
+    </Field>
+  );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">Add New Contact</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
-              <X className="h-6 w-6" />
-            </button>
-          </div>
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
 
-          <form onSubmit={handleSubmit}>
-            {/* Name */}
-            <div className="mb-6">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                Name *
-              </label>
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-50 shrink-0">
+          <div>
+            <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-0.5">Contact Book</p>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Add New Contact</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-2xl transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-6 space-y-6 custom-scrollbar">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Company / Name *">
               <input
                 type="text"
-                id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="e.g. Acme Leather Co."
+                className={inputCls}
               />
-            </div>
-
-            {/* Contact Person */}
-            <div className="mb-6">
-              <label htmlFor="contactPerson" className="block text-sm font-medium text-gray-700 mb-1">
-                Contact Person
-              </label>
+            </Field>
+            <Field label="Contact Person">
               <input
                 type="text"
-                id="contactPerson"
                 value={contactPerson}
                 onChange={(e) => setContactPerson(e.target.value)}
                 placeholder="e.g. John Smith"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className={inputCls}
               />
-            </div>
+            </Field>
+          </div>
 
-            {/* Addresses */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Addresses</label>
-              {addresses.map((address, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => handleArrayFieldChange(index, e.target.value, setAddresses, addresses)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeField(index, setAddresses, addresses)}
-                    className="text-gray-400 hover:text-red-600"
-                  >
-                    <Minus className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addField(setAddresses, addresses)}
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Address
-              </button>
-            </div>
+          <Field label="Mark / Code">
+            <input
+              type="text"
+              value={mark}
+              onChange={(e) => setMark(e.target.value)}
+              placeholder="e.g. JI, ACME"
+              className={`${inputCls} max-w-xs`}
+            />
+          </Field>
 
-            {/* Emails */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Email Addresses</label>
-              {emails.map((email, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => handleArrayFieldChange(index, e.target.value, setEmails, emails)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeField(index, setEmails, emails)}
-                    className="text-gray-400 hover:text-red-600"
-                  >
-                    <Minus className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addField(setEmails, emails)}
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Email
-              </button>
-            </div>
+          <ArraySection
+            label="Email Addresses"
+            addLabel="Add email"
+            type="email"
+            placeholder="contact@example.com"
+            arr={emails}
+            setter={setEmails}
+          />
 
-            {/* CC Emails */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">CC Email Addresses</label>
-              {emailCc.map((email, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => handleArrayFieldChange(index, e.target.value, setEmailCc, emailCc)}
-                    placeholder="cc@example.com"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeField(index, setEmailCc, emailCc)}
-                    className="text-gray-400 hover:text-red-600"
-                  >
-                    <Minus className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addField(setEmailCc, emailCc)}
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add CC Email
-              </button>
-            </div>
+          <ArraySection
+            label="CC Emails (auto-added in compose)"
+            addLabel="Add CC email"
+            type="email"
+            placeholder="cc@example.com"
+            arr={emailCc}
+            setter={setEmailCc}
+          />
 
-            {/* Phone Numbers */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Phone Numbers</label>
-              {phones.map((phone, index) => (
-                <div key={index} className="flex gap-2 mb-2">
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => handleArrayFieldChange(index, e.target.value, setPhones, phones)}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeField(index, setPhones, phones)}
-                    className="text-gray-400 hover:text-red-600"
-                  >
-                    <Minus className="h-5 w-5" />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => addField(setPhones, phones)}
-                className="text-sm text-blue-600 hover:text-blue-700 flex items-center"
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Phone
-              </button>
-            </div>
+          <ArraySection
+            label="Phone Numbers"
+            addLabel="Add phone"
+            type="tel"
+            placeholder="+91 98765 43210"
+            arr={phones}
+            setter={setPhones}
+          />
 
-            {/* Mark */}
-            <div className="mb-6">
-              <label htmlFor="mark" className="block text-sm font-medium text-gray-700 mb-1">
-                Mark
-              </label>
-              <input
-                type="text"
-                id="mark"
-                value={mark}
-                onChange={(e) => setMark(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
+          <ArraySection
+            label="Addresses"
+            addLabel="Add address"
+            placeholder="123 Street, City, Country"
+            arr={addresses}
+            setter={setAddresses}
+          />
+        </form>
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Adding...' : 'Add Contact'}
-              </button>
-            </div>
-          </form>
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-3 px-8 py-5 border-t border-slate-50 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-2xl transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form=""
+            disabled={loading || !name.trim()}
+            onClick={handleSubmit}
+            className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-2xl transition-colors disabled:opacity-50 shadow-sm"
+          >
+            {loading ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : 'Add Contact'}
+          </button>
         </div>
       </div>
     </div>
