@@ -779,8 +779,9 @@ const EmailSyncSection: React.FC = () => {
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">②</span>
                         <span>
-                          Sign in with the Gmail account you want to read invoices from.
-                          You'll see a warning <em>"Google hasn't verified this app"</em> — that's normal because you just made the app yourself.
+                          Sign in with <strong>office@jildimpex.com</strong> (your Google Workspace account).
+                          If a different account is already selected, click <em>"Use a different account"</em>.
+                          You'll see a warning <em>"Google hasn't verified this app"</em> — that's expected since you created the app yourself.
                           Click <strong>Advanced</strong> → <strong>Go to JILD Sync (unsafe)</strong>.
                         </span>
                       </li>
