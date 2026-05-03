@@ -96,9 +96,9 @@
     animation: fadeIn 0.3s ease-out;
   }
 
-  /* Contact page mobile zoom +10% */
+  /* Mobile zoom +10% throughout the app */
   @media (max-width: 767px) {
-    .contact-mobile-zoom {
+    html {
       zoom: 1.1;
     }
   }
