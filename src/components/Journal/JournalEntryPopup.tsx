@@ -31,7 +31,14 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
   const activeEntryRef = useRef<HTMLDivElement>(null);
   const lastTapRef = useRef<number>(0);
 
-  const rootId = useMemo(() => entry.parent_id || entry.id, [entry]);
+  // Always use the freshest version of the entry from allEntries so that
+  // parent_id changes (e.g. after another session links this entry) are reflected.
+  const currentEntry = useMemo(
+    () => allEntries.find((e) => e.id === entry.id) || entry,
+    [allEntries, entry]
+  );
+
+  const rootId = useMemo(() => currentEntry.parent_id || currentEntry.id, [currentEntry]);
 
   const conversationThread = useMemo(() => {
     return allEntries
@@ -69,7 +76,11 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
   const handleLinkEntry = async (targetEntryId: string) => {
     try {
       setIsProcessing(true);
+      // Move the target entry into this thread
       await supabase.from('journal_entries').update({ parent_id: rootId }).eq('id', targetEntryId);
+      // Also pull in any children the target entry already had — prevents them
+      // becoming orphaned when their former root joins a different thread.
+      await supabase.from('journal_entries').update({ parent_id: rootId }).eq('parent_id', targetEntryId);
       setShowLinkPicker(false);
       setLinkSearchTerm('');
       onUpdate();
