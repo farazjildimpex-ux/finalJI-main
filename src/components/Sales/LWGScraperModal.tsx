@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   X, Download, Search, CheckCircle, Loader, Globe,
-  MapPin, ExternalLink, Filter, Star, Info
+  MapPin, ExternalLink, Star, Info, AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { dialogService } from '../../lib/dialogService';
@@ -45,65 +45,43 @@ const RATING_STYLE: Record<string, string> = {
 };
 
 const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLeadsImported }) => {
-  const [step, setStep]         = useState<'fetch' | 'preview' | 'done'>('fetch');
-  const [scraping, setScraping] = useState(false);
+  const [step, setStep]           = useState<'fetch' | 'preview' | 'done'>('fetch');
+  const [scraping, setScraping]   = useState(false);
   const [importing, setImporting] = useState(false);
   const [suppliers, setSuppliers] = useState<LWGSupplier[]>([]);
-  const [maxPages, setMaxPages]   = useState('3');
 
-  // Filters set BEFORE fetching — used to pre-select matching rows after fetch
-  const [filterCountry, setFilterCountry] = useState('');
-  const [filterRating, setFilterRating]   = useState('');
-
-  // Preview search (visual only, doesn't affect selected state)
-  const [searchPreview, setSearchPreview] = useState('');
-
-  const [lwgTotal, setLwgTotal] = useState(0);
-  const [importResult, setImportResult] = useState<{ success: number; skipped: number; errors: number } | null>(null);
+  const [selectedCountry, setSelectedCountry] = useState('');
+  const [selectedRating, setSelectedRating]   = useState('');
+  const [searchPreview, setSearchPreview]     = useState('');
+  const [fetchedTotal, setFetchedTotal]       = useState(0);
+  const [importResult, setImportResult]       = useState<{ success: number; skipped: number; errors: number } | null>(null);
 
   const handleScrape = async () => {
+    if (!selectedCountry) {
+      dialogService.alert({ title: 'Select a country', message: 'Please choose a country to fetch all LWG-certified suppliers for.', tone: 'warning' });
+      return;
+    }
     setScraping(true);
     setSuppliers([]);
     try {
-      const params = new URLSearchParams({ pages: maxPages });
+      const params = new URLSearchParams({ country: selectedCountry });
+      if (selectedRating) params.set('rating', selectedRating);
+
       const res = await fetch(`/api/scrape/lwg?${params}`);
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'Scrape failed');
       if (!data.suppliers?.length) {
-        dialogService.alert({ title: 'No results', message: 'No supplier records found on LWG. Please try again.', tone: 'warning' });
+        dialogService.alert({ title: 'No results', message: `No suppliers found for ${selectedCountry}${selectedRating ? ` (${selectedRating})` : ''}. Try a different country or rating.`, tone: 'warning' });
         setScraping(false);
         return;
       }
-      setLwgTotal(data.lwg_total || data.suppliers.length);
 
-      // Apply country + rating filters to determine pre-selection.
-      // If a filter is set, only matching suppliers are pre-selected (selected=true).
-      // If no filter is set, all are pre-selected.
-      const mapped = (data.suppliers as LWGSupplier[]).map(s => {
-        const countryMatch = !filterCountry ||
-          (s.country || '').toLowerCase() === filterCountry.toLowerCase();
-        const ratingMatch = !filterRating ||
-          (s.certification_type || '').toLowerCase() === filterRating.toLowerCase();
-        return {
-          ...s,
-          selected: countryMatch && ratingMatch,
-        };
-      });
+      setFetchedTotal(data.lwg_total || data.suppliers.length);
 
-      // If filters produced zero selected, warn but still show all
-      const selCount = mapped.filter(s => s.selected).length;
-      if (selCount === 0 && (filterCountry || filterRating)) {
-        dialogService.alert({
-          title: 'No matches for your filter',
-          message: `None of the fetched suppliers matched "${filterCountry || ''}${filterCountry && filterRating ? ' / ' : ''}${filterRating || ''}". Showing all — select manually.`,
-          tone: 'warning',
-        });
-        setSuppliers(mapped.map(s => ({ ...s, selected: true })));
-      } else {
-        setSuppliers(mapped);
-      }
-
+      // All suppliers pre-selected — user deselects what they don't want
+      const mapped = (data.suppliers as LWGSupplier[]).map(s => ({ ...s, selected: true }));
+      setSuppliers(mapped);
       setStep('preview');
     } catch (err: any) {
       dialogService.alert({ title: 'Fetch failed', message: err.message || 'Could not reach leatherworkinggroup.com.', tone: 'danger' });
@@ -112,10 +90,9 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
     }
   };
 
-  const toggleAll = (val: boolean) => setSuppliers(prev => prev.map(s => ({ ...s, selected: val })));
-  const toggleOne = (idx: number) => setSuppliers(prev => prev.map((s, i) => i === idx ? { ...s, selected: !s.selected } : s));
+  const toggleAll  = (val: boolean) => setSuppliers(prev => prev.map(s => ({ ...s, selected: val })));
+  const toggleOne  = (idx: number)  => setSuppliers(prev => prev.map((s, i) => i === idx ? { ...s, selected: !s.selected } : s));
 
-  // Visible = search filter (visual only — selection state unchanged)
   const visibleSuppliers = suppliers.filter(s => {
     const q = searchPreview.toLowerCase();
     return !q || s.company_name.toLowerCase().includes(q) || (s.country || '').toLowerCase().includes(q);
@@ -143,17 +120,17 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
       if (s.certification_type) noteParts.push(`LWG Rating: ${s.certification_type}`);
       noteParts.push('Imported from LWG certified-suppliers directory');
       return {
-        user_id: user.id,
-        company_name: s.company_name,
-        contact_person: s.company_name,
-        email: '',
-        country: s.country || '',
-        website: s.website || '',
-        source: 'leatherworkinggroup' as const,
-        status: 'new' as const,
-        industry_focus: 'Leather',
-        notes: noteParts.join('. '),
-        tags: ['lwg', s.certification_type ? s.certification_type.toLowerCase() : 'certified'].filter(Boolean),
+        user_id:         user.id,
+        company_name:    s.company_name,
+        contact_person:  s.company_name,
+        email:           '',
+        country:         s.country || '',
+        website:         s.website || '',
+        source:          'leatherworkinggroup' as const,
+        status:          'new' as const,
+        industry_focus:  'Leather',
+        notes:           noteParts.join('. '),
+        tags:            ['lwg', s.certification_type ? s.certification_type.toLowerCase() : 'certified'].filter(Boolean),
       };
     });
 
@@ -179,11 +156,11 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
   const handleClose = () => {
     setStep('fetch');
     setSuppliers([]);
-    setFilterCountry('');
-    setFilterRating('');
-    setMaxPages('3');
+    setSelectedCountry('');
+    setSelectedRating('');
     setSearchPreview('');
     setImportResult(null);
+    setFetchedTotal(0);
     onClose();
   };
 
@@ -217,7 +194,7 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
         {/* Step pills */}
         <div className="flex items-center px-6 py-2.5 bg-gray-50 border-b border-gray-100 text-xs gap-0 flex-shrink-0">
           {(['fetch','preview','done'] as const).map((s, i) => {
-            const past = ['fetch','preview','done'].indexOf(step) > i;
+            const past   = ['fetch','preview','done'].indexOf(step) > i;
             const active = step === s;
             return (
               <React.Fragment key={s}>
@@ -242,52 +219,47 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
                   <Info className="h-4 w-4 text-teal-600 flex-shrink-0 mt-0.5" />
                   <div className="text-xs text-teal-800 leading-relaxed">
                     <p className="font-semibold mb-1">How it works</p>
-                    <p>Fetch suppliers from the public LWG directory (12 per page). Use the filters below to pre-select only the country or rating you want — unmatched suppliers will be deselected so you don't import them by accident.</p>
+                    <p>Select a country and we'll fetch <strong>every</strong> LWG-certified supplier for it — all pre-selected for import. Deselect any you don't want before importing.</p>
                   </div>
                 </div>
               </div>
 
+              {/* Country — required */}
               <div>
-                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider">
-                  Pages to fetch <span className="text-gray-400 font-normal normal-case tracking-normal">(12 suppliers each)</span>
+                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider flex items-center gap-1">
+                  <MapPin className="h-3.5 w-3.5 text-gray-400" /> Country <span className="text-red-400">*</span>
                 </label>
-                <select value={maxPages} onChange={e => setMaxPages(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white">
-                  <option value="1">1 page — up to 12 suppliers</option>
-                  <option value="3">3 pages — up to 36 suppliers</option>
-                  <option value="5">5 pages — up to 60 suppliers</option>
-                  <option value="10">10 pages — up to 120 suppliers</option>
+                <select
+                  value={selectedCountry}
+                  onChange={e => setSelectedCountry(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                >
+                  <option value="">— choose a country —</option>
+                  {LWG_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
 
-              <div className="border-t border-gray-100 pt-4 space-y-3">
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                  <Filter className="h-3.5 w-3.5" /> Pre-select filter (optional)
-                </p>
-                <p className="text-xs text-gray-400">If you set a filter, only matching suppliers will be checked for import — you can still manually adjust.</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5 text-gray-400" /> Country
-                    </label>
-                    <select value={filterCountry} onChange={e => setFilterCountry(e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white">
-                      <option value="">All countries</option>
-                      {LWG_COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1">
-                      <Star className="h-3.5 w-3.5 text-gray-400" /> LWG Rating
-                    </label>
-                    <select value={filterRating} onChange={e => setFilterRating(e.target.value)}
-                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white">
-                      <option value="">Any rating</option>
-                      {LWG_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-                </div>
+              {/* Rating — optional */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase tracking-wider flex items-center gap-1">
+                  <Star className="h-3.5 w-3.5 text-gray-400" /> LWG Rating <span className="text-gray-400 font-normal normal-case tracking-normal">(optional)</span>
+                </label>
+                <select
+                  value={selectedRating}
+                  onChange={e => setSelectedRating(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-white"
+                >
+                  <option value="">Any rating</option>
+                  {LWG_RATINGS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
               </div>
+
+              {!selectedCountry && (
+                <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                  <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+                  <p className="text-xs text-amber-700">You must select a country to continue.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -299,13 +271,12 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
                 <div>
                   <p className="text-sm font-bold text-gray-900">{suppliers.length} suppliers fetched</p>
                   <p className="text-xs text-gray-400">
-                    {selectedCount} selected for import
-                    {filterCountry ? ` · filtered: ${filterCountry}` : ''}
-                    {filterRating ? `${filterCountry ? ',' : ' ·'} ${filterRating}` : ''}
+                    {selectedCount} selected · {selectedCountry}
+                    {selectedRating ? ` · ${selectedRating}` : ''}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
-                  <button onClick={() => toggleAll(true)} className="text-blue-600 font-semibold hover:underline">All</button>
+                  <button onClick={() => toggleAll(true)}  className="text-blue-600 font-semibold hover:underline">All</button>
                   <span className="text-gray-200">|</span>
                   <button onClick={() => toggleAll(false)} className="text-gray-500 hover:underline">None</button>
                   <span className="ml-1 px-2 py-0.5 bg-blue-600 text-white rounded-full text-xs font-bold">{selectedCount}</span>
@@ -316,9 +287,13 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
               <div className="px-4 py-2.5 border-b border-gray-100 flex-shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
-                  <input type="text" placeholder="Search by name or country…"
-                    value={searchPreview} onChange={e => setSearchPreview(e.target.value)}
-                    className="pl-8 pr-3 py-2 w-full text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white" />
+                  <input
+                    type="text"
+                    placeholder="Search by name…"
+                    value={searchPreview}
+                    onChange={e => setSearchPreview(e.target.value)}
+                    className="pl-8 pr-3 py-2 w-full text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                  />
                 </div>
               </div>
 
@@ -337,9 +312,16 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
                   const idx = suppliers.indexOf(s);
                   const ratingStyle = RATING_STYLE[s.certification_type || ''] || '';
                   return (
-                    <label key={i} className={`flex items-start gap-3 px-5 py-3 cursor-pointer transition-colors ${s.selected ? 'hover:bg-blue-50/40' : 'hover:bg-gray-50 opacity-50'}`}>
-                      <input type="checkbox" checked={s.selected ?? false} onChange={() => toggleOne(idx)}
-                        className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                    <label
+                      key={i}
+                      className={`flex items-start gap-3 px-5 py-3 cursor-pointer transition-colors ${s.selected ? 'hover:bg-blue-50/40' : 'hover:bg-gray-50 opacity-50'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={s.selected ?? false}
+                        onChange={() => toggleOne(idx)}
+                        className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{s.company_name}</p>
                         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -354,9 +336,13 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
                             </span>
                           )}
                           {s.website && (
-                            <a href={s.website} target="_blank" rel="noopener noreferrer"
+                            <a
+                              href={s.website}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               onClick={e => e.stopPropagation()}
-                              className="text-xs text-blue-500 hover:underline flex items-center gap-0.5">
+                              className="text-xs text-blue-500 hover:underline flex items-center gap-0.5"
+                            >
                               <ExternalLink className="h-3 w-3" /> profile
                             </a>
                           )}
@@ -407,27 +393,43 @@ const LWGScraperModal: React.FC<LWGScraperModalProps> = ({ isOpen, onClose, onLe
           </button>
           <div className="flex items-center gap-2">
             {step === 'preview' && (
-              <button onClick={() => setStep('fetch')}
-                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              <button
+                onClick={() => setStep('fetch')}
+                className="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
                 Back
               </button>
             )}
             {step === 'fetch' && (
-              <button onClick={handleScrape} disabled={scraping}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 disabled:opacity-60 transition-colors">
-                {scraping ? <><Loader className="h-4 w-4 animate-spin" /> Fetching…</> : <><Download className="h-4 w-4" /> Fetch Suppliers</>}
+              <button
+                onClick={handleScrape}
+                disabled={scraping || !selectedCountry}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 disabled:opacity-60 transition-colors"
+              >
+                {scraping
+                  ? <><Loader className="h-4 w-4 animate-spin" /> Fetching all…</>
+                  : <><Download className="h-4 w-4" /> Fetch All Suppliers</>
+                }
               </button>
             )}
             {step === 'preview' && (
-              <button onClick={handleImport} disabled={importing || selectedCount === 0}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition-colors">
-                {importing ? <><Loader className="h-4 w-4 animate-spin" /> Importing…</> : <><CheckCircle className="h-4 w-4" /> Import {selectedCount} Lead{selectedCount !== 1 ? 's' : ''}</>}
+              <button
+                onClick={handleImport}
+                disabled={importing || selectedCount === 0}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-60 transition-colors"
+              >
+                {importing
+                  ? <><Loader className="h-4 w-4 animate-spin" /> Importing…</>
+                  : <><CheckCircle className="h-4 w-4" /> Import {selectedCount} Lead{selectedCount !== 1 ? 's' : ''}</>
+                }
               </button>
             )}
             {step === 'done' && (
-              <button onClick={() => { setStep('fetch'); setSuppliers([]); setImportResult(null); }}
-                className="px-5 py-2.5 text-sm font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700">
-                Fetch More
+              <button
+                onClick={() => { setStep('fetch'); setSuppliers([]); setImportResult(null); setFetchedTotal(0); }}
+                className="px-5 py-2.5 text-sm font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700"
+              >
+                Fetch Another Country
               </button>
             )}
           </div>

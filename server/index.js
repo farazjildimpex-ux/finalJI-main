@@ -528,25 +528,41 @@ function parseLWGPage(html, countryLabel, certLabel) {
 
 app.get('/api/scrape/lwg', async (req, res) => {
   try {
-    const maxPages = Math.min(parseInt(req.query.pages || '3'), 10);
+    const countryName = req.query.country || '';
+    const ratingName  = req.query.rating  || '';
+    const keywords    = req.query.keywords || '';
 
-    // Fetch first page (no filter params — LWG filters require authenticated session)
-    const html0 = await fetchLWGPage(0, {});
-    const { suppliers: page0, total } = parseLWGPage(html0, '', '');
+    const countryId = countryName ? LWG_COUNTRIES[countryName] : undefined;
+    const ratingId  = ratingName  ? LWG_RATINGS[ratingName]    : undefined;
+
+    const params = {};
+    if (countryId) params.countryId = countryId;
+    if (ratingId)  params.ratingId  = ratingId;
+    if (keywords)  params.keywords  = keywords;
+
+    // Fetch first page to learn the total count
+    const html0 = await fetchLWGPage(0, params);
+    const { suppliers: page0, total } = parseLWGPage(html0, countryName, ratingName);
     const allSuppliers = [...page0];
 
-    // Fetch additional pages in parallel (12 per page)
-    const pagesToFetch = Math.min(maxPages, Math.ceil(total / 12));
-    const pagePromises = [];
-    for (let p = 1; p < pagesToFetch; p++) {
-      pagePromises.push(
-        fetchLWGPage(p, {})
-          .then(html => parseLWGPage(html, '', '').suppliers)
-          .catch(() => [])
-      );
+    // Calculate remaining pages needed (12 suppliers per page)
+    const totalPages = Math.ceil(total / 12);
+
+    // Fetch remaining pages in batches of 5 to avoid hammering the server
+    const BATCH = 5;
+    for (let start = 1; start < totalPages; start += BATCH) {
+      const end = Math.min(start + BATCH, totalPages);
+      const batch = [];
+      for (let p = start; p < end; p++) {
+        batch.push(
+          fetchLWGPage(p, params)
+            .then(html => parseLWGPage(html, countryName, ratingName).suppliers)
+            .catch(() => [])
+        );
+      }
+      const pages = await Promise.all(batch);
+      for (const pg of pages) allSuppliers.push(...pg);
     }
-    const extraPages = await Promise.all(pagePromises);
-    for (const pg of extraPages) allSuppliers.push(...pg);
 
     // Deduplicate by company name
     const seen = new Set();

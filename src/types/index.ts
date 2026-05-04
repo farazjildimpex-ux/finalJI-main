@@ -188,7 +188,7 @@ export interface Lead {
   address?: string[];
   country: string;
   source: 'leatherworkinggroup' | 'lineapelle' | 'aplf' | 'manual' | 'other';
-  status: 'new' | 'contacted' | 'interested' | 'qualified' | 'proposal_sent' | 'negotiating' | 'won' | 'lost';
+  status: 'new' | 'approached' | 'contacted' | 'interested' | 'qualified' | 'proposal_sent' | 'negotiating' | 'won' | 'lost';
   industry_focus?: string;
   company_size?: string;
   notes?: string;

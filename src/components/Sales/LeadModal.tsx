@@ -29,24 +29,22 @@ interface LeadModalProps {
 }
 
 const PIPELINE_STAGES: { key: Lead['status']; label: string }[] = [
-  { key: 'new',           label: 'New' },
-  { key: 'contacted',     label: 'Contacted' },
-  { key: 'interested',    label: 'Interested' },
-  { key: 'qualified',     label: 'Qualified' },
-  { key: 'proposal_sent', label: 'Proposal' },
-  { key: 'negotiating',   label: 'Negotiating' },
-  { key: 'won',           label: 'Won' },
+  { key: 'new',        label: 'New' },
+  { key: 'approached', label: 'Approached' },
+  { key: 'interested', label: 'Interested' },
 ];
 
 const STATUS_META: Record<string, { color: string; dot: string; bg: string }> = {
-  new:           { color: 'text-blue-700',    dot: 'bg-blue-500',    bg: 'bg-blue-50 border-blue-200' },
+  new:        { color: 'text-blue-700',    dot: 'bg-blue-500',    bg: 'bg-blue-50 border-blue-200' },
+  approached: { color: 'text-yellow-700',  dot: 'bg-yellow-500',  bg: 'bg-yellow-50 border-yellow-200' },
+  interested: { color: 'text-emerald-700', dot: 'bg-emerald-500', bg: 'bg-emerald-50 border-emerald-200' },
+  lost:       { color: 'text-red-700',     dot: 'bg-red-500',     bg: 'bg-red-50 border-red-200' },
+  // legacy statuses — kept for display of existing records
   contacted:     { color: 'text-yellow-700',  dot: 'bg-yellow-500',  bg: 'bg-yellow-50 border-yellow-200' },
-  interested:    { color: 'text-emerald-700', dot: 'bg-emerald-500', bg: 'bg-emerald-50 border-emerald-200' },
   qualified:     { color: 'text-purple-700',  dot: 'bg-purple-500',  bg: 'bg-purple-50 border-purple-200' },
   proposal_sent: { color: 'text-indigo-700',  dot: 'bg-indigo-500',  bg: 'bg-indigo-50 border-indigo-200' },
   negotiating:   { color: 'text-orange-700',  dot: 'bg-orange-500',  bg: 'bg-orange-50 border-orange-200' },
   won:           { color: 'text-green-700',   dot: 'bg-green-600',   bg: 'bg-green-50 border-green-200' },
-  lost:          { color: 'text-red-700',     dot: 'bg-red-500',     bg: 'bg-red-50 border-red-200' },
 };
 
 const AVATAR_COLORS = [

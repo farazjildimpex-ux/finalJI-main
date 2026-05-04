@@ -91,13 +91,29 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
     } catch { /* templates optional */ }
   };
 
+  function decodeHtml(html: string): string {
+    return html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&apos;/g, "'")
+      .trim();
+  }
+
   const applyTemplate = (templateId: string) => {
     const tpl = templates.find(t => t.id === templateId);
     if (!tpl || !lead) return;
     setEmailData({
       to: lead.email,
-      subject: applyVars(tpl.subject, lead),
-      body: applyVars(tpl.body, lead),
+      subject: decodeHtml(applyVars(tpl.subject, lead)),
+      body: decodeHtml(applyVars(tpl.body, lead)),
     });
     setSelectedTemplate(templateId);
     setSendResult(null);
@@ -141,7 +157,7 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
         if (result.ok) {
           await supabase.from('leads').update({
             last_contact_date: new Date().toISOString().split('T')[0],
-            status: lead.status === 'new' ? 'contacted' : lead.status,
+            status: lead.status === 'new' ? 'approached' : lead.status,
           }).eq('id', lead.id!);
         }
       }

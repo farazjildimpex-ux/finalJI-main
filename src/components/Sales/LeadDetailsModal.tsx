@@ -232,12 +232,8 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
                   <label className={labelCls}>Status</label>
                   <select value={formData.status || 'new'} onChange={e => setFormData({ ...formData, status: e.target.value as Lead['status'] })} className={inputCls}>
                     <option value="new">New</option>
-                    <option value="contacted">Contacted</option>
+                    <option value="approached">Approached</option>
                     <option value="interested">Interested</option>
-                    <option value="qualified">Qualified</option>
-                    <option value="proposal_sent">Proposal Sent</option>
-                    <option value="negotiating">Negotiating</option>
-                    <option value="won">Won</option>
                     <option value="lost">Lost</option>
                   </select>
                 </div>

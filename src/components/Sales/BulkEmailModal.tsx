@@ -51,6 +51,22 @@ Faraz
 JILD IMPEX, Chennai, India
 Email: office@jildimpex.com | Mob: +91 98410 91189`;
 
+function decodeHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .trim();
+}
+
 function applyVars(text: string, lead: Lead): string {
   return text
     .replace(/\{\{company_name\}\}/g, lead.company_name || '')
@@ -130,8 +146,8 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
   const applyTemplate = () => {
     const tpl = templates.find(t => t.id === selectedTpl);
     if (!tpl) return;
-    setSubject(tpl.subject);
-    setBody(tpl.body);
+    setSubject(decodeHtml(tpl.subject));
+    setBody(decodeHtml(tpl.body));
   };
 
   const toggleLead = (id: string) => {
@@ -184,7 +200,7 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
           if (result.ok) {
             await supabase.from('leads').update({
               last_contact_date: new Date().toISOString().split('T')[0],
-              status: lead.status === 'new' ? 'contacted' : lead.status,
+              status: lead.status === 'new' ? 'approached' : lead.status,
             }).eq('id', lead.id!);
           }
         }
@@ -428,7 +444,7 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                     )}
                     {sent > 0 && (
                       <p className="text-xs text-slate-500 mt-1">
-                        Lead statuses updated to "Contacted". Activity logged on each lead.
+                        Lead statuses updated to "Approached". Activity logged on each lead.
                       </p>
                     )}
                   </div>

@@ -34,38 +34,48 @@ function daysSince(d?: string | null) {
 }
 
 const STATUS_OPTS = [
-  { key: 'all',           label: 'All stages' },
-  { key: 'new',           label: 'New' },
-  { key: 'contacted',     label: 'Contacted' },
-  { key: 'interested',    label: 'Interested' },
-  { key: 'qualified',     label: 'Qualified' },
-  { key: 'proposal_sent', label: 'Proposal sent' },
-  { key: 'negotiating',   label: 'Negotiating' },
-  { key: 'won',           label: 'Won' },
-  { key: 'lost',          label: 'Lost' },
+  { key: 'all',        label: 'All stages' },
+  { key: 'new',        label: 'New' },
+  { key: 'approached', label: 'Approached' },
+  { key: 'interested', label: 'Interested' },
+  { key: 'lost',       label: 'Lost' },
 ];
 
 const STATUS_DOT: Record<string, string> = {
-  new: 'bg-blue-500', contacted: 'bg-yellow-500', interested: 'bg-emerald-500',
-  qualified: 'bg-purple-500', proposal_sent: 'bg-indigo-500', negotiating: 'bg-orange-500',
-  won: 'bg-green-600', lost: 'bg-red-500',
+  new:        'bg-blue-500',
+  approached: 'bg-yellow-500',
+  interested: 'bg-emerald-500',
+  lost:       'bg-red-500',
+  // legacy — keep for existing DB records
+  contacted:     'bg-yellow-500',
+  qualified:     'bg-purple-500',
+  proposal_sent: 'bg-indigo-500',
+  negotiating:   'bg-orange-500',
+  won:           'bg-green-600',
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  new: 'New', contacted: 'Contacted', interested: 'Interested',
-  qualified: 'Qualified', proposal_sent: 'Proposal', negotiating: 'Negotiating',
-  won: 'Won', lost: 'Lost',
+  new:        'New',
+  approached: 'Approached',
+  interested: 'Interested',
+  lost:       'Lost',
+  contacted:     'Approached',
+  qualified:     'Qualified',
+  proposal_sent: 'Proposal',
+  negotiating:   'Negotiating',
+  won:           'Won',
 };
 
 const STATUS_COLOR: Record<string, string> = {
   new:           'text-blue-700 bg-blue-50',
-  contacted:     'text-yellow-700 bg-yellow-50',
+  approached:    'text-yellow-700 bg-yellow-50',
   interested:    'text-emerald-700 bg-emerald-50',
+  lost:          'text-red-700 bg-red-50',
+  contacted:     'text-yellow-700 bg-yellow-50',
   qualified:     'text-purple-700 bg-purple-50',
   proposal_sent: 'text-indigo-700 bg-indigo-50',
   negotiating:   'text-orange-700 bg-orange-50',
   won:           'text-green-700 bg-green-50',
-  lost:          'text-red-700 bg-red-50',
 };
 
 // ── Main page ─────────────────────────────────────────────────────────
