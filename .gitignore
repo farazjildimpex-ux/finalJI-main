@@ -27,3 +27,6 @@ dist-ssr
 
 # Server PDF cache — auto-generated, not for version control
 server/.pdf-cache/
+
+# pnpm lock file — project uses npm, this file causes Vercel to detect pnpm incorrectly
+pnpm-lock.yaml

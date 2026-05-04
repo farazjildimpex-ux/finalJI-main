@@ -314,7 +314,7 @@ const EmailSyncSection: React.FC = () => {
         {gmailStatus === 'ok' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-700">
             <Wifi className="h-3.5 w-3.5" />
-            Gmail connected{imapEmail && <span className="opacity-70">· {imapEmail}</span>}
+            Gmail connected · office@jildimpex.com
           </div>
         )}
         {(gmailStatus === 'missing' || gmailStatus === 'error' || gmailStatus === 'unknown') && (

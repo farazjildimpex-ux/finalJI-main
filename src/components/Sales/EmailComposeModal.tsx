@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Send, LayoutTemplate as Template, Save } from 'lucide-react';
+import { X, Send, LayoutTemplate as Template, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import type { Lead, EmailTemplate } from '../../types';
+import type { Lead } from '../../types';
 import { dialogService } from '../../lib/dialogService';
+import { sendEmailViaServer } from '../../lib/emailCompose';
 
 interface EmailComposeModalProps {
   isOpen: boolean;
@@ -11,303 +12,283 @@ interface EmailComposeModalProps {
   onEmailSent: () => void;
 }
 
+interface EmailTemplateEntry {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  category: string;
+  is_active: boolean;
+}
+
+const inputCls = 'w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white transition-colors';
+const labelCls = 'block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5';
+
+const COLD_EMAIL_TEMPLATE = {
+  subject: 'JILD IMPEX — Premium Leather Sourcing Partnership',
+  body: `Dear {{contact_person}},
+
+I hope this message finds you well.
+
+My name is Faraz, and I represent JILD IMPEX, a Chennai-based leather trading company specialising in high-quality finished and semi-finished leather for the global market.
+
+We noticed that {{company_name}} is an LWG-certified tannery, and we believe there may be a strong synergy between our businesses. We are actively looking to establish long-term sourcing partnerships with quality-focused manufacturers like yourselves.
+
+We would love to explore the possibility of working together — whether for regular supply arrangements or specific product requirements.
+
+Could we schedule a brief call or exchange product specifications at your earliest convenience?
+
+Looking forward to hearing from you.
+
+Warm regards,
+Faraz
+JILD IMPEX
+Chennai, India
+Email: office@jildimpex.com
+Mob: +91 98410 91189`,
+};
+
 const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
-  isOpen,
-  onClose,
-  lead,
-  onEmailSent
+  isOpen, onClose, lead, onEmailSent
 }) => {
-  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  
-  const [emailData, setEmailData] = useState({
-    to: '',
-    subject: '',
-    body: ''
-  });
+  const [templates, setTemplates]               = useState<EmailTemplateEntry[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [loading, setLoading]                   = useState(false);
+  const [emailData, setEmailData]               = useState({ to: '', subject: '', body: '' });
+  const [sendResult, setSendResult]             = useState<{ ok: boolean; msg: string } | null>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchTemplates();
-      if (lead) {
-        setEmailData({
-          to: lead.email,
-          subject: '',
-          body: ''
-        });
-      }
+    if (!isOpen) { setSendResult(null); return; }
+    fetchTemplates();
+    if (lead) {
+      setEmailData({
+        to: lead.email,
+        subject: COLD_EMAIL_TEMPLATE.subject,
+        body: applyVars(COLD_EMAIL_TEMPLATE.body, lead),
+      });
     }
-  }, [isOpen, lead]);
+  }, [isOpen, lead?.id]);
+
+  function applyVars(text: string, l: Lead): string {
+    return text
+      .replace(/\{\{company_name\}\}/g, l.company_name || '')
+      .replace(/\{\{contact_person\}\}/g, l.contact_person || '')
+      .replace(/\{\{email\}\}/g, l.email || '')
+      .replace(/\{\{country\}\}/g, l.country || '')
+      .replace(/\{\{industry_focus\}\}/g, l.industry_focus || '')
+      .replace(/\{\{phone\}\}/g, l.phone || '')
+      .replace(/\{\{website\}\}/g, l.website || '');
+  }
 
   const fetchTemplates = async () => {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('email_templates')
         .select('*')
         .eq('is_active', true)
         .order('name');
-
-      if (error) throw error;
       setTemplates(data || []);
-    } catch (error) {
-      console.error('Error fetching templates:', error);
-    }
+    } catch { /* templates optional */ }
   };
 
-  const handleTemplateSelect = (templateId: string) => {
-    const template = templates.find(t => t.id === templateId);
-    if (template && lead) {
-      // Replace variables in template
-      let subject = template.subject;
-      let body = template.body;
-
-      const replacements = {
-        '{{company_name}}': lead.company_name || '',
-        '{{contact_person}}': lead.contact_person || '',
-        '{{email}}': lead.email || '',
-        '{{country}}': lead.country || '',
-        '{{industry_focus}}': lead.industry_focus || '',
-        '{{phone}}': lead.phone || '',
-        '{{website}}': lead.website || ''
-      };
-
-      Object.entries(replacements).forEach(([placeholder, value]) => {
-        subject = subject.replace(new RegExp(placeholder, 'g'), value);
-        body = body.replace(new RegExp(placeholder, 'g'), value);
-      });
-
-      setEmailData({
-        ...emailData,
-        subject,
-        body
-      });
-    }
+  const applyTemplate = (templateId: string) => {
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl || !lead) return;
+    setEmailData({
+      to: lead.email,
+      subject: applyVars(tpl.subject, lead),
+      body: applyVars(tpl.body, lead),
+    });
     setSelectedTemplate(templateId);
+    setSendResult(null);
   };
 
-  const handleSendEmail = async () => {
-    if (!emailData.to || !emailData.subject || !emailData.body) {
-      dialogService.alert({
-        title: 'Missing fields',
-        message: 'Please fill in all fields before sending.',
-        tone: 'warning',
-      });
+  const handleSend = async () => {
+    if (!lead) return;
+    if (!emailData.to) {
+      dialogService.alert({ title: 'No email address', message: 'This lead has no email address on record.', tone: 'warning' });
+      return;
+    }
+    if (!emailData.subject || !emailData.body) {
+      dialogService.alert({ title: 'Incomplete email', message: 'Please fill in subject and message.', tone: 'warning' });
       return;
     }
 
+    setLoading(true);
+    setSendResult(null);
+
+    // Send via Gmail
+    const result = await sendEmailViaServer({
+      to: [emailData.to],
+      subject: emailData.subject,
+      body: emailData.body.replace(/\n/g, '<br>'),
+    });
+
+    // Log to lead_email_logs regardless
     try {
-      setLoading(true);
-
-      // In a real application, you would integrate with an email service like SendGrid, Mailgun, etc.
-      // For now, we'll just log the email to the database
-      const emailLog = {
-        lead_id: lead?.id,
-        template_id: selectedTemplate || null,
-        to_email: emailData.to,
-        subject: emailData.subject,
-        body: emailData.body,
-        sent_at: new Date().toISOString(),
-        status: 'sent' as const
-      };
-
-      const { error } = await supabase
-        .from('email_logs')
-        .insert([emailLog]);
-
-      if (error) throw error;
-
-      // Update lead's last contact date
-      if (lead?.id) {
-        await supabase
-          .from('leads')
-          .update({ 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('lead_email_logs').insert([{
+          user_id:     user.id,
+          lead_id:     lead.id,
+          template_id: selectedTemplate || null,
+          to_email:    emailData.to,
+          subject:     emailData.subject,
+          body:        emailData.body,
+          status:      result.ok ? 'sent' : 'failed',
+          sent_at:     new Date().toISOString(),
+        }]);
+        if (result.ok) {
+          await supabase.from('leads').update({
             last_contact_date: new Date().toISOString().split('T')[0],
-            status: lead.status === 'new' ? 'contacted' : lead.status
-          })
-          .eq('id', lead.id);
+            status: lead.status === 'new' ? 'contacted' : lead.status,
+          }).eq('id', lead.id!);
+        }
       }
+    } catch { /* log failure is non-fatal */ }
 
-      dialogService.success(
-        'Email logged. In production, this would be sent via your email service.'
-      );
-      onEmailSent();
-    } catch (error: any) {
-      console.error('Error logging email:', error);
-      dialogService.alert({
-        title: 'Failed to log email',
-        message: error?.message || 'Please try again.',
-        tone: 'danger',
-      });
-    } finally {
-      setLoading(false);
+    setLoading(false);
+    setSendResult({
+      ok: result.ok,
+      msg: result.ok ? 'Email sent successfully!' : (result.error || 'Send failed — check Gmail is connected in Settings.'),
+    });
+
+    if (result.ok) {
+      setTimeout(() => { onEmailSent(); onClose(); }, 1800);
     }
-  };
-
-  const handleSaveDraft = async () => {
-    // In a real application, you might want to save drafts
-    dialogService.success('Draft saved locally.');
   };
 
   if (!isOpen || !lead) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+
+        {/* Drag handle (mobile) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div>
-            <h3 className="text-lg font-medium text-gray-900">Compose Email</h3>
-            <p className="text-sm text-gray-500">To: {lead.company_name} ({lead.contact_person})</p>
+            <h2 className="text-base font-bold text-slate-900">Send Cold Email</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              To: <span className="font-medium text-slate-700">{lead.company_name}</span>
+              {lead.contact_person && <> · {lead.contact_person}</>}
+            </p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
-            <X className="h-6 w-6" />
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-6">
-            {/* Template Selection */}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+
+          {/* Result banner */}
+          {sendResult && (
+            <div className={`flex items-center gap-3 p-3 rounded-2xl border ${sendResult.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-red-700'}`}>
+              {sendResult.ok
+                ? <CheckCircle2 className="h-4 w-4 shrink-0" />
+                : <AlertCircle className="h-4 w-4 shrink-0" />
+              }
+              <p className="text-xs font-semibold">{sendResult.msg}</p>
+            </div>
+          )}
+
+          {/* Template picker */}
+          {templates.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Use Template (Optional)
-              </label>
+              <label className={labelCls}>Use Saved Template</label>
               <div className="flex gap-2">
                 <select
                   value={selectedTemplate}
-                  onChange={(e) => handleTemplateSelect(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  onChange={e => setSelectedTemplate(e.target.value)}
+                  className={`flex-1 ${inputCls}`}
                 >
-                  <option value="">Select a template...</option>
-                  {templates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name} ({template.category.replace('_', ' ')})
-                    </option>
+                  <option value="">— or use default cold email below —</option>
+                  {templates.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} ({t.category.replace('_', ' ')})</option>
                   ))}
                 </select>
                 <button
-                  onClick={() => handleTemplateSelect(selectedTemplate)}
+                  onClick={() => applyTemplate(selectedTemplate)}
                   disabled={!selectedTemplate}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50"
+                  className="px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors flex items-center gap-1.5"
                 >
-                  <Template className="h-4 w-4 inline mr-1" />
-                  Apply
+                  <Template className="h-4 w-4" /> Apply
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Email Form */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  To
-                </label>
-                <input
-                  type="email"
-                  value={emailData.to}
-                  onChange={(e) => setEmailData({ ...emailData, to: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  readOnly
-                />
-              </div>
+          {/* To */}
+          <div>
+            <label className={labelCls}>To</label>
+            {lead.email
+              ? <input type="email" value={emailData.to} readOnly className={`${inputCls} bg-gray-50 text-gray-500 cursor-not-allowed`} />
+              : <div className="flex items-center gap-2 px-3 py-2.5 text-sm bg-amber-50 border border-amber-200 rounded-xl text-amber-700">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  No email address for this lead
+                </div>
+            }
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Subject *
-                </label>
-                <input
-                  type="text"
-                  value={emailData.subject}
-                  onChange={(e) => setEmailData({ ...emailData, subject: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Enter email subject"
-                />
-              </div>
+          {/* Subject */}
+          <div>
+            <label className={labelCls}>Subject *</label>
+            <input
+              type="text"
+              value={emailData.subject}
+              onChange={e => setEmailData({ ...emailData, subject: e.target.value })}
+              className={inputCls}
+              placeholder="Enter email subject"
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Message *
-                </label>
-                <textarea
-                  value={emailData.body}
-                  onChange={(e) => setEmailData({ ...emailData, body: e.target.value })}
-                  rows={12}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Enter your message here..."
-                />
-              </div>
-            </div>
+          {/* Body */}
+          <div>
+            <label className={labelCls}>Message *</label>
+            <textarea
+              value={emailData.body}
+              onChange={e => setEmailData({ ...emailData, body: e.target.value })}
+              rows={12}
+              className={`${inputCls} resize-none font-mono text-[13px] leading-relaxed`}
+              placeholder="Enter your message here…"
+            />
+          </div>
 
-            {/* Email Preview */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Preview:</h4>
-              <div className="space-y-2">
-                <div className="text-sm">
-                  <span className="font-medium">To:</span> {emailData.to}
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium">Subject:</span> {emailData.subject}
-                </div>
-                <div className="text-sm border-t border-gray-200 pt-2">
-                  <div className="whitespace-pre-wrap">{emailData.body}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Lead Information */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="text-sm font-medium text-blue-800 mb-2">Lead Information:</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm text-blue-700">
-                <div>
-                  <span className="font-medium">Company:</span> {lead.company_name}
-                </div>
-                <div>
-                  <span className="font-medium">Contact:</span> {lead.contact_person}
-                </div>
-                <div>
-                  <span className="font-medium">Country:</span> {lead.country}
-                </div>
-                <div>
-                  <span className="font-medium">Status:</span> {lead.status.replace('_', ' ')}
-                </div>
-                {lead.industry_focus && (
-                  <div>
-                    <span className="font-medium">Industry:</span> {lead.industry_focus}
-                  </div>
-                )}
-                {lead.phone && (
-                  <div>
-                    <span className="font-medium">Phone:</span> {lead.phone}
-                  </div>
-                )}
-              </div>
-            </div>
+          {/* Lead info chips */}
+          <div className="flex flex-wrap gap-2">
+            {lead.country && (
+              <span className="px-2.5 py-1 text-xs rounded-xl bg-teal-50 text-teal-700 border border-teal-100 font-medium">
+                {lead.country}
+              </span>
+            )}
+            {lead.industry_focus && (
+              <span className="px-2.5 py-1 text-xs rounded-xl bg-gray-100 text-gray-600 font-medium">
+                {lead.industry_focus}
+              </span>
+            )}
+            {(lead.tags || []).map(t => (
+              <span key={t} className="px-2.5 py-1 text-xs rounded-xl bg-blue-50 text-blue-600 font-medium">{t}</span>
+            ))}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-          <button
-            onClick={handleSaveDraft}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
-            <Save className="h-4 w-4 inline mr-1" />
-            Save Draft
-          </button>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-          >
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-3xl flex-shrink-0">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
             Cancel
           </button>
           <button
-            onClick={handleSendEmail}
-            disabled={loading || !emailData.subject || !emailData.body}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            onClick={handleSend}
+            disabled={loading || !emailData.subject || !emailData.body || !lead.email}
+            className="flex items-center gap-1.5 px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            <Send className="h-4 w-4 inline mr-1" />
-            {loading ? 'Sending...' : 'Send Email'}
+            <Send className="h-4 w-4" />
+            {loading ? 'Sending…' : 'Send Email'}
           </button>
         </div>
       </div>

@@ -1,387 +1,351 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Zap, Plus, Search, Mail, Phone, Globe, MapPin,
-  RefreshCw, Filter, Clock, X, Upload, Users
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Search, Upload, X, Zap, Clock, ChevronDown, Mail } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import LeadDetailsModal from './LeadDetailsModal';
-import EmailTemplatesModal from './EmailTemplatesModal';
-import EmailComposeModal from './EmailComposeModal';
-import CallLogModal from './CallLogModal';
-import LWGScraperModal from './LWGScraperModal';
 import type { Lead } from '../../types';
+import LeadModal from './LeadModal';
+import LeadDetailsModal from './LeadDetailsModal';
+import CallLogModal from './CallLogModal';
+import EmailComposeModal from './EmailComposeModal';
+import BulkEmailModal from './BulkEmailModal';
+import LWGScraperModal from './LWGScraperModal';
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; dot: string }> = {
-  new:           { label: 'New',           color: 'bg-blue-100 text-blue-700 border-blue-200',     dot: 'bg-blue-500' },
-  contacted:     { label: 'Contacted',     color: 'bg-yellow-100 text-yellow-700 border-yellow-200', dot: 'bg-yellow-500' },
-  interested:    { label: 'Interested',    color: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
-  qualified:     { label: 'Qualified',     color: 'bg-purple-100 text-purple-700 border-purple-200', dot: 'bg-purple-500' },
-  proposal_sent: { label: 'Proposal Sent', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500' },
-  negotiating:   { label: 'Negotiating',   color: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-500' },
-  won:           { label: 'Won',           color: 'bg-green-100 text-green-700 border-green-200',   dot: 'bg-green-600' },
-  lost:          { label: 'Lost',          color: 'bg-red-100 text-red-700 border-red-200',         dot: 'bg-red-500' },
-};
+// ── Helpers ───────────────────────────────────────────────────────────
 
-const SOURCE_CONFIG: Record<string, { label: string; color: string }> = {
-  leatherworkinggroup: { label: 'LWG',      color: 'bg-teal-100 text-teal-700' },
-  lineapelle:          { label: 'Lineapelle', color: 'bg-purple-100 text-purple-700' },
-  aplf:                { label: 'APLF',      color: 'bg-blue-100 text-blue-700' },
-  manual:              { label: 'Manual',    color: 'bg-gray-100 text-gray-600' },
-  other:               { label: 'Other',     color: 'bg-gray-100 text-gray-600' },
-};
+const AVATAR_COLORS = [
+  'bg-blue-100 text-blue-700', 'bg-violet-100 text-violet-700',
+  'bg-emerald-100 text-emerald-700', 'bg-amber-100 text-amber-700',
+  'bg-rose-100 text-rose-700', 'bg-cyan-100 text-cyan-700',
+  'bg-indigo-100 text-indigo-700', 'bg-teal-100 text-teal-700',
+];
 
-function daysSince(dateStr?: string) {
-  if (!dateStr) return null;
-  const diff = Date.now() - new Date(dateStr).getTime();
-  return Math.floor(diff / 86400000);
+function avatarColor(name: string) {
+  let n = 0; for (let i = 0; i < name.length; i++) n += name.charCodeAt(i);
+  return AVATAR_COLORS[n % AVATAR_COLORS.length];
+}
+function getInitials(name: string) {
+  return name.split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+function isFollowUpDue(d?: string | null) {
+  return !!d && new Date(d) <= new Date();
+}
+function daysSince(d?: string | null) {
+  if (!d) return null;
+  return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
 }
 
-function isFollowUpDue(dateStr?: string) {
-  if (!dateStr) return false;
-  return new Date(dateStr) <= new Date();
-}
+const STATUS_OPTS = [
+  { key: 'all',           label: 'All stages' },
+  { key: 'new',           label: 'New' },
+  { key: 'contacted',     label: 'Contacted' },
+  { key: 'interested',    label: 'Interested' },
+  { key: 'qualified',     label: 'Qualified' },
+  { key: 'proposal_sent', label: 'Proposal sent' },
+  { key: 'negotiating',   label: 'Negotiating' },
+  { key: 'won',           label: 'Won' },
+  { key: 'lost',          label: 'Lost' },
+];
+
+const STATUS_DOT: Record<string, string> = {
+  new: 'bg-blue-500', contacted: 'bg-yellow-500', interested: 'bg-emerald-500',
+  qualified: 'bg-purple-500', proposal_sent: 'bg-indigo-500', negotiating: 'bg-orange-500',
+  won: 'bg-green-600', lost: 'bg-red-500',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  new: 'New', contacted: 'Contacted', interested: 'Interested',
+  qualified: 'Qualified', proposal_sent: 'Proposal', negotiating: 'Negotiating',
+  won: 'Won', lost: 'Lost',
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  new:           'text-blue-700 bg-blue-50',
+  contacted:     'text-yellow-700 bg-yellow-50',
+  interested:    'text-emerald-700 bg-emerald-50',
+  qualified:     'text-purple-700 bg-purple-50',
+  proposal_sent: 'text-indigo-700 bg-indigo-50',
+  negotiating:   'text-orange-700 bg-orange-50',
+  won:           'text-green-700 bg-green-50',
+  lost:          'text-red-700 bg-red-50',
+};
+
+// ── Main page ─────────────────────────────────────────────────────────
 
 const SalesPage: React.FC = () => {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [filtered, setFiltered] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [leads, setLeads]               = useState<Lead[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sourceFilter, setSourceFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState<'leads' | 'templates'>('leads');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showStatusDrop, setShowStatusDrop] = useState(false);
 
-  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
-  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
-  const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
-  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
-  const [isLWGModalOpen, setIsLWGModalOpen] = useState(false);
+  const [activeLead, setActiveLead]         = useState<Lead | null>(null);
+  const [isAddOpen, setIsAddOpen]           = useState(false);
+  const [isCallOpen, setIsCallOpen]         = useState(false);
+  const [isEmailOpen, setIsEmailOpen]       = useState(false);
+  const [isBulkEmailOpen, setIsBulkEmailOpen] = useState(false);
+  const [isLWGOpen, setIsLWGOpen]           = useState(false);
 
-  useEffect(() => { fetchLeads(); }, []);
-
-  useEffect(() => {
-    let f = [...leads];
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      f = f.filter(l =>
-        l.company_name.toLowerCase().includes(q) ||
-        l.contact_person.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
-        (l.country || '').toLowerCase().includes(q)
-      );
-    }
-    if (statusFilter !== 'all') f = f.filter(l => l.status === statusFilter);
-    if (sourceFilter !== 'all') f = f.filter(l => l.source === sourceFilter);
-    setFiltered(f);
-  }, [leads, searchTerm, statusFilter, sourceFilter]);
-
-  const fetchLeads = async () => {
+  const fetchLeads = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase
+      .from('leads').select('*').order('created_at', { ascending: false });
     setLeads(data || []);
     setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+
+  const filtered = leads.filter(l => {
+    const q = searchTerm.toLowerCase();
+    const matchSearch = !q || [l.company_name, l.contact_person, l.email, l.country || '']
+      .some(v => v.toLowerCase().includes(q));
+    const matchStatus = statusFilter === 'all' || l.status === statusFilter;
+    return matchSearch && matchStatus;
+  });
+
+  const handleModalUpdate = (updated?: Lead) => {
+    if (updated) {
+      setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+      setActiveLead(updated);
+    } else {
+      fetchLeads();
+      setActiveLead(null);
+    }
   };
 
-  const handleNewLead = () => { setSelectedLead(null); setIsLeadModalOpen(true); };
-  const handleEditLead = (lead: Lead) => { setSelectedLead(lead); setIsLeadModalOpen(true); };
-  const handleEmailLead = (lead: Lead, e: React.MouseEvent) => { e.stopPropagation(); setSelectedLead(lead); setIsEmailModalOpen(true); };
-  const handleCallLead = (lead: Lead, e: React.MouseEvent) => { e.stopPropagation(); setSelectedLead(lead); setIsCallModalOpen(true); };
+  const currentStatusLabel = STATUS_OPTS.find(o => o.key === statusFilter)?.label ?? 'All stages';
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* ── Header ── */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Zap className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900 leading-tight">Lead IQ</h1>
-                <p className="text-xs text-gray-500 hidden sm:block">Sales intelligence & follow-up hub</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsLWGModalOpen(true)}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
-              >
-                <Upload className="h-4 w-4" />
-                Import LWG
-              </button>
-              <button
-                onClick={handleNewLead}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Lead</span>
-                <span className="sm:hidden">Add</span>
-              </button>
-            </div>
+    <div className="min-h-full bg-gray-50/60">
+      <div className="px-4 py-6 max-w-3xl mx-auto space-y-5 page-fade-in">
+
+        {/* ── Page header ── */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">CRM Pipeline</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Lead IQ</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {loading ? 'Loading…' : `${leads.length} prospect${leads.length !== 1 ? 's' : ''}`}
+            </p>
           </div>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-4 py-5 space-y-5">
-        {/* ── Mobile quick actions ── */}
-        <div className="flex sm:hidden gap-2">
-          <button
-            onClick={() => setIsLWGModalOpen(true)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg"
-          >
-            <Upload className="h-4 w-4" />
-            Import LWG
-          </button>
-        </div>
-
-        {/* ── Search & Filters ── */}
-        <div className="bg-white rounded-xl border border-gray-200 p-3">
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search company, contact, email, country..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="pl-9 pr-3 py-2 w-full text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-1.5 px-3 py-2 text-sm border rounded-lg transition-colors ${
-                (statusFilter !== 'all' || sourceFilter !== 'all') || showFilters
-                  ? 'border-blue-500 text-blue-600 bg-blue-50'
-                  : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
+              onClick={() => setIsBulkEmailOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition shadow-sm"
             >
-              <Filter className="h-4 w-4" />
-              <span className="hidden sm:inline">Filters</span>
-              {(statusFilter !== 'all' || sourceFilter !== 'all') && (
-                <span className="bg-blue-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                  {[statusFilter !== 'all', sourceFilter !== 'all'].filter(Boolean).length}
-                </span>
-              )}
+              <Mail className="h-3.5 w-3.5" /> Cold Email
             </button>
-            <button onClick={fetchLeads} className="px-3 py-2 text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">
-              <RefreshCw className="h-4 w-4" />
+            <button
+              onClick={() => setIsLWGOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 transition shadow-sm"
+            >
+              <Upload className="h-3.5 w-3.5" /> Import LWG
+            </button>
+            <button
+              onClick={() => setIsAddOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm active:scale-95"
+            >
+              <Plus className="h-4 w-4" /> Add Lead
             </button>
           </div>
-
-          {showFilters && (
-            <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="all">All Status</option>
-                {Object.entries(STATUS_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-              <select
-                value={sourceFilter}
-                onChange={e => setSourceFilter(e.target.value)}
-                className="text-sm px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
-              >
-                <option value="all">All Sources</option>
-                {Object.entries(SOURCE_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-              {(statusFilter !== 'all' || sourceFilter !== 'all') && (
-                <button
-                  onClick={() => { setStatusFilter('all'); setSourceFilter('all'); }}
-                  className="text-sm text-red-500 hover:text-red-700 px-2"
-                >
-                  Clear filters
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
-        {/* ── Results count ── */}
-        <div className="flex items-center justify-between px-1">
-          <p className="text-sm text-gray-500">
-            {loading ? 'Loading...' : `${filtered.length} lead${filtered.length !== 1 ? 's' : ''}${searchTerm || statusFilter !== 'all' || sourceFilter !== 'all' ? ' found' : ''}`}
-          </p>
+        {/* ── Search + filter row ── */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search company, contact, country…"
+              className="w-full pl-10 pr-9 py-2.5 bg-white text-slate-900 text-sm border border-gray-200 rounded-2xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 outline-none transition-all placeholder-slate-400 shadow-sm"
+            />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Status dropdown */}
+          <div className="relative shrink-0">
+            <button
+              onClick={() => setShowStatusDrop(!showStatusDrop)}
+              className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-gray-300 transition-colors whitespace-nowrap text-slate-700"
+            >
+              {statusFilter !== 'all' && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[statusFilter]}`} />}
+              {currentStatusLabel}
+              <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+            </button>
+            {showStatusDrop && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowStatusDrop(false)} />
+                <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden w-44">
+                  {STATUS_OPTS.map(o => {
+                    const cnt = o.key === 'all' ? leads.length : leads.filter(l => l.status === o.key).length;
+                    return (
+                      <button key={o.key} onClick={() => { setStatusFilter(o.key); setShowStatusDrop(false); }}
+                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-left hover:bg-gray-50 transition-colors ${statusFilter === o.key ? 'text-blue-600 bg-blue-50/60' : 'text-slate-700'}`}>
+                        <span className="flex items-center gap-2">
+                          {o.key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[o.key]}`} />}
+                          {o.label}
+                        </span>
+                        {cnt > 0 && <span className="text-[10px] text-gray-400 font-bold">{cnt}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* ── Leads List ── */}
+        {/* ── Lead list ── */}
         {loading ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">Loading leads...</p>
+          <div className="flex items-center justify-center h-44">
+            <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="h-7 w-7 text-gray-400" />
-            </div>
-            <h3 className="text-base font-semibold text-gray-900 mb-1">
-              {searchTerm || statusFilter !== 'all' || sourceFilter !== 'all' ? 'No leads match your filters' : 'No leads yet'}
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              {searchTerm || statusFilter !== 'all' || sourceFilter !== 'all'
-                ? 'Try adjusting your search or filters'
-                : 'Add leads manually or import from the Leather Working Group directory'}
+          <div className="flex flex-col items-center justify-center h-48 bg-white rounded-3xl border border-dashed border-gray-200">
+            <Zap className="h-8 w-8 text-gray-200 mb-3" />
+            <p className="text-sm font-bold text-slate-400">
+              {searchTerm || statusFilter !== 'all' ? 'No leads match your search' : 'No leads yet'}
             </p>
-            {!(searchTerm || statusFilter !== 'all' || sourceFilter !== 'all') && (
-              <div className="flex justify-center gap-2">
-                <button onClick={handleNewLead} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                  <Plus className="h-4 w-4" /> Add Manually
+            {!(searchTerm || statusFilter !== 'all') && (
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setIsAddOpen(true)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700">
+                  <Plus className="h-3.5 w-3.5" /> Add Manually
                 </button>
-                <button onClick={() => setIsLWGModalOpen(true)} className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100">
-                  <Upload className="h-4 w-4" /> Import LWG
+                <button onClick={() => setIsLWGOpen(true)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 rounded-xl hover:bg-teal-100">
+                  <Upload className="h-3.5 w-3.5" /> Import LWG
                 </button>
               </div>
             )}
           </div>
         ) : (
-          <div className="space-y-2">
-            {filtered.map(lead => {
-              const status = STATUS_CONFIG[lead.status] || STATUS_CONFIG.new;
-              const source = SOURCE_CONFIG[lead.source] || SOURCE_CONFIG.other;
-              const days = daysSince(lead.last_contact_date);
-              const followUpDue = isFollowUpDue(lead.next_follow_up);
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+            {filtered.map((lead, idx) => {
+              const fupDue = isFollowUpDue(lead.next_follow_up);
+              const days   = daysSince(lead.last_contact_date);
+              const isLast = idx === filtered.length - 1;
 
               return (
-                <div
+                <button
                   key={lead.id}
-                  onClick={() => handleEditLead(lead)}
-                  className="bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all cursor-pointer group"
+                  onClick={() => setActiveLead(lead)}
+                  className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors active:bg-blue-50/50 group ${!isLast ? 'border-b border-gray-100' : ''}`}
                 >
-                  <div className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      {/* Left: Info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <h3 className="text-sm font-semibold text-gray-900 truncate">{lead.company_name}</h3>
-                          {followUpDue && (
-                            <span className="flex items-center gap-1 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 px-1.5 py-0.5 rounded-full">
-                              <Clock className="h-3 w-3" /> Follow-up due
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500 mb-2">
-                          <span className="font-medium text-gray-700">{lead.contact_person}</span>
-                          {lead.email && (
-                            <span className="flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              <span className="truncate max-w-[160px]">{lead.email}</span>
-                            </span>
-                          )}
-                          {lead.country && (
-                            <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {lead.country}
-                            </span>
-                          )}
-                          {lead.website && (
-                            <a
-                              href={lead.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={e => e.stopPropagation()}
-                              className="flex items-center gap-1 text-blue-500 hover:text-blue-700"
-                            >
-                              <Globe className="h-3 w-3" />
-                              <span className="hidden sm:inline">Website</span>
-                            </a>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${status.color}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                            {status.label}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${source.color}`}>
-                            {source.label}
-                          </span>
-                          {lead.industry_focus && (
-                            <span className="px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
-                              {lead.industry_focus}
-                            </span>
-                          )}
-                          {days !== null && (
-                            <span className={`text-xs ${days > 14 ? 'text-red-500' : days > 7 ? 'text-orange-500' : 'text-gray-400'}`}>
-                              {days === 0 ? 'Contacted today' : `Last contact ${days}d ago`}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Right: Actions */}
-                      <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                        <button
-                          onClick={e => handleEmailLead(lead, e)}
-                          title="Send email"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        >
-                          <Mail className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={e => handleCallLead(lead, e)}
-                          title="Log call"
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:text-green-600 hover:bg-green-50 transition-colors"
-                        >
-                          <Phone className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
+                  {/* Avatar */}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shrink-0 ${avatarColor(lead.company_name)}`}>
+                    {getInitials(lead.company_name)}
                   </div>
-                </div>
+
+                  {/* Main info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold text-slate-900 truncate group-hover:text-blue-600 transition-colors">
+                        {lead.company_name}
+                      </p>
+                      {fupDue && (
+                        <span className="flex items-center gap-0.5 text-[10px] font-bold text-orange-500 shrink-0">
+                          <Clock className="h-3 w-3" />
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400 truncate mt-0.5">
+                      {[lead.contact_person, lead.country].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+
+                  {/* Right side: status + last contact */}
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold ${STATUS_COLOR[lead.status] || 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[lead.status] || 'bg-gray-400'}`} />
+                      {STATUS_LABEL[lead.status] || lead.status}
+                    </span>
+                    {days !== null && (
+                      <span className={`text-[10px] font-medium ${days > 14 ? 'text-red-400' : days > 7 ? 'text-orange-400' : 'text-gray-300'}`}>
+                        {days === 0 ? 'today' : `${days}d ago`}
+                      </span>
+                    )}
+                  </div>
+                </button>
               );
             })}
           </div>
         )}
+
+        {/* Mobile action buttons */}
+        <div className="sm:hidden grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setIsBulkEmailOpen(true)}
+            className="flex items-center justify-center gap-1.5 py-3 text-xs font-bold rounded-2xl text-blue-700 bg-white border border-gray-200 hover:border-blue-200 hover:bg-blue-50 transition"
+          >
+            <Mail className="h-4 w-4" /> Cold Email
+          </button>
+          <button
+            onClick={() => setIsLWGOpen(true)}
+            className="flex items-center justify-center gap-1.5 py-3 text-xs font-bold rounded-2xl text-teal-700 bg-white border border-gray-200 hover:border-teal-200 hover:bg-teal-50 transition"
+          >
+            <Upload className="h-4 w-4" /> Import LWG
+          </button>
+        </div>
+
       </div>
 
-      {/* ── Floating Add button (mobile) ── */}
-      <button
-        onClick={handleNewLead}
-        className="fixed bottom-20 right-4 sm:hidden w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center z-20 hover:bg-blue-700 active:scale-95 transition-all"
-      >
-        <Plus className="h-5 w-5" />
-      </button>
+      {/* ── Lead detail modal ── */}
+      {activeLead && (
+        <LeadModal
+          lead={activeLead}
+          onClose={() => setActiveLead(null)}
+          onUpdate={handleModalUpdate}
+          onLogCall={() => setIsCallOpen(true)}
+          onSendEmail={() => setIsEmailOpen(true)}
+        />
+      )}
 
-      {/* ── Modals ── */}
+      {/* ── Add lead modal ── */}
       <LeadDetailsModal
-        isOpen={isLeadModalOpen}
-        onClose={() => setIsLeadModalOpen(false)}
-        lead={selectedLead}
-        onLeadUpdated={() => { fetchLeads(); setIsLeadModalOpen(false); }}
+        isOpen={isAddOpen}
+        onClose={() => setIsAddOpen(false)}
+        lead={null}
+        onLeadUpdated={() => { fetchLeads(); setIsAddOpen(false); }}
       />
-      <EmailTemplatesModal
-        isOpen={isTemplatesModalOpen}
-        onClose={() => setIsTemplatesModalOpen(false)}
-      />
-      <EmailComposeModal
-        isOpen={isEmailModalOpen}
-        onClose={() => setIsEmailModalOpen(false)}
-        lead={selectedLead}
-        onEmailSent={() => setIsEmailModalOpen(false)}
-      />
+
+      {/* ── Call log modal ── */}
       <CallLogModal
-        isOpen={isCallModalOpen}
-        onClose={() => setIsCallModalOpen(false)}
-        lead={selectedLead}
-        onCallLogged={() => { setIsCallModalOpen(false); fetchLeads(); }}
+        isOpen={isCallOpen}
+        onClose={() => setIsCallOpen(false)}
+        lead={activeLead}
+        onCallLogged={() => {
+          setIsCallOpen(false);
+          if (activeLead) {
+            const updated = { ...activeLead, last_contact_date: new Date().toISOString().split('T')[0] };
+            setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+            setActiveLead(updated);
+          }
+        }}
       />
+
+      {/* ── Email compose modal ── */}
+      <EmailComposeModal
+        isOpen={isEmailOpen}
+        onClose={() => setIsEmailOpen(false)}
+        lead={activeLead}
+        onEmailSent={() => setIsEmailOpen(false)}
+      />
+
+      {/* ── Bulk cold email modal ── */}
+      <BulkEmailModal
+        isOpen={isBulkEmailOpen}
+        onClose={() => setIsBulkEmailOpen(false)}
+        leads={filtered}
+      />
+
+      {/* ── LWG import modal ── */}
       <LWGScraperModal
-        isOpen={isLWGModalOpen}
-        onClose={() => setIsLWGModalOpen(false)}
+        isOpen={isLWGOpen}
+        onClose={() => setIsLWGOpen(false)}
         onLeadsImported={fetchLeads}
       />
     </div>
