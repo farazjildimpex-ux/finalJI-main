@@ -129,37 +129,57 @@ const SalesPage: React.FC = () => {
       <div className="px-4 py-6 max-w-3xl mx-auto space-y-5 page-fade-in">
 
         {/* ── Page header ── */}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">CRM Pipeline</p>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Lead IQ</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {loading ? 'Loading…' : `${leads.length} prospect${leads.length !== 1 ? 's' : ''}`}
-            </p>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">CRM Pipeline</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Lead IQ</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {loading ? 'Loading…' : `${leads.length} prospect${leads.length !== 1 ? 's' : ''}`}
+              </p>
+            </div>
+            {/* Desktop buttons — shown only on sm+ */}
+            <div className="hidden sm:flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setIsBulkEmailOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition shadow-sm"
+              >
+                <Mail className="h-3.5 w-3.5" /> Cold Email
+              </button>
+              <button
+                onClick={() => setIsLWGOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 transition shadow-sm"
+              >
+                <Upload className="h-3.5 w-3.5" /> Import LWG
+              </button>
+              <button
+                onClick={() => setIsAddOpen(true)}
+                className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm"
+              >
+                <Plus className="h-4 w-4" /> Add Lead
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+
+          {/* Mobile buttons — always visible, full-width row */}
+          <div className="flex items-center gap-2 sm:hidden">
             <button
               onClick={() => setIsBulkEmailOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition shadow-sm"
-              title="Bulk Cold Email"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 active:scale-95 transition shadow-sm"
             >
-              <Mail className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Cold Email</span>
+              <Mail className="h-3.5 w-3.5" /> Cold Email
             </button>
             <button
               onClick={() => setIsLWGOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 transition shadow-sm"
-              title="Import from Leather Working Group"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 active:scale-95 transition shadow-sm"
             >
-              <Upload className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Import LWG</span>
+              <Upload className="h-3.5 w-3.5" /> Import LWG
             </button>
             <button
               onClick={() => setIsAddOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 transition shadow-sm active:scale-95"
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition shadow-sm"
             >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Add Lead</span>
+              <Plus className="h-4 w-4" /> Add Lead
             </button>
           </div>
         </div>

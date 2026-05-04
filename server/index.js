@@ -483,9 +483,9 @@ async function fetchLWGPage(pageIndex, params) {
     : `https://www.leatherworkinggroup.com/get-involved/our-community/certified-suppliers/${pageIndex}/`;
 
   const qs = new URLSearchParams();
-  if (params.countryId) qs.set('tx_llcatalog_pi[filters][country][]', params.countryId);
-  if (params.ratingId)  qs.set('tx_llcatalog_pi[filters][rating][]',  params.ratingId);
-  if (params.keywords)  qs.set('tx_llcatalog_pi[filters][keywords]',   params.keywords);
+  if (params.countryId)  qs.set('tx_llcatalog_pi[filters][country][]', params.countryId);
+  if (params.ratingId)   qs.set('tx_llcatalog_pi[filters][rating][]',  params.ratingId);
+  if (params.keywords)   qs.set('tx_llcatalog_pi[filters][keywords]',  params.keywords);
 
   const url = qs.toString() ? `${base}?${qs}` : base;
 
@@ -503,23 +503,42 @@ function parseLWGPage(html, countryLabel, certLabel) {
 
   $('.record.card').each((_, el) => {
     const $el = $(el);
-    const nameEl = $el.find('.details h2 a').first();
+    const nameEl = $el.find('.details h2 a, h2 a').first();
     const name = nameEl.text().trim();
     if (!name) return;
     const href = nameEl.attr('href') || '';
     const detailUrl = href.startsWith('http') ? href : `https://www.leatherworkinggroup.com${href}`;
 
+    // Try to extract LWG rating from the card (populated when no certLabel passed)
+    const ratingEl = $el.find('.rating, .certificate-rating, .cert-level, .llcatalog-rating, [class*="rating"]').first();
+    const ratingFromCard = ratingEl.text().replace(/[^a-zA-Z]/g, '').trim();
+    const validRatings = ['Gold', 'Silver', 'Bronze', 'Audited', 'Approved'];
+    const detectedRating = validRatings.find(r => ratingFromCard.toLowerCase().includes(r.toLowerCase())) || '';
+
+    // Try to extract member/facility type from the card
+    const typeEl = $el.find(
+      '.details .type, .type, .facility-type, .member-type, .listing-type, ' +
+      '.record-type, .catalog-type, [class*="type"]:not([class*="content"])'
+    ).first();
+    const facilityType = typeEl.text().trim().replace(/\s+/g, ' ');
+
+    // Try to extract a description / "about" blurb
+    const descEl = $el.find('.details .description, .details .about, .details .intro, .details p:not(:has(a))').first();
+    const description = descEl.text().trim().replace(/\s+/g, ' ');
+
     suppliers.push({
-      company_name: name,
-      country: countryLabel || '',
-      certification_type: certLabel || '',
-      website: detailUrl,
-      address: '',
+      company_name:      name,
+      country:           countryLabel || '',
+      certification_type: certLabel || detectedRating || '',
+      facility_type:     facilityType  || '',
+      description:       description   || '',
+      website:           detailUrl,
+      address:           '',
     });
   });
 
-  // Extract total count
-  const paginationText = $('.pagination p').text().trim();
+  // Extract total count from pagination
+  const paginationText = $('.pagination p, .catalog-pagination p, [class*="pagination"] p').text().trim();
   const totalMatch = paginationText.match(/out of\s+(\d[\d,]*)/i);
   const total = totalMatch ? parseInt(totalMatch[1].replace(/,/g, '')) : suppliers.length;
 
@@ -528,17 +547,20 @@ function parseLWGPage(html, countryLabel, certLabel) {
 
 app.get('/api/scrape/lwg', async (req, res) => {
   try {
-    const countryName = req.query.country || '';
-    const ratingName  = req.query.rating  || '';
-    const keywords    = req.query.keywords || '';
+    const countryName  = req.query.country    || '';
+    const ratingName   = req.query.rating     || '';
+    const keywords     = req.query.keywords   || '';
+    const memberType   = req.query.memberType || '';
 
     const countryId = countryName ? LWG_COUNTRIES[countryName] : undefined;
     const ratingId  = ratingName  ? LWG_RATINGS[ratingName]    : undefined;
+    // memberType is passed as a keyword search so it works regardless of exact LWG filter IDs
+    const effectiveKeywords = memberType || keywords;
 
     const params = {};
-    if (countryId) params.countryId = countryId;
-    if (ratingId)  params.ratingId  = ratingId;
-    if (keywords)  params.keywords  = keywords;
+    if (countryId)         params.countryId = countryId;
+    if (ratingId)          params.ratingId  = ratingId;
+    if (effectiveKeywords) params.keywords  = effectiveKeywords;
 
     // Fetch first page to learn the total count
     const html0 = await fetchLWGPage(0, params);
