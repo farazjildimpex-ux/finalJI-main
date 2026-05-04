@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 .dyad/
+
+# Server PDF cache — auto-generated, not for version control
+server/.pdf-cache/

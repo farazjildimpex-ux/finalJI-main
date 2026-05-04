@@ -15,6 +15,7 @@ import SampleBookPage from './components/SampleBook/SampleBookPage';
 import SettingsPage from './components/Settings/SettingsPage';
 import ApprovalsPage from './components/Approvals/ApprovalsPage';
 import EmailTemplatesPage from './components/EmailTemplates/EmailTemplatesPage';
+import SalesPage from './components/Sales/SalesPage';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
             <Route path="approvals" element={<ApprovalsPage />} />
             <Route path="debit-notes" element={<DebitNotePage />} />
             <Route path="debit-notes/:id" element={<DebitNotePage />} />
+            <Route path="sales" element={<SalesPage />} />
             <Route path="email-templates" element={<EmailTemplatesPage />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/app/home" replace />} />

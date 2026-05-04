@@ -24,6 +24,7 @@ export function getZohoCreds() {
     fromEmail:    (process.env.ZOHO_FROM_EMAIL     || '').trim(),
     fromName:     (process.env.ZOHO_FROM_NAME      || '').trim(),
     accountId:    (process.env.ZOHO_ACCOUNT_ID     || '').trim(),
+    smtpPassword: (process.env.ZOHO_SMTP_PASSWORD  || '').trim(),
   };
 }
 
@@ -80,75 +81,68 @@ export async function getZohoAccountId() {
 }
 
 /**
- * Send an email via Zoho Mail API.
+ * Send an email via Zoho Mail REST API.
  *
- * @param {object} opts
+ * When `pdfDownloadUrl` is supplied the function injects a styled download
+ * button at the bottom of the HTML body so recipients can fetch the PDF
+ * directly — no attachment upload required.
+ *
+ * @param {object}        opts
  * @param {string|string[]} opts.to
  * @param {string|string[]} [opts.cc]
- * @param {string} opts.subject
- * @param {string} opts.body          HTML or plain text
- * @param {string} [opts.contentType] 'html' | 'plaintext'  (default 'html')
- * @param {Buffer|string} [opts.attachmentBuffer]
- * @param {string} [opts.attachmentName]
- * @param {string} [opts.attachmentMime]
+ * @param {string}        opts.subject
+ * @param {string}        opts.body          HTML content
+ * @param {string}        [opts.contentType] 'html' | 'plaintext' (default 'html')
+ * @param {string}        [opts.pdfDownloadUrl]  Public URL where recipient can download the PDF
+ * @param {string}        [opts.pdfFilename]     Display filename shown in the button label
  * @returns {Promise<{ok: boolean, messageId?: string, error?: string}>}
  */
-export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html', attachmentBuffer, attachmentName, attachmentMime }) {
+export async function sendZohoEmail({ to, cc, subject, body, contentType = 'html', pdfDownloadUrl, pdfFilename }) {
   try {
-    const token     = await getZohoAccessToken();
-    const accountId = await getZohoAccountId();
     const { fromEmail, fromName } = getZohoCreds();
-
     if (!fromEmail) throw new Error('ZOHO_FROM_EMAIL is not set in Replit Secrets.');
 
-    const toArr  = Array.isArray(to) ? to : [to];
-    const ccArr  = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
+    const toArr = Array.isArray(to) ? to : [to];
+    const ccArr = cc ? (Array.isArray(cc) ? cc : [cc]) : [];
 
-    // If there is an attachment we must upload it first, then send.
-    let uploadId = null;
-    if (attachmentBuffer && attachmentName) {
-      const mime = attachmentMime || 'application/pdf';
-      const formData = new FormData();
-      const blob = attachmentBuffer instanceof Buffer
-        ? new Blob([attachmentBuffer], { type: mime })
-        : new Blob([Buffer.from(attachmentBuffer, 'base64')], { type: mime });
-      formData.append('attach', blob, attachmentName);
-
-      const uploadUrl = `${ZOHO_API_BASE}/api/accounts/${accountId}/messages/attachments`;
-      console.log('[zoho-attach] uploading to:', uploadUrl, 'filename:', attachmentName, 'mime:', mime);
-      const upResp = await fetch(
-        uploadUrl,
-        { method: 'POST', headers: { Authorization: `Zoho-oauthtoken ${token}` }, body: formData },
-      );
-      const upText = await upResp.text();
-      console.log('[zoho-attach] response status:', upResp.status, 'body:', upText);
-      let upData;
-      try { upData = JSON.parse(upText); } catch { upData = { raw: upText }; }
-      if (!upResp.ok || !upData.data?.[0]?.attachmentId) {
-        throw new Error(`Attachment upload failed (${upResp.status}): ${upText}`);
-      }
-      uploadId = upData.data[0].attachmentId;
-      console.log('[zoho-attach] upload success, attachmentId:', uploadId);
+    // Append download button when a PDF link is provided
+    let finalBody = body;
+    if (pdfDownloadUrl && contentType === 'html') {
+      const label = pdfFilename || 'Download PDF';
+      finalBody += `
+<div style="margin-top:28px;padding-top:20px;border-top:1px solid #e5e7eb;text-align:center;">
+  <a href="${pdfDownloadUrl}"
+     style="display:inline-block;padding:12px 28px;background:#1d4ed8;color:#ffffff;
+            font-family:sans-serif;font-size:15px;font-weight:600;text-decoration:none;
+            border-radius:8px;letter-spacing:0.01em;">
+    ⬇ ${label}
+  </a>
+  <p style="margin-top:10px;font-family:sans-serif;font-size:12px;color:#6b7280;">
+    This link expires in 72 hours.
+  </p>
+</div>`;
     }
 
-    const payload = {
-      fromAddress: fromEmail,
-      ...(fromName ? { senderName: fromName } : {}),
-      toAddress:   toArr.join(','),
-      ccAddress:   ccArr.join(','),
-      subject,
-      content:     body,
-      mailFormat:  contentType,
-    };
-    if (uploadId) payload.attachmentId = [uploadId];
+    const token     = await getZohoAccessToken();
+    const accountId = await getZohoAccountId();
 
+    // Zoho uses "Display Name <email>" format in fromAddress for sender name
+    const from = fromName ? `${fromName} <${fromEmail}>` : fromEmail;
+
+    const payload = {
+      fromAddress: from,
+      toAddress:   toArr.join(','),
+      ...(ccArr.length ? { ccAddress: ccArr.join(',') } : {}),
+      subject,
+      content:    finalBody,
+      mailFormat: contentType,
+    };
+
+    console.log('[zoho-rest] sending →', toArr.join(', '), pdfDownloadUrl ? `with PDF link` : '(no PDF)');
     const resp = await fetch(`${ZOHO_API_BASE}/api/accounts/${accountId}/messages`, {
       method:  'POST',
-      headers: {
-        Authorization:  `Zoho-oauthtoken ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
+      headers: { Authorization: `Zoho-oauthtoken ${token}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload),
     });
 
     const data = await resp.json();

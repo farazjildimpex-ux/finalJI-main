@@ -8,7 +8,7 @@ import { useNotifications } from '../../hooks/useNotifications';
 import { dialogService } from '../../lib/dialogService';
 import EmailSyncSection from './EmailSyncSection';
 import EmailScanHistory from './EmailScanHistory';
-import ZohoSetupSection from './ZohoSetupSection';
+import GmailSendSection from './GmailSendSection';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -213,8 +213,8 @@ const SettingsPage: React.FC = () => {
       {/* Auto Invoice Sync from Gmail */}
       <EmailSyncSection />
 
-      {/* Zoho Mail outgoing setup */}
-      <ZohoSetupSection />
+      {/* Gmail outgoing email setup */}
+      <GmailSendSection />
 
       {/* Approval queue link */}
       <Link

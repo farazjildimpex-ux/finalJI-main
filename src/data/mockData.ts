@@ -14,6 +14,12 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
+    name: 'Lead IQ',
+    path: '/app/sales',
+    icon: 'zap',
+    mobile: true,
+  },
+  {
     name: 'Contracts',
     path: '/app/contracts',
     icon: 'fileText',
@@ -30,12 +36,6 @@ export const navigationItems: NavigationItem[] = [
     path: '/app/debit-notes',
     icon: 'receipt',
     mobile: true,
-  },
-  {
-    name: 'Emails',
-    path: '/app/email-templates',
-    icon: 'mail',
-    mobile: false,
   },
   {
     name: 'Data',

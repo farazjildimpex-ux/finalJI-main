@@ -11,6 +11,14 @@ import DatePicker from '../UI/DatePicker';
 import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
+/** Increment the trailing number in any document reference, preserving zero-padding and prefix. */
+function getNextNumber(last: string): string {
+  const match = last.match(/^(.*\D|)(\d+)(\D*)$/);
+  if (!match) return last;
+  const [, prefix, numStr, suffix] = match;
+  return prefix + String(parseInt(numStr, 10) + 1).padStart(numStr.length, '0') + suffix;
+}
+
 const STATUS_OPTIONS = ['Issued', 'Completed', 'Cancelled'] as const;
 const STATUS_COLORS: Record<string, string> = {
   Issued:    'bg-blue-50 text-blue-900 border-blue-300',
@@ -186,6 +194,19 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       setCompanyLetterheadUrl(co?.letterhead_url || null);
     }
   }, [initialData, companies]);
+
+  useEffect(() => {
+    if (initialData) return;
+    supabase
+      .from('debit_notes')
+      .select('debit_note_no')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data }) => {
+        const last = data?.[0]?.debit_note_no;
+        if (last) setFormData(prev => ({ ...prev, debit_note_no: getNextNumber(last) }));
+      });
+  }, []);
 
   useEffect(() => {
     const invoiceValue = parseFloat(formData.invoice_value) || 0;

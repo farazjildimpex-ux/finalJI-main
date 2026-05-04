@@ -7,7 +7,16 @@ import {
 } from 'lucide-react';
 
 interface ZohoStatus {
-  configured: boolean; hasFromEmail: boolean; missing: Record<string, boolean>; authBase?: string;
+  configured: boolean;
+  hasFromEmail: boolean;
+  missing: {
+    ZOHO_CLIENT_ID: boolean;
+    ZOHO_CLIENT_SECRET: boolean;
+    ZOHO_REFRESH_TOKEN: boolean;
+    ZOHO_FROM_EMAIL: boolean;
+    ZOHO_FROM_NAME: boolean;
+  };
+  authBase?: string;
 }
 
 const DATA_CENTERS = [
@@ -186,13 +195,13 @@ const ZohoSetupSection: React.FC = () => {
               <p className="text-sm text-slate-600 mb-2">In Replit Secrets, add these entries (ZOHO_REFRESH_TOKEN comes from step 5):</p>
               <div className="space-y-1.5">
                 {([
-                  { key: 'ZOHO_CLIENT_ID',     hint: 'From step 3 — Zoho API Console' },
-                  { key: 'ZOHO_CLIENT_SECRET',  hint: 'From step 3 — Zoho API Console' },
-                  { key: 'ZOHO_FROM_EMAIL',     hint: 'The email address you send from' },
-                  { key: 'ZOHO_FROM_NAME',      hint: 'Display name recipients see, e.g. JILD IMPEX' },
-                  { key: 'ZOHO_REFRESH_TOKEN',  hint: 'Generated in step 5 below' },
+                  { key: 'ZOHO_CLIENT_ID',      hint: 'From step 3 — Zoho API Console' },
+                  { key: 'ZOHO_CLIENT_SECRET',   hint: 'From step 3 — Zoho API Console' },
+                  { key: 'ZOHO_FROM_EMAIL',      hint: 'The email address you send from' },
+                  { key: 'ZOHO_FROM_NAME',       hint: 'Display name recipients see, e.g. JILD IMPEX' },
+                  { key: 'ZOHO_REFRESH_TOKEN',   hint: 'Generated in step 5 below' },
                 ] as const).map(s => {
-                  const missing = status?.missing[s.key];
+                  const missing = status?.missing[s.key as keyof typeof status.missing];
                   return (
                     <div key={s.key} className={`flex items-center justify-between px-3 py-2 rounded-xl border text-sm ${missing ? 'border-red-200 bg-red-50' : 'border-slate-200 bg-slate-50'}`}>
                       <div className="flex items-center gap-2">
@@ -206,6 +215,12 @@ const ZohoSetupSection: React.FC = () => {
                     </div>
                   );
                 })}
+              </div>
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-2 text-xs text-blue-800">
+                <Info className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  <strong>PDF attachments work on the free plan.</strong> When you include a PDF, it is stored securely on the server and the recipient gets a download button in the email. The link expires after 72 hours.
+                </span>
               </div>
             </Step>
 
@@ -241,7 +256,7 @@ const ZohoSetupSection: React.FC = () => {
               <p className="text-sm text-slate-600">
                 After saving all secrets, restart the workflow (<strong>"Start application"</strong>) in Replit.
                 Come back here and click the <RefreshCw className="inline h-3.5 w-3.5" /> icon above —
-                you should see the green <strong>Connected</strong> badge.
+                you should see all items in the checklist above turn green.
               </p>
             </Step>
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import SearchBar from './SearchBar';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -10,6 +10,24 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { AlertCircle } from 'lucide-react';
 import type { Order, JournalEntry } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function getFirstName(user: { email?: string; user_metadata?: { full_name?: string; name?: string } } | null) {
+  if (!user) return '';
+  const full = user.user_metadata?.full_name || user.user_metadata?.name || '';
+  if (full) return full.split(' ')[0];
+  return user.email?.split('@')[0] || '';
+}
+
+function formatToday() {
+  return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
@@ -182,10 +200,27 @@ const HomePage: React.FC = () => {
     await Promise.all([fetchData(), fetchJournalEntries()]);
   }, [fetchData, fetchJournalEntries]);
 
+  const firstName = useMemo(() => getFirstName(user), [user]);
+
   return (
     <PullToRefresh onRefresh={handlePullRefresh}>
     <div className="max-w-7xl mx-auto page-fade-in px-4">
-      <div className="mb-4 pt-3">
+
+      {/* ── Welcome header ── */}
+      <div className="pt-6 pb-5">
+        <p className="text-2xl font-bold leading-tight">
+          <span className="text-gray-900">JILD </span>
+          <span className="text-blue-600">IMPEX </span>
+          <span className="text-gray-900">Management</span>
+        </p>
+        <h1 className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">
+          {getGreeting()} 👋
+        </h1>
+        <p className="text-sm text-gray-400 mt-0.5">{formatToday()}</p>
+      </div>
+
+      {/* ── Search & filters ── */}
+      <div className="mb-5">
         <SearchBar
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
