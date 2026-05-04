@@ -11,15 +11,12 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Auto Invoice Sync** — Connects to Gmail via OAuth, downloads PDF attachments from the last 7 days, uses Google Gemini or Qwen AI to extract invoice data, stages for approval
 - **Email System** — Zoho Mail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal with rich-text editor (bold/italic/underline/font size/color), email log history
 - **Rich Text Email Editor** — `src/components/Email/RichTextEditor.tsx` — contenteditable toolbar with formatting, preview uses app system font
-- **CommunicateButton** — `src/components/Email/CommunicateButton.tsx` — WhatsApp/Email choice popup on Contract/Letter/Payment pages. WhatsApp flow generates a pre-filled message and opens wa.me. Email flow opens template picker → ComposeModal.
-- **PDF Attachment Without Save** — PDF generators (`contractPdfGenerator`, `samplePdfGenerator`, `debitNotePdfGenerator`) now accept a `download` boolean and return base64 string. Email compose can include the document PDF via a download link.
-- **Gmail Email Sending** — Emails are sent via Gmail API (`POST /gmail/v1/users/me/messages/send`) using the same Google OAuth credentials as invoice sync. Builds RFC 2822 MIME multipart messages with real PDF attachments (base64, `Content-Transfer-Encoding: base64`). Requires `gmail.send` scope — user must re-authorize Google once via Settings → Email. `sendGmailEmail()` in `server/gmailLib.js`.
-- **Gmail Attachment Picker** — In ComposeModal, "From Gmail (recent)" lists PDF attachments from the last 3 days, then fetches the selected one's base64.
-- **Gmail Push** — Cloud Pub/Sub webhook at `/api/gmail/push` for true push delivery (no polling)
-- **Zoho Setup Guide** — `src/components/Settings/ZohoSetupSection.tsx` — step-by-step setup instructions with live connection status badge. Added to Settings page.
-- **Mobile Nav** — `MobileBottomNav` shows 7 items (Home, Contacts, Contracts, Letters, Payments, Templates, Data) with horizontal scroll. Templates tab navigates to `/app/email-templates`.
-- **Template Edit Modal** — `EmailTemplatesPage` now opens the TemplateForm in a modal overlay (not inline), preventing duplicate-entry confusion.
-- **Sales / Lead IQ** — `SalesPage.tsx` with LWG lead import, per-lead cold email compose, and bulk cold email modal (country filter, template picker, per-lead variable substitution, progress bar, logs to `lead_email_logs`, updates lead status to "contacted").
+- **CommunicateButton** — `src/components/Email/CommunicateButton.tsx` — WhatsApp/Email choice popup on Contract/Letter/Payment pages
+- **PDF Attachment Without Save** — PDF generators return base64 string; email compose can include the document PDF
+- **Gmail Email Sending** — Emails sent via Gmail API using Google OAuth credentials. Requires `gmail.send` scope
+- **Gmail Attachment Picker** — In ComposeModal, "From Gmail (recent)" lists PDF attachments from the last 3 days
+- **Gmail Push** — Cloud Pub/Sub webhook at `/api/gmail/push` for true push delivery
+- **Sales / Lead IQ** — `SalesPage.tsx` with LWG lead import, per-lead cold email compose, bulk cold email modal
 - **PWA** — Service worker for offline support and push notifications
 
 ## Tech Stack
@@ -27,7 +24,7 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Styling**: Tailwind CSS
 - **Routing**: React Router DOM v6
 - **Backend/Auth/DB**: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
-- **Server**: Express.js on port 3001 (proxied by Vite on port 5000) — handles Gmail OAuth, Zoho Mail OAuth, email sending
+- **Server**: Express.js on port 3001 (proxied by Vite on port 5000) — handles Gmail OAuth, Zoho Mail OAuth, email sending, PDF downloads, LWG scraping
 - **Notifications**: Firebase Cloud Messaging (optional — degrades gracefully if not configured)
 - **Documents**: jsPDF, jspdf-autotable, docxtemplater, pizzip
 
@@ -39,16 +36,17 @@ npm run dev
 
 Starts both the Vite dev server (port 5000) and Express API server (port 3001) concurrently.
 
-## Architecture: Replit Hosting
+## Replit Architecture
 
-The backend is `server/index.js` (Express on port 3001, proxied by Vite on port 5000).
-- `server/replitSecrets.js` watches `/run/replit/env/latest.json` for live secret updates without workflow restarts
-- Redirect URI for Google OAuth uses `REPLIT_DOMAINS` env var (auto-set by Replit)
-- In production (`NODE_ENV=production`), Express serves the built `dist/` SPA with SPA fallback
+- **Workflow**: `Start application` runs `npm run dev` (Vite on port 5000, Express on port 3001)
+- **Production deploy**: `NODE_ENV=production node server/index.js` — Express serves built `dist/` with SPA fallback
+- **Live secrets**: `server/replitSecrets.js` watches `/run/replit/env/latest.json` for live Replit secret updates without workflow restarts
+- **OAuth redirect URI**: Uses `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS` env vars (auto-set by Replit) for correct redirect URIs in Google and Zoho OAuth flows
+- **Vite proxy**: `/api/*` requests from the frontend are proxied to `http://localhost:3001`
 
 ## Required Replit Secrets
 
-All secrets are stored in Replit Secrets (not `.env` files):
+All secrets are stored in Replit Secrets (Secrets tab), never in `.env` files:
 
 | Secret | Purpose |
 |--------|---------|
@@ -57,80 +55,81 @@ All secrets are stored in Replit Secrets (not `.env` files):
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID (Gmail sync + send) |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `GOOGLE_REFRESH_TOKEN` | Google refresh token (via `/api/google/oauth/start`) |
-| `ZOHO_CLIENT_ID` | Zoho Developer Console Web app Client ID |
-| `ZOHO_CLIENT_SECRET` | Zoho Client Secret |
-| `ZOHO_REFRESH_TOKEN` | Zoho refresh token (via `/api/zoho/oauth/start`) |
-| `ZOHO_FROM_EMAIL` | The Zoho Mail address to send from |
-| `ZOHO_FROM_NAME` | Display name for outgoing Zoho emails |
-| `ZOHO_AUTH_BASE` | (optional) Zoho auth DC base URL, defaults to `https://accounts.zoho.com` |
-| `ZOHO_API_BASE` | (optional) Zoho API DC base URL, defaults to `https://mail.zoho.com` |
+| `ZOHO_CLIENT_ID` | Zoho Developer Console Web app Client ID (optional) |
+| `ZOHO_CLIENT_SECRET` | Zoho Client Secret (optional) |
+| `ZOHO_REFRESH_TOKEN` | Zoho refresh token via `/api/zoho/oauth/start` (optional) |
+| `ZOHO_FROM_EMAIL` | The Zoho Mail address to send from (optional) |
+| `ZOHO_FROM_NAME` | Display name for outgoing Zoho emails (optional) |
+| `ZOHO_AUTH_BASE` | Zoho auth DC base URL, default `https://accounts.zoho.com` (optional) |
+| `ZOHO_API_BASE` | Zoho API DC base URL, default `https://mail.zoho.com` (optional) |
 
-Firebase variables (`VITE_FIREBASE_*`) are optional — app degrades gracefully without them.
+Firebase variables (`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY`) are optional — app degrades gracefully without them.
 
-## Environment Variables (Secrets) — full list
-
-- `VITE_SUPABASE_URL` — Supabase project URL
-- `VITE_SUPABASE_ANON_KEY` — Supabase anonymous/public key
-- `GOOGLE_CLIENT_ID` — OAuth 2.0 Web Application Client ID from Google Cloud Console (Gmail API enabled)
-- `GOOGLE_CLIENT_SECRET` — OAuth 2.0 Client Secret matching the Client ID above
-- `GOOGLE_REFRESH_TOKEN` — long-lived refresh token obtained via the in-app `/api/google/oauth/start` flow (one-time)
-- `ZOHO_CLIENT_ID` — Zoho Developer Console Web app Client ID
-- `ZOHO_CLIENT_SECRET` — Zoho Client Secret
-- `ZOHO_REFRESH_TOKEN` — Zoho refresh token obtained via `/api/zoho/oauth/start` (one-time)
-- `ZOHO_FROM_EMAIL` — The Zoho Mail address to send from
-- `ZOHO_FROM_NAME` — Display name shown to recipients (e.g. "JILD IMPEX")
-- `ZOHO_ACCOUNT_ID` — (optional) Zoho numeric account ID; auto-fetched and cached if omitted
-- `ZOHO_AUTH_BASE` — (optional) Zoho auth DC base URL, defaults to `https://accounts.zoho.com`
-- `ZOHO_API_BASE` — (optional) Zoho API DC base URL, defaults to `https://mail.zoho.com`
-- Firebase variables are optional (set in `.env.example` for reference)
+AI keys (Google Gemini / Qwen DashScope) are stored in the user's browser localStorage via the Settings page — no server secret needed.
 
 ## Project Structure
 
 ```
 src/
-  components/     # UI components by feature (Auth, Contracts, DebitNote, Approvals, etc.)
+  components/     # UI components by feature
+    Auth/         # LoginPage, ProtectedRoute, NotificationInitializer
+    Layout/       # Layout, Sidebar, MobileBottomNav
+    Home/         # HomePage + widgets
+    Contracts/    # ContractsPage, ContractForm, DebitNotesSection, InvoicesSection
+    ContactBook/  # ContactBookPage + modals
+    DebitNote/    # DebitNotePage + form
+    SampleBook/   # SampleBookPage + list/form
+    Approvals/    # ApprovalsPage
+    Sales/        # SalesPage + lead/email modals
+    Email/        # ComposeModal, RichTextEditor, CommunicateButton, EmailLog
+    EmailTemplates/ # EmailTemplatesPage, TemplateForm
+    Journal/      # JournalEntryCard, JournalEntryForm, JournalEntryPopup
+    Notes/        # NotesPage
+    Settings/     # SettingsPage + email/Gmail/Zoho setup sections
+    UI/           # Shared UI (dialogs, loading screen, error boundary, notification bell)
   hooks/          # useAuth, useNotifications, useReminderChecker
-  lib/            # supabaseClient.ts, firebase.ts, courierTracking.ts, emailSync.ts, emailCompose.ts
-  types/          # TypeScript interfaces
-  utils/          # PDF/Word generators, PWA helpers
+  lib/            # supabaseClient.ts, firebase.ts, courierTracking.ts, emailSync.ts, emailCompose.ts, dialogService.ts
+  types/          # TypeScript interfaces (index.ts)
+  utils/          # contractPdfGenerator, debitNotePdfGenerator, samplePdfGenerator, contractWordGenerator, debitNoteWordGenerator, pwaHelper, timezoneHelper
   App.tsx         # Router + route definitions
   main.tsx        # Bootstrap, service worker registration
 server/
-  index.js        # Express API server (Gmail, Zoho, email send endpoints)
-  gmailLib.js     # Gmail OAuth token management and email fetching/sending
+  index.js        # Express API server (Gmail, Zoho, email send, PDF download, LWG scraper)
+  gmailLib.js     # Gmail OAuth token management, email fetching/sending
   zohoLib.js      # Zoho Mail OAuth and email sending
-  replitSecrets.js # Live-reloads Replit secrets from env file
+  pdfLinks.js     # In-memory PDF link store for download tokens
+  replitSecrets.js # Live-reloads Replit secrets from /run/replit/env/latest.json
 supabase/
-  functions/      # Edge Functions (check-reminders, onesignal-proxy)
-  migrations/     # SQL schema history
+  functions/      # Edge Functions: check-reminders (FCM push), onesignal-proxy
+  migrations/     # Full SQL schema history (contracts, samples, debit_notes, companies, invoices, leads, etc.)
+public/           # Static assets: icons, service workers (sw.js, firebase-messaging-sw.js), manifest
 ```
+
+## Database (Supabase)
+
+The app uses an external Supabase project for PostgreSQL, Auth, and Storage. Key tables:
+- `contracts`, `contract_files`, `contract_samples` — core business contracts
+- `samples` — leather sample tracking
+- `debit_notes` — commission debit notes
+- `companies` — supplier/buyer companies
+- `contact_book` — business contacts
+- `invoices`, `email_scan_log` — invoice auto-sync pipeline
+- `leads`, `call_logs`, `lead_email_logs` — sales CRM
+- `email_templates`, `email_logs` — email system
+- `todos`, `journal_entries` — productivity tools
+- `gmail_push_state` — Gmail push webhook state
+
+All tables use Row Level Security (RLS) with Supabase Auth JWT.
 
 ## AI Providers for Invoice Extraction
 
-- **Google AI Studio (Gemini)** — direct API, native PDF reading, 1500 req/day free. Recommended.
-  User sets key in Settings → stored in localStorage as `jild_google_api_key`
-- **Qwen / DashScope (Alibaba)** — backup. OpenAI-compatible at DashScope International.
-  User sets key in Settings → stored in localStorage as `jild_qwen_api_key`
+- **Google AI Studio (Gemini)** — direct API, native PDF reading, 1500 req/day free. Recommended. User sets key in Settings → stored in localStorage as `jild_google_api_key`
+- **Qwen / DashScope (Alibaba)** — backup. User sets key in Settings → stored in localStorage as `jild_qwen_api_key`
 
 ## Invoice Approval Flow
 
-Email sync NEVER writes directly to `invoices`. Extracted invoices are staged in `email_scan_log.extracted_invoices` via `recordScan`. The user approves them on the Approvals page (`/app/approvals`) which calls `emailSync.approveExtractedInvoice` → inserts into `invoices` with `is_approved=true, source='email_sync'`.
-
-## PWA / SPA Fallback
-
-`server/index.js` (production only) serves `dist/` static and falls back to `index.html` for any non-`/api/*` GET so refreshing deep routes works in the installed PWA.
+Email sync NEVER writes directly to `invoices`. Extracted invoices are staged in `email_scan_log.extracted_invoices`. The user approves them on the Approvals page → calls `emailSync.approveExtractedInvoice` → inserts into `invoices` with `is_approved=true, source='email_sync'`.
 
 ## Sample Courier Tracking
 
-`src/lib/courierTracking.ts` supports DHL, FedEx, UPS, Aramex, BlueDart, DTDC, India Post, TNT, and builds tap-to-track URLs for each provider.
-
-## Journal Reminder Quick-Pick Buttons
-
-`JournalEntryForm.tsx` shows 6 preset buttons (2 days, 1 week, 10 days, 2 weeks, 3 weeks, 4 weeks) when reminders are enabled. Each preset sets `reminderDate = today + N days` and `reminderTime = 09:00`.
-
-## Lead / Sales System
-
-- `lead_email_logs` Supabase table tracks every outbound cold email (user_id, lead_id, to_email, subject, body, status, sent_at)
-- Leads are imported from the Leather Working Group (LWG) directory via `LWGScraperModal`
-- Cold emails send via `POST /api/email/send` → `sendGmailEmail()` using office@jildimpex.com
-- Bulk cold email modal: country filter, lead checklist, template picker, per-lead `{{variable}}` substitution, progress bar, auto-marks leads as "contacted"
+`src/lib/courierTracking.ts` supports DHL, FedEx, UPS, Aramex, BlueDart, DTDC, India Post, TNT — builds tap-to-track URLs for each provider.
