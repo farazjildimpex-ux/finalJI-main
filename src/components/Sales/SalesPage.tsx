@@ -161,25 +161,25 @@ const SalesPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Mobile buttons — always visible, full-width row */}
-          <div className="flex items-center gap-2 sm:hidden">
+          {/* Mobile buttons — stacked for better accessibility on narrow screens */}
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            <button
+              onClick={() => setIsAddOpen(true)}
+              className="col-span-2 flex items-center justify-center gap-1.5 py-3 text-sm font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition shadow-md"
+            >
+              <Plus className="h-4 w-4" /> Add Lead
+            </button>
             <button
               onClick={() => setIsBulkEmailOpen(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 active:scale-95 transition shadow-sm"
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 active:scale-95 transition shadow-sm"
             >
               <Mail className="h-3.5 w-3.5" /> Cold Email
             </button>
             <button
               onClick={() => setIsLWGOpen(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 active:scale-95 transition shadow-sm"
+              className="flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-teal-700 bg-teal-50 border border-teal-200 hover:bg-teal-100 active:scale-95 transition shadow-sm"
             >
               <Upload className="h-3.5 w-3.5" /> Import LWG
-            </button>
-            <button
-              onClick={() => setIsAddOpen(true)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition shadow-sm"
-            >
-              <Plus className="h-4 w-4" /> Add Lead
             </button>
           </div>
         </div>

@@ -42,6 +42,10 @@ interface LWGSupplier {
   email: string;
   in_db: boolean;
   selected: boolean;
+  profileFetched?: boolean;
+  profileLoading?: boolean;
+  animalTypes?: string[];
+  materialConditions?: string[];
 }
 
 interface LWGProfileDetails {
@@ -176,6 +180,7 @@ function dedupeByEmail(arr: Lead[]): Lead[] {
 
 const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads }) => {
   const [tab, setTab] = useState<'leads' | 'lwg'>('leads');
+  const [wizardStep, setWizardStep] = useState<1 | 2>(1);
 
   const [templates, setTemplates]     = useState<TemplateEntry[]>([]);
   const [selectedTpl, setSelectedTpl] = useState('');
@@ -237,6 +242,7 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
     setProgress(0);
     setSelectedTpl('');
     setTab('leads');
+    setWizardStep(1);
     setLeadsCountry('all');
     setLwgCountry('');
     setLwgRating('');
@@ -250,6 +256,42 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
     setLwgDetailSupplier(null);
     setLwgProfileData(null);
   }, [isOpen]);
+
+  // Background fetch for LWG profiles
+  useEffect(() => {
+    if (!isOpen || tab !== 'lwg' || !lwgFetched || lwgFetching) return;
+
+    const toFetchIdx = lwgSuppliers.findIndex(s => s.website && !s.profileFetched && !s.profileLoading);
+
+    if (toFetchIdx !== -1) {
+      const s = lwgSuppliers[toFetchIdx];
+      setLwgSuppliers(prev => prev.map((item, idx) => idx === toFetchIdx ? { ...item, profileLoading: true } : item));
+
+      const doFetch = async () => {
+        try {
+          const apiBase = (import.meta as any).env?.VITE_API_URL || '';
+          const res = await fetch(`${apiBase}/api/scrape/lwg/profile?url=${encodeURIComponent(s.website)}`);
+          const data = await res.json();
+          setLwgSuppliers(prev => prev.map((item, idx) => {
+            if (idx === toFetchIdx) {
+              return {
+                ...item,
+                profileLoading: false,
+                profileFetched: true,
+                email: data.ok && data.email ? data.email : item.email,
+                animalTypes: data.ok && data.animalTypes ? data.animalTypes : item.animalTypes,
+                materialConditions: data.ok && data.materialConditions ? data.materialConditions : item.materialConditions,
+              };
+            }
+            return item;
+          }));
+        } catch {
+          setLwgSuppliers(prev => prev.map((item, idx) => idx === toFetchIdx ? { ...item, profileLoading: false, profileFetched: true } : item));
+        }
+      };
+      doFetch();
+    }
+  }, [lwgSuppliers, isOpen, tab, lwgFetched, lwgFetching]);
 
   const fetchTemplates = async () => {
     try {
@@ -517,26 +559,31 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
           </div>
 
           {/* Tab selector */}
-          <div className="flex mt-4 bg-gray-100 rounded-xl p-1 gap-1">
-            <button
-              onClick={() => { if (sendState === 'idle') setTab('leads'); }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${tab === 'leads' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              My Leads
-            </button>
-            <button
-              onClick={() => { if (sendState === 'idle') setTab('lwg'); }}
-              className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 ${tab === 'lwg' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-            >
-              <Globe className="h-3 w-3" /> LWG Live
-            </button>
-          </div>
+          {wizardStep === 1 && (
+            <div className="flex mt-4 bg-gray-100 rounded-xl p-1 gap-1">
+              <button
+                onClick={() => { if (sendState === 'idle') setTab('leads'); }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors ${tab === 'leads' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                My Leads
+              </button>
+              <button
+                onClick={() => { if (sendState === 'idle') setTab('lwg'); }}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1 ${tab === 'lwg' ? 'bg-white text-slate-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Globe className="h-3 w-3" /> LWG Live
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* ── My Leads tab ── */}
+          {/* ── Step 1: Select Recipients ── */}
+          {wizardStep === 1 && (
+            <>
+              {/* ── My Leads tab ── */}
           {tab === 'leads' && (
             <div className="p-5 border-b border-gray-100 space-y-3">
               <div className="flex items-center justify-between">
@@ -752,27 +799,42 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                       const ratingStyle = RATING_BADGE[s.certification_type] || 'bg-gray-100 text-gray-600 border-gray-200';
                       const result = results.find(r => r.key === s.company_name);
                       return (
-                        <div key={s.company_name} className={`flex items-center gap-2 px-4 py-3 transition-colors ${s.selected ? 'hover:bg-blue-50/30' : 'hover:bg-gray-50'}`}>
+                        <div key={s.company_name} className={`flex items-start gap-3 px-4 py-3 transition-colors ${s.selected ? 'hover:bg-blue-50/30' : 'hover:bg-gray-50'}`}>
                           <input
                             type="checkbox"
                             checked={s.selected}
                             onChange={() => sendState === 'idle' && toggleLwgOne(idx)}
                             disabled={sendState !== 'idle'}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
+                            className="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 shrink-0"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold text-slate-800 truncate">{s.company_name}</p>
-                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <p className="text-sm font-bold text-slate-800 truncate">{s.company_name}</p>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                               {s.certification_type && (
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${ratingStyle}`}>
                                   {s.certification_type}
                                 </span>
                               )}
-                              {s.email
-                                ? <span className="text-[11px] text-emerald-600 font-medium truncate">{s.email}</span>
-                                : <span className="text-[10px] text-amber-600 font-semibold">No email — tap ⓘ to fetch</span>
-                              }
+                              {s.email ? (
+                                <span className="text-[11px] text-emerald-600 font-medium truncate flex items-center gap-1">
+                                  <Mail className="h-3 w-3" /> {s.email}
+                                </span>
+                              ) : s.profileLoading ? (
+                                <span className="text-[10px] text-blue-500 font-semibold flex items-center gap-1">
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Fetching email…
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-amber-600 font-semibold">No email</span>
+                              )}
                             </div>
+                            {(s.animalTypes?.length || s.materialConditions?.length) ? (
+                              <div className="mt-1.5 text-[10px] text-gray-500 flex flex-col gap-0.5">
+                                {s.animalTypes && s.animalTypes.length > 0 && <p><span className="font-semibold text-gray-700">Animals:</span> {s.animalTypes.join(', ')}</p>}
+                                {s.materialConditions && s.materialConditions.length > 0 && <p><span className="font-semibold text-gray-700">Materials:</span> {s.materialConditions.join(', ')}</p>}
+                              </div>
+                            ) : s.profileLoading ? (
+                              <div className="mt-1.5 text-[10px] text-gray-400">Loading details…</div>
+                            ) : null}
                           </div>
                           {result && (result.ok
                             ? <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
@@ -796,43 +858,57 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
               )}
             </div>
           )}
+            </>
+          )}
 
-          {/* ── Email content ── */}
-          <div className="p-5 space-y-4">
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Email Content</p>
-
-            {templates.length > 0 && (
-              <div className="flex gap-2">
-                <select value={selectedTpl} onChange={e => setSelectedTpl(e.target.value)} disabled={sendState !== 'idle'}
-                  className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:opacity-50">
-                  <option value="">— default cold email —</option>
-                  {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-                <button onClick={applyTemplate} disabled={!selectedTpl || sendState !== 'idle'}
-                  className="px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors flex items-center gap-1.5">
-                  <Template className="h-4 w-4" /> Apply
-                </button>
+          {/* ── Step 2: Compose Email ── */}
+          {wizardStep === 2 && (
+            <div className="p-5 space-y-4">
+              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4">
+                 <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-2">To ({sendCount} recipients)</p>
+                 <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto no-scrollbar">
+                   {tab === 'leads' 
+                     ? selectedLeads.map(l => <span key={l.id} className="text-[10px] font-medium px-2 py-1 bg-white border border-gray-200 shadow-sm rounded-lg text-slate-600">{l.company_name}</span>)
+                     : lwgSuppliers.filter(s => s.selected && s.email).map(s => <span key={s.company_name} className="text-[10px] font-medium px-2 py-1 bg-white border border-gray-200 shadow-sm rounded-lg text-slate-600">{s.company_name}</span>)
+                   }
+                 </div>
               </div>
-            )}
 
-            <p className="text-[11px] text-gray-400 leading-relaxed">
-              Use <code className="bg-gray-100 px-1 rounded text-gray-600">{'{{company_name}}'}</code>, <code className="bg-gray-100 px-1 rounded text-gray-600">{'{{contact_person}}'}</code>, <code className="bg-gray-100 px-1 rounded text-gray-600">{'{{country}}'}</code> — filled per recipient before sending.
-            </p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Email Content</p>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Subject *</label>
-              <input type="text" value={subject} onChange={e => setSubject(e.target.value)} disabled={sendState !== 'idle'}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:opacity-70 transition-colors"
-                placeholder="Email subject" />
+              {templates.length > 0 && (
+                <div className="flex gap-2">
+                  <select value={selectedTpl} onChange={e => setSelectedTpl(e.target.value)} disabled={sendState !== 'idle'}
+                    className="flex-1 px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:opacity-50">
+                    <option value="">— default cold email —</option>
+                    {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                  <button onClick={applyTemplate} disabled={!selectedTpl || sendState !== 'idle'}
+                    className="px-3 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 transition-colors flex items-center gap-1.5">
+                    <Template className="h-4 w-4" /> Apply
+                  </button>
+                </div>
+              )}
+
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                Use <code className="bg-gray-100 px-1 rounded text-gray-600">{'{{company_name}}'}</code>, <code className="bg-gray-100 px-1 rounded text-gray-600">{'{{contact_person}}'}</code>, <code className="bg-gray-100 px-1 rounded text-gray-600">{'{{country}}'}</code> — filled per recipient before sending.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Subject *</label>
+                <input type="text" value={subject} onChange={e => setSubject(e.target.value)} disabled={sendState !== 'idle'}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:opacity-70 transition-colors"
+                  placeholder="Email subject" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Message *</label>
+                <textarea value={body} onChange={e => setBody(e.target.value)} disabled={sendState !== 'idle'} rows={10}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:opacity-70 resize-none font-mono text-[13px] leading-relaxed transition-colors"
+                  placeholder="Enter email body…" />
+              </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Message *</label>
-              <textarea value={body} onChange={e => setBody(e.target.value)} disabled={sendState !== 'idle'} rows={10}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 bg-white disabled:bg-gray-50 disabled:opacity-70 resize-none font-mono text-[13px] leading-relaxed transition-colors"
-                placeholder="Enter email body…" />
-            </div>
-          </div>
+          )}
 
           {/* ── Progress ── */}
           {(sendState === 'sending' || allDone) && (
@@ -1007,20 +1083,30 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/60 sm:rounded-b-3xl flex-shrink-0">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-            {allDone ? 'Close' : 'Cancel'}
+          <button onClick={wizardStep === 2 && !allDone && sendState === 'idle' ? () => setWizardStep(1) : onClose} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+            {allDone ? 'Close' : wizardStep === 2 && sendState === 'idle' ? 'Back' : 'Cancel'}
           </button>
           {!allDone && (
-            <button
-              onClick={handleSend}
-              disabled={sendState !== 'idle' || sendCount === 0 || !subject.trim() || !body.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
-            >
-              {sendState === 'sending'
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
-                : <><Send className="h-4 w-4" /> Send to {sendCount} recipient{sendCount !== 1 ? 's' : ''}</>
-              }
-            </button>
+            wizardStep === 1 ? (
+              <button
+                onClick={() => setWizardStep(2)}
+                disabled={sendCount === 0}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                Next <ChevronDown className="h-4 w-4 -rotate-90" />
+              </button>
+            ) : (
+              <button
+                onClick={handleSend}
+                disabled={sendState !== 'idle' || sendCount === 0 || !subject.trim() || !body.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {sendState === 'sending'
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</>
+                  : <><Send className="h-4 w-4" /> Send to {sendCount} recipient{sendCount !== 1 ? 's' : ''}</>
+                }
+              </button>
+            )
           )}
         </div>
       </div>
