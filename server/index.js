@@ -613,6 +613,52 @@ app.get('/api/scrape/lwg', async (req, res) => {
   }
 });
 
+// ─── LWG Single Supplier Profile Scraper ──────────────────────────────────
+app.get('/api/scrape/lwg/profile', async (req, res) => {
+  try {
+    const url = req.query.url || '';
+    if (!url.startsWith('https://www.leatherworkinggroup.com')) {
+      return res.json({ ok: false, error: 'Invalid URL — must be a leatherworkinggroup.com link' });
+    }
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!resp.ok) throw new Error(`LWG returned ${resp.status}`);
+    const html = await resp.text();
+    const $p = cheerio.load(html);
+
+    const email   = $p('a[href^="mailto:"]').first().attr('href')?.replace('mailto:', '').trim() || '';
+    const phone   = $p('a[href^="tel:"]').first().attr('href')?.replace('tel:', '').trim() || '';
+    // Extract company's own website (not leatherworkinggroup.com links)
+    let website = '';
+    $p('a[href^="http"]').each((_, el) => {
+      if (website) return;
+      const href = $p(el).attr('href') || '';
+      if (!href.includes('leatherworkinggroup.com') &&
+          !href.includes('linkedin.com') &&
+          !href.includes('facebook.com') &&
+          !href.includes('twitter.com') &&
+          !href.includes('instagram.com')) {
+        website = href;
+      }
+    });
+
+    const bodyText = $p('body').text();
+    const ANIMAL_TYPES      = ['Bovine', 'Ovine', 'Caprine', 'Equine', 'Porcine', 'Reptile', 'Exotic'];
+    const MATERIAL_CONDS    = ['Wet-Blue', 'Crust', 'Finished', 'Pickled', 'Limed'];
+    const animalTypes        = ANIMAL_TYPES.filter(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+    const materialConditions = MATERIAL_CONDS.filter(t => bodyText.toLowerCase().includes(t.toLowerCase()));
+
+    const desc = $p('.supplier-description, .about-text, .profile-description, .field-description, main p').first().text().trim().replace(/\s+/g, ' ').slice(0, 400);
+
+    return res.json({ ok: true, email, phone, website, animalTypes, materialConditions, desc });
+  } catch (err) {
+    console.error('[scrape/lwg/profile]', err.message);
+    return res.json({ ok: false, error: err.message });
+  }
+});
+
 // ─── SPA static + fallback (production only) ──────────────────────────────
 if (isProd) {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

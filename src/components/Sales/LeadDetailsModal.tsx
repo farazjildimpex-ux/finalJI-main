@@ -153,8 +153,10 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-3 sm:p-6">
-      <div className="bg-white rounded-3xl shadow-2xl w-full sm:max-w-2xl flex flex-col overflow-hidden" style={{ maxHeight: '95dvh' }}>
+    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:p-6">
+      {/* backdrop — desktop only */}
+      <div className="hidden sm:block fixed inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative z-10 flex-1 sm:flex-none w-full sm:max-w-2xl sm:max-h-[90vh] bg-white sm:rounded-3xl sm:shadow-2xl flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">

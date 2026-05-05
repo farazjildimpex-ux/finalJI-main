@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   X, Send, CheckCircle2, AlertCircle, ChevronDown,
   Mail, Users, Loader2, LayoutTemplate as Template,
-  Globe, RefreshCw,
+  Globe, RefreshCw, Info, Phone, ExternalLink, Plus,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Lead } from '../../types';
@@ -42,6 +42,24 @@ interface LWGSupplier {
   email: string;
   in_db: boolean;
   selected: boolean;
+}
+
+interface LWGProfileDetails {
+  email: string;
+  phone: string;
+  website: string;
+  animalTypes: string[];
+  materialConditions: string[];
+  desc: string;
+}
+
+function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\b(srl|s\.r\.l\.|s\.a\.|s\.p\.a\.|ltd|llc|inc|gmbh|bv|ag|co\.|corp|lda|pty|pvt|plc|sas|snc|spa|sa)\b/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 const LWG_COUNTRIES_LIST = [
@@ -174,9 +192,13 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
   const [lwgCountry, setLwgCountry]           = useState('');
   const [lwgRating, setLwgRating]             = useState('');
   const [lwgMemberType, setLwgMemberType]     = useState('');
-  const [lwgAnimalType, setLwgAnimalType]     = useState('');
-  const [lwgMaterialCond, setLwgMaterialCond] = useState('');
-  const [lwgFetching, setLwgFetching]         = useState(false);
+  const [lwgAnimalType, setLwgAnimalType]         = useState('');
+  const [lwgMaterialCond, setLwgMaterialCond]     = useState('');
+  const [lwgFetching, setLwgFetching]             = useState(false);
+  const [lwgDetailSupplier, setLwgDetailSupplier] = useState<LWGSupplier | null>(null);
+  const [lwgProfileData, setLwgProfileData]       = useState<LWGProfileDetails | null>(null);
+  const [lwgProfileLoading, setLwgProfileLoading] = useState(false);
+  const [lwgImporting, setLwgImporting]           = useState(false);
   const [lwgSuppliers, setLwgSuppliers]   = useState<LWGSupplier[]>([]);
   const [lwgFetched, setLwgFetched]       = useState(false);
   const [lwgError, setLwgError]           = useState('');
@@ -225,6 +247,8 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
     setLwgFetched(false);
     setLwgError('');
     setLwgSearch('');
+    setLwgDetailSupplier(null);
+    setLwgProfileData(null);
   }, [isOpen]);
 
   const fetchTemplates = async () => {
@@ -272,19 +296,21 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
       if (!data.ok) throw new Error(data.error || 'Scrape failed');
 
       const suppliers: LWGSupplier[] = (data.suppliers as any[]).map(s => {
-        const matched = leads.find(l =>
-          l.company_name.toLowerCase().trim() === s.company_name.toLowerCase().trim()
-        );
+        const norm = normalizeName(s.company_name);
+        const matched = leads.find(l => {
+          const n = normalizeName(l.company_name);
+          return n === norm || n.includes(norm) || norm.includes(n);
+        });
         return {
-          company_name:      s.company_name,
-          country:           s.country || lwgCountry,
+          company_name:       s.company_name,
+          country:            s.country || lwgCountry,
           certification_type: s.certification_type || '',
-          facility_type:     s.facility_type || '',
-          description:       s.description   || '',
-          website:           s.website       || '',
-          email:             matched?.email  || '',
-          in_db:             !!matched,
-          selected:          true,
+          facility_type:      s.facility_type || '',
+          description:        s.description   || '',
+          website:            s.website       || '',
+          email:              matched?.email  || '',
+          in_db:              !!matched,
+          selected:           true,
         };
       });
 
@@ -295,6 +321,73 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
     } finally {
       setLwgFetching(false);
     }
+  };
+
+  const openSupplierDetail = (s: LWGSupplier) => {
+    setLwgDetailSupplier(s);
+    setLwgProfileData(null);
+    setLwgProfileLoading(false);
+  };
+
+  const fetchSupplierProfile = async () => {
+    if (!lwgDetailSupplier?.website) return;
+    setLwgProfileLoading(true);
+    try {
+      const apiBase = (import.meta as any).env?.VITE_API_URL || '';
+      const res = await fetch(`${apiBase}/api/scrape/lwg/profile?url=${encodeURIComponent(lwgDetailSupplier.website)}`);
+      const data = await res.json();
+      if (data.ok) {
+        setLwgProfileData(data);
+        // If we got an email from the profile, update the supplier in the list
+        if (data.email) {
+          setLwgSuppliers(prev => prev.map(s =>
+            s.company_name === lwgDetailSupplier.company_name ? { ...s, email: data.email } : s
+          ));
+          setLwgDetailSupplier(prev => prev ? { ...prev, email: data.email } : prev);
+        }
+      }
+    } catch { /* silently ignore */ }
+    finally { setLwgProfileLoading(false); }
+  };
+
+  const importToLeadIQ = async (supplier: LWGSupplier, profile: LWGProfileDetails | null) => {
+    if (lwgImporting) return;
+    setLwgImporting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const noteLines = [
+        supplier.certification_type ? `LWG ${supplier.certification_type} certified` : '',
+        supplier.facility_type || '',
+        profile?.desc || supplier.description || '',
+        profile?.animalTypes?.length ? `Animal types: ${profile.animalTypes.join(', ')}` : '',
+        profile?.materialConditions?.length ? `Material conditions: ${profile.materialConditions.join(', ')}` : '',
+        supplier.website ? `LWG Profile: ${supplier.website}` : '',
+        profile?.website ? `Company website: ${profile.website}` : '',
+      ].filter(Boolean);
+      const email = profile?.email || supplier.email || '';
+      await supabase.from('leads').insert([{
+        company_name: supplier.company_name,
+        country:      supplier.country,
+        email,
+        phone:        profile?.phone || '',
+        website:      profile?.website || '',
+        source:       'leatherworkinggroup',
+        status:       'new',
+        notes:        noteLines.join('\n'),
+        tags:         ['LWG', supplier.certification_type].filter(Boolean),
+        user_id:      user.id,
+        created_at:   new Date().toISOString(),
+        updated_at:   new Date().toISOString(),
+      }]);
+      // Update in list to show in_db = true and the email
+      setLwgSuppliers(prev => prev.map(s =>
+        s.company_name === supplier.company_name ? { ...s, in_db: true, email: email || s.email } : s
+      ));
+      setLwgDetailSupplier(prev => prev ? { ...prev, in_db: true, email: email || prev.email } : prev);
+    } catch (err: any) {
+      alert('Failed to import: ' + (err?.message || 'Unknown error'));
+    } finally { setLwgImporting(false); }
   };
 
   const toggleLwgOne = (idx: number) =>
@@ -401,13 +494,10 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
   const allDone = sendState === 'done';
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-2xl flex flex-col overflow-hidden" style={{ maxHeight: '95dvh' }}>
-
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
-        </div>
+    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:p-4">
+      {/* Desktop backdrop */}
+      <div className="hidden sm:block fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 flex-1 sm:flex-none bg-white sm:rounded-3xl sm:shadow-2xl w-full sm:max-w-2xl sm:max-h-[95dvh] flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="px-6 pt-4 pb-4 border-b border-gray-100 flex-shrink-0">
@@ -662,10 +752,7 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                       const ratingStyle = RATING_BADGE[s.certification_type] || 'bg-gray-100 text-gray-600 border-gray-200';
                       const result = results.find(r => r.key === s.company_name);
                       return (
-                        <label
-                          key={s.company_name}
-                          className={`flex items-center gap-3 px-5 py-3 transition-colors ${sendState !== 'idle' ? 'cursor-default' : 'cursor-pointer'} ${s.selected ? 'hover:bg-blue-50/30' : 'hover:bg-gray-50'}`}
-                        >
+                        <div key={s.company_name} className={`flex items-center gap-2 px-4 py-3 transition-colors ${s.selected ? 'hover:bg-blue-50/30' : 'hover:bg-gray-50'}`}>
                           <input
                             type="checkbox"
                             checked={s.selected}
@@ -681,14 +768,9 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                                   {s.certification_type}
                                 </span>
                               )}
-                              {s.facility_type && (
-                                <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">
-                                  {s.facility_type}
-                                </span>
-                              )}
                               {s.email
-                                ? <span className="text-[11px] text-gray-500 truncate">{s.email}</span>
-                                : <span className="text-[10px] text-amber-600 font-semibold">No email</span>
+                                ? <span className="text-[11px] text-emerald-600 font-medium truncate">{s.email}</span>
+                                : <span className="text-[10px] text-amber-600 font-semibold">No email — tap ⓘ to fetch</span>
                               }
                             </div>
                           </div>
@@ -699,7 +781,14 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                           {!result && sendState === 'sending' && s.selected && s.email && (
                             <Loader2 className="h-3.5 w-3.5 text-blue-400 animate-spin shrink-0" />
                           )}
-                        </label>
+                          <button
+                            onClick={() => openSupplierDetail(s)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors shrink-0"
+                            title="View supplier details"
+                          >
+                            <Info className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -782,8 +871,142 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
           )}
         </div>
 
+        {/* ── Supplier Detail Popup ── */}
+        {lwgDetailSupplier && (
+          <div className="absolute inset-0 z-20 bg-black/40 flex flex-col sm:items-center sm:justify-center sm:p-4">
+            <div className="mt-auto sm:mt-0 w-full sm:max-w-md bg-white sm:rounded-3xl rounded-t-3xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90dvh' }}>
+              {/* Popup header */}
+              <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+                <div className="flex-1 min-w-0 pr-3">
+                  <h3 className="text-sm font-bold text-slate-900 leading-tight">{lwgDetailSupplier.company_name}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{lwgDetailSupplier.country}</p>
+                </div>
+                <button onClick={() => setLwgDetailSupplier(null)} className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Popup body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* Rating + type */}
+                <div className="flex flex-wrap gap-2">
+                  {lwgDetailSupplier.certification_type && (
+                    <span className={`text-xs px-2.5 py-1 rounded-xl border font-semibold ${RATING_BADGE[lwgDetailSupplier.certification_type] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                      LWG {lwgDetailSupplier.certification_type}
+                    </span>
+                  )}
+                  {lwgDetailSupplier.facility_type && (
+                    <span className="text-xs px-2.5 py-1 rounded-xl bg-gray-100 text-gray-600 font-medium">
+                      {lwgDetailSupplier.facility_type}
+                    </span>
+                  )}
+                  {lwgDetailSupplier.in_db && (
+                    <span className="text-xs px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold">
+                      ✓ In Lead IQ
+                    </span>
+                  )}
+                </div>
+
+                {/* Description */}
+                {lwgDetailSupplier.description && (
+                  <p className="text-xs text-gray-600 leading-relaxed">{lwgDetailSupplier.description}</p>
+                )}
+
+                {/* Email from DB */}
+                {lwgDetailSupplier.email && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                    <Mail className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                    <span className="text-xs font-semibold text-emerald-700 break-all">{lwgDetailSupplier.email}</span>
+                  </div>
+                )}
+
+                {/* LWG Profile link */}
+                {lwgDetailSupplier.website && (
+                  <a href={lwgDetailSupplier.website} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-700 font-medium">
+                    <Globe className="h-3.5 w-3.5 shrink-0" />
+                    View LWG Profile
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+
+                {/* Fetched profile data */}
+                {lwgProfileData && (
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Details from LWG Profile</p>
+                    {lwgProfileData.email && !lwgDetailSupplier.email && (
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-semibold text-emerald-700">{lwgProfileData.email}</span>
+                      </div>
+                    )}
+                    {lwgProfileData.phone && (
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                        <span className="text-xs text-gray-700">{lwgProfileData.phone}</span>
+                      </div>
+                    )}
+                    {lwgProfileData.website && (
+                      <a href={lwgProfileData.website} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-xs text-blue-600 hover:underline break-all">
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        {lwgProfileData.website}
+                      </a>
+                    )}
+                    {lwgProfileData.animalTypes.length > 0 && (
+                      <p className="text-xs text-gray-600"><span className="font-semibold">Animal types:</span> {lwgProfileData.animalTypes.join(', ')}</p>
+                    )}
+                    {lwgProfileData.materialConditions.length > 0 && (
+                      <p className="text-xs text-gray-600"><span className="font-semibold">Material conditions:</span> {lwgProfileData.materialConditions.join(', ')}</p>
+                    )}
+                    {lwgProfileData.desc && (
+                      <p className="text-xs text-gray-600 leading-relaxed">{lwgProfileData.desc}</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Fetch profile button */}
+                {!lwgProfileData && lwgDetailSupplier.website && (
+                  <button
+                    onClick={fetchSupplierProfile}
+                    disabled={lwgProfileLoading}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 disabled:opacity-50 transition-colors"
+                  >
+                    {lwgProfileLoading
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading profile…</>
+                      : <><RefreshCw className="h-3.5 w-3.5" /> Fetch Contact Details from LWG Profile</>
+                    }
+                  </button>
+                )}
+              </div>
+
+              {/* Popup footer */}
+              <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100 bg-gray-50/60 flex-shrink-0">
+                <button
+                  onClick={() => setLwgDetailSupplier(null)}
+                  className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                {!lwgDetailSupplier.in_db && (
+                  <button
+                    onClick={() => importToLeadIQ(lwgDetailSupplier, lwgProfileData)}
+                    disabled={lwgImporting}
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {lwgImporting
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing…</>
+                      : <><Plus className="h-3.5 w-3.5" /> Add to Lead IQ</>
+                    }
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-3xl flex-shrink-0">
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/60 sm:rounded-b-3xl flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
             {allDone ? 'Close' : 'Cancel'}
           </button>

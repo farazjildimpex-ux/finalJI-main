@@ -207,12 +207,12 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
   const fupChanged = followUpDate !== (lead.next_follow_up || '');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:p-4">
+      {/* Backdrop — desktop only */}
+      <div className="hidden sm:block absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Dialog */}
-      <div className="relative w-full sm:max-w-2xl bg-white rounded-3xl shadow-2xl flex flex-col z-10" style={{ maxHeight: '95dvh' }}>
+      {/* Dialog — full-screen on mobile, centered popup on desktop */}
+      <div className="relative flex-1 sm:flex-none w-full sm:max-w-2xl bg-white sm:rounded-3xl sm:shadow-2xl flex flex-col z-10 sm:max-h-[95dvh] overflow-hidden">
 
         {/* ── Header ── */}
         <div className="px-6 pt-4 pb-4 border-b border-gray-100 flex-shrink-0">
