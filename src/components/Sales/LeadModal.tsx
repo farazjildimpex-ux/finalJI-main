@@ -207,7 +207,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
   const fupChanged = followUpDate !== (lead.next_follow_up || '');
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex flex-col sm:items-center sm:justify-center sm:p-4">
       {/* Backdrop — desktop only */}
       <div className="hidden sm:block absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 

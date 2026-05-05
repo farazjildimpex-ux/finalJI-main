@@ -282,17 +282,17 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
       const apiBase = (import.meta as any).env?.VITE_API_URL || '';
       const res = await fetch(`${apiBase}/api/scrape/lwg?${params}`);
 
-      // Check the response is actually JSON (not an HTML error page from Vercel/CDN)
-      const contentType = res.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
+      // Try to parse JSON — if it fails, the backend isn't reachable
+      let data: any;
+      try {
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch {
         throw new Error(
-          'The LWG scraper API is not reachable from this deployment. ' +
-          'Make sure the app is deployed with its Express backend (use Replit deployment, not a static host). ' +
-          `Server returned ${res.status} ${res.statusText}.`
+          `LWG scraper API returned an unexpected response (HTTP ${res.status}). ` +
+          'Make sure the app is running with its Express backend — use Replit deployment, not a static host like Vercel.'
         );
       }
-
-      const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'Scrape failed');
 
       const suppliers: LWGSupplier[] = (data.suppliers as any[]).map(s => {
@@ -494,7 +494,7 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
   const allDone = sendState === 'done';
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col sm:items-center sm:justify-center sm:p-4">
+    <div className="fixed inset-0 z-[60] flex flex-col sm:items-center sm:justify-center sm:p-4">
       {/* Desktop backdrop */}
       <div className="hidden sm:block fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 flex-1 sm:flex-none bg-white sm:rounded-3xl sm:shadow-2xl w-full sm:max-w-2xl sm:max-h-[95dvh] flex flex-col overflow-hidden">

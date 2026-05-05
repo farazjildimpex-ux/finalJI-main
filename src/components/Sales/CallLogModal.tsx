@@ -85,8 +85,10 @@ const CallLogModal: React.FC<CallLogModalProps> = ({
   if (!isOpen || !lead) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full sm:max-w-lg max-h-[95vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[60] flex flex-col sm:items-center sm:justify-center sm:p-4">
+      {/* Desktop backdrop */}
+      <div className="hidden sm:block fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 flex-1 sm:flex-none bg-white sm:rounded-3xl sm:shadow-2xl w-full sm:max-w-lg sm:max-h-[85dvh] flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 flex-shrink-0">
@@ -171,7 +173,7 @@ const CallLogModal: React.FC<CallLogModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-3xl flex-shrink-0">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50/60 sm:rounded-b-3xl flex-shrink-0">
           <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
             Cancel
           </button>
