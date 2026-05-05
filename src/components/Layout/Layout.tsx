@@ -35,8 +35,9 @@ const Layout: React.FC = () => {
         <main
           ref={scrollContainerRef}
           className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-gray-50/50"
+          style={{ WebkitOverflowScrolling: 'touch', overscrollBehaviorY: 'contain', scrollBehavior: 'smooth' }}
         >
-          <div className="min-h-full pb-24 md:pb-0">
+          <div className="pb-20 md:pb-0">
             <Outlet />
           </div>
         </main>

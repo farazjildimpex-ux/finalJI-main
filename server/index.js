@@ -621,16 +621,58 @@ app.get('/api/scrape/lwg/profile', async (req, res) => {
       return res.json({ ok: false, error: 'Invalid URL — must be a leatherworkinggroup.com link' });
     }
     const resp = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' },
-      signal: AbortSignal.timeout(12000),
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
     });
     if (!resp.ok) throw new Error(`LWG returned ${resp.status}`);
     const html = await resp.text();
     const $p = cheerio.load(html);
 
-    const email   = $p('a[href^="mailto:"]').first().attr('href')?.replace('mailto:', '').trim() || '';
-    const phone   = $p('a[href^="tel:"]').first().attr('href')?.replace('tel:', '').trim() || '';
-    // Extract company's own website (not leatherworkinggroup.com links)
+    // LWG profiles use <strong>Label</strong> Value inside <p> tags
+    // inside div.box.cta — NOT mailto: links.
+    let email = '';
+    let phone = '';
+    let contactPerson = '';
+    let address = '';
+
+    $p('.box.cta p, .column.two p, .wrapper.standard p').each((_, el) => {
+      const $el = $p(el);
+      const strong = $el.find('strong').text().trim().toLowerCase();
+      const fullText = $el.text().trim();
+      const value = fullText.replace($el.find('strong').text(), '').trim();
+
+      if (strong.includes('email') && value) {
+        email = email || value;
+      } else if (strong.includes('phone') && value) {
+        phone = phone || value;
+      } else if (strong.includes('contact') && value) {
+        contactPerson = contactPerson || value;
+      } else if (strong.includes('address') && value) {
+        address = address || value;
+      }
+    });
+
+    // Fallback: try mailto: links
+    if (!email) {
+      const mailtoHref = $p('a[href^="mailto:"]').first().attr('href');
+      if (mailtoHref) email = mailtoHref.replace('mailto:', '').trim();
+    }
+    // Fallback: regex scan for email in body text
+    if (!email) {
+      const emailMatch = $p('body').text().match(/[\w.-]+@[\w.-]+\.[A-Za-z]{2,}/);
+      if (emailMatch) email = emailMatch[0];
+    }
+    // Fallback for phone: try tel: links
+    if (!phone) {
+      const telHref = $p('a[href^="tel:"]').first().attr('href');
+      if (telHref) phone = telHref.replace('tel:', '').trim();
+    }
+
+    // Extract company website (skip social/tracking links)
     let website = '';
     $p('a[href^="http"]').each((_, el) => {
       if (website) return;
@@ -639,20 +681,23 @@ app.get('/api/scrape/lwg/profile', async (req, res) => {
           !href.includes('linkedin.com') &&
           !href.includes('facebook.com') &&
           !href.includes('twitter.com') &&
-          !href.includes('instagram.com')) {
+          !href.includes('instagram.com') &&
+          !href.includes('hs-scripts.com') &&
+          !href.includes('hubspot') &&
+          !href.includes('google')) {
         website = href;
       }
     });
 
     const bodyText = $p('body').text();
-    const ANIMAL_TYPES      = ['Bovine', 'Ovine', 'Caprine', 'Equine', 'Porcine', 'Reptile', 'Exotic'];
-    const MATERIAL_CONDS    = ['Wet-Blue', 'Crust', 'Finished', 'Pickled', 'Limed'];
+    const ANIMAL_TYPES   = ['Bovine','Ovine','Caprine','Equine','Porcine','Reptile','Exotic'];
+    const MATERIAL_CONDS = ['Wet-Blue','Crust','Finished','Pickled','Limed'];
     const animalTypes        = ANIMAL_TYPES.filter(t => bodyText.toLowerCase().includes(t.toLowerCase()));
     const materialConditions = MATERIAL_CONDS.filter(t => bodyText.toLowerCase().includes(t.toLowerCase()));
 
     const desc = $p('.supplier-description, .about-text, .profile-description, .field-description, main p').first().text().trim().replace(/\s+/g, ' ').slice(0, 400);
 
-    return res.json({ ok: true, email, phone, website, animalTypes, materialConditions, desc });
+    return res.json({ ok: true, email, phone, contactPerson, website, animalTypes, materialConditions, desc, address });
   } catch (err) {
     console.error('[scrape/lwg/profile]', err.message);
     return res.json({ ok: false, error: err.message });

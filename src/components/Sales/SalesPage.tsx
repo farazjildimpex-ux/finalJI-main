@@ -125,7 +125,7 @@ const SalesPage: React.FC = () => {
   const currentStatusLabel = STATUS_OPTS.find(o => o.key === statusFilter)?.label ?? 'All stages';
 
   return (
-    <div className="min-h-full bg-gray-50/60">
+    <div className="bg-gray-50/60">
       <div className="px-4 py-6 max-w-3xl mx-auto space-y-5 page-fade-in">
 
         {/* ── Page header ── */}

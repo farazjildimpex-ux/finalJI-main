@@ -46,6 +46,8 @@ interface LWGSupplier {
   profileLoading?: boolean;
   animalTypes?: string[];
   materialConditions?: string[];
+  contactPerson?: string;
+  phone?: string;
 }
 
 interface LWGProfileDetails {
@@ -281,6 +283,8 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                 email: data.ok && data.email ? data.email : item.email,
                 animalTypes: data.ok && data.animalTypes ? data.animalTypes : item.animalTypes,
                 materialConditions: data.ok && data.materialConditions ? data.materialConditions : item.materialConditions,
+                contactPerson: data.ok && data.contactPerson ? data.contactPerson : item.contactPerson,
+                phone: data.ok && data.phone ? data.phone : item.phone,
               };
             }
             return item;
@@ -809,6 +813,7 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                           />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-slate-800 truncate">{s.company_name}</p>
+                            {s.contactPerson && <p className="text-[11px] text-gray-500 truncate">Contact: {s.contactPerson}</p>}
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                               {s.certification_type && (
                                 <span className={`text-[10px] px-1.5 py-0.5 rounded border font-semibold ${ratingStyle}`}>
