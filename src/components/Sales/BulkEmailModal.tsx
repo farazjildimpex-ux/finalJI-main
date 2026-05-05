@@ -71,6 +71,24 @@ const LWG_MEMBER_TYPES = [
   'Service Provider',
 ];
 
+const LWG_ANIMAL_TYPES = [
+  'Bovine',
+  'Ovine',
+  'Caprine',
+  'Equine',
+  'Porcine',
+  'Reptile',
+  'Exotic',
+];
+
+const LWG_MATERIAL_CONDITIONS = [
+  'Wet-Blue',
+  'Crust',
+  'Finished',
+  'Pickled',
+  'Limed',
+];
+
 const RATING_BADGE: Record<string, string> = {
   Gold:     'bg-yellow-100 text-yellow-800 border-yellow-300',
   Silver:   'bg-gray-100 text-gray-700 border-gray-300',
@@ -153,10 +171,12 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
   const [showLeadsCountryDrop, setShowLeadsCountryDrop] = useState(false);
   const [leadsSelected, setLeadsSelected]           = useState<Set<string>>(new Set());
 
-  const [lwgCountry, setLwgCountry]       = useState('');
-  const [lwgRating, setLwgRating]         = useState('');
-  const [lwgMemberType, setLwgMemberType] = useState('');
-  const [lwgFetching, setLwgFetching]     = useState(false);
+  const [lwgCountry, setLwgCountry]           = useState('');
+  const [lwgRating, setLwgRating]             = useState('');
+  const [lwgMemberType, setLwgMemberType]     = useState('');
+  const [lwgAnimalType, setLwgAnimalType]     = useState('');
+  const [lwgMaterialCond, setLwgMaterialCond] = useState('');
+  const [lwgFetching, setLwgFetching]         = useState(false);
   const [lwgSuppliers, setLwgSuppliers]   = useState<LWGSupplier[]>([]);
   const [lwgFetched, setLwgFetched]       = useState(false);
   const [lwgError, setLwgError]           = useState('');
@@ -199,6 +219,8 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
     setLwgCountry('');
     setLwgRating('');
     setLwgMemberType('');
+    setLwgAnimalType('');
+    setLwgMaterialCond('');
     setLwgSuppliers([]);
     setLwgFetched(false);
     setLwgError('');
@@ -228,10 +250,24 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
     setLwgSuppliers([]);
     try {
       const params = new URLSearchParams({ country: lwgCountry });
-      if (lwgRating)     params.set('rating',    lwgRating);
-      if (lwgMemberType) params.set('memberType', lwgMemberType);
+      if (lwgRating) params.set('rating', lwgRating);
+      // Combine keyword filters: member type + animal type + material condition
+      const keywords = [lwgMemberType, lwgAnimalType, lwgMaterialCond].filter(Boolean).join(' ');
+      if (keywords) params.set('memberType', keywords);
 
-      const res = await fetch(`/api/scrape/lwg?${params}`);
+      const apiBase = (import.meta as any).env?.VITE_API_URL || '';
+      const res = await fetch(`${apiBase}/api/scrape/lwg?${params}`);
+
+      // Check the response is actually JSON (not an HTML error page from Vercel/CDN)
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          'The LWG scraper API is not reachable from this deployment. ' +
+          'Make sure the app is deployed with its Express backend (use Replit deployment, not a static host). ' +
+          `Server returned ${res.status} ${res.statusText}.`
+        );
+      }
+
       const data = await res.json();
       if (!data.ok) throw new Error(data.error || 'Scrape failed');
 
@@ -507,26 +543,38 @@ const BulkEmailModal: React.FC<BulkEmailModalProps> = ({ isOpen, onClose, leads 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1.5">LWG Rating</label>
-                    <select
-                      value={lwgRating}
-                      onChange={e => setLwgRating(e.target.value)}
+                    <select value={lwgRating} onChange={e => setLwgRating(e.target.value)}
                       disabled={sendState !== 'idle' || lwgFetching}
-                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white disabled:opacity-60"
-                    >
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white disabled:opacity-60">
                       <option value="">Any rating</option>
                       {LWG_RATINGS_LIST.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-500 mb-1.5">Member Type</label>
-                    <select
-                      value={lwgMemberType}
-                      onChange={e => setLwgMemberType(e.target.value)}
+                    <select value={lwgMemberType} onChange={e => setLwgMemberType(e.target.value)}
                       disabled={sendState !== 'idle' || lwgFetching}
-                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white disabled:opacity-60"
-                    >
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white disabled:opacity-60">
                       <option value="">Any type</option>
                       {LWG_MEMBER_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Animal Type</label>
+                    <select value={lwgAnimalType} onChange={e => setLwgAnimalType(e.target.value)}
+                      disabled={sendState !== 'idle' || lwgFetching}
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white disabled:opacity-60">
+                      <option value="">Any animal</option>
+                      {LWG_ANIMAL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Material Condition</label>
+                    <select value={lwgMaterialCond} onChange={e => setLwgMaterialCond(e.target.value)}
+                      disabled={sendState !== 'idle' || lwgFetching}
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 bg-white disabled:opacity-60">
+                      <option value="">Any condition</option>
+                      {LWG_MATERIAL_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                 </div>

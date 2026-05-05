@@ -207,17 +207,12 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
   const fupChanged = followUpDate !== (lead.next_follow_up || '');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Dialog */}
-      <div className="relative w-full sm:max-w-2xl bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col z-10" style={{ maxHeight: '93dvh' }}>
-
-        {/* Drag handle (mobile) */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden flex-shrink-0">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
-        </div>
+      <div className="relative w-full sm:max-w-2xl bg-white rounded-3xl shadow-2xl flex flex-col z-10" style={{ maxHeight: '95dvh' }}>
 
         {/* ── Header ── */}
         <div className="px-6 pt-4 pb-4 border-b border-gray-100 flex-shrink-0">
@@ -510,15 +505,28 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
                   <textarea value={editForm.notes || ''} onChange={e => setEditForm({ ...editForm, notes: e.target.value })} rows={4} className={`${inp} resize-none`} />
                 </div>
               </div>
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <button onClick={deleteLead} className="text-xs font-semibold text-red-500 hover:text-red-600 transition-colors">Delete lead</button>
-                <button onClick={saveEdit} disabled={saving} className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                  <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
             </div>
           )}
         </div>
+
+        {/* ── Sticky footer for Edit tab ── */}
+        {tab === 'edit' && (
+          <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-3xl flex-shrink-0">
+            <button
+              onClick={deleteLead}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+            >
+              Delete lead
+            </button>
+            <button
+              onClick={saveEdit}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
+            >
+              <Save className="h-4 w-4" />{saving ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

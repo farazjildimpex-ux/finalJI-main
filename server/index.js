@@ -567,8 +567,13 @@ app.get('/api/scrape/lwg', async (req, res) => {
     const { suppliers: page0, total } = parseLWGPage(html0, countryName, ratingName);
     const allSuppliers = [...page0];
 
-    // Calculate remaining pages needed (12 suppliers per page)
-    const totalPages = Math.ceil(total / 12);
+    // If total not detected from pagination text, estimate from first page results
+    // (Some LWG pages don't show "out of X" when filtered)
+    const effectiveTotal = total > 0 ? total : page0.length;
+
+    // Calculate remaining pages needed (12 suppliers per page typical)
+    const perPage = page0.length > 0 ? page0.length : 12;
+    const totalPages = Math.max(1, Math.ceil(effectiveTotal / perPage));
 
     // Fetch remaining pages in batches of 5 to avoid hammering the server
     const BATCH = 5;
