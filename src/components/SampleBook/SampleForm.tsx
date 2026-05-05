@@ -604,21 +604,21 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         </FField>
       </FSectionCard>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-wrap items-center gap-2.5">
-        <button type="submit" disabled={loading} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <button type="submit" disabled={loading} className="inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 shadow-sm">
           <Save className="h-4 w-4" />
           {loading ? 'Saving…' : (initialData ? 'Update Letter' : 'Save Letter')}
         </button>
-        <button type="button" onClick={handleExportPDF} disabled={generatingPdf || loading} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+        <button type="button" onClick={handleExportPDF} disabled={generatingPdf || loading} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
           <FileDown className="h-4 w-4" />
           {generatingPdf ? 'Generating…' : 'Export PDF'}
         </button>
         {initialData && (
-          <button type="button" onClick={handleDelete} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm">
+          <button type="button" onClick={handleDelete} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm">
             <Trash2 className="h-4 w-4" /> Delete
           </button>
         )}
-        <button type="button" onClick={() => navigate('/app/home')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm ml-auto">
+        <button type="button" onClick={() => navigate('/app/home')} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm sm:ml-auto">
           Cancel
         </button>
       </div>

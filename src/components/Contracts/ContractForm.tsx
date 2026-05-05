@@ -622,16 +622,16 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </FField>
       </FSectionCard>
 
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-wrap items-center gap-2.5">
-        <button type="submit" disabled={saving} className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <button type="submit" disabled={saving} className="inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm">
           <Save className="h-4 w-4" />
           {saving ? 'Saving…' : (initialContract ? 'Update Contract' : 'Save Contract')}
         </button>
-        <button type="button" onClick={handleSaveAsNew} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+        <button type="button" onClick={handleSaveAsNew} disabled={saving} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
           <Copy className="h-4 w-4" /> Save as New
         </button>
-        <div className="relative" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
-          <button type="button" disabled={saving || generatingPdf || generatingWord} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
+        <div className="relative flex flex-col" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
+          <button type="button" disabled={saving || generatingPdf || generatingWord} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50 w-full sm:w-auto">
             <FileDown className="h-4 w-4" />
             {generatingPdf ? 'Generating PDF…' : generatingWord ? 'Generating Word…' : 'Export'}
             <ChevronDown className="h-3.5 w-3.5" />
@@ -648,11 +648,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
           )}
         </div>
         {initialContract && (
-          <button type="button" onClick={handleDelete} disabled={saving} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm disabled:opacity-50">
+          <button type="button" onClick={handleDelete} disabled={saving} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-red-600 bg-white border border-red-100 hover:bg-red-50 shadow-sm disabled:opacity-50">
             <Trash2 className="h-4 w-4" /> Delete
           </button>
         )}
-        <button type="button" onClick={() => navigate('/app/contracts')} className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm ml-auto">
+        <button type="button" onClick={() => navigate('/app/contracts')} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm sm:ml-auto">
           Cancel
         </button>
       </div>

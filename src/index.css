@@ -6,9 +6,7 @@
 
 @layer base {
   html {
-    scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
-    overscroll-behavior-y: none;
     font-size: 90%;
   }
   
@@ -96,12 +94,7 @@
     animation: fadeIn 0.3s ease-out;
   }
 
-  /* Mobile zoom +10% throughout the app */
-  @media (max-width: 767px) {
-    html {
-      zoom: 1.1;
-    }
-  }
+  /* Mobile zoom removed as it breaks scrolling calculations */
 
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
