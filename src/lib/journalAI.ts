@@ -40,24 +40,29 @@ export async function suggestJournalLink(
   newEntry: JournalEntry,
   pastEntries: JournalEntry[]
 ): Promise<AISuggestion> {
+  // Only look at the 15 most recent entries to save quota/tokens
+  const limitedPastEntries = [...pastEntries]
+    .sort((a, b) => new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime())
+    .slice(0, 15);
+
   const provider = localStorage.getItem('jild_ai_provider') || 'google';
   const apiKey = provider === 'google' 
     ? localStorage.getItem('jild_google_key') 
     : localStorage.getItem('jild_qwen_key');
 
   if (!apiKey || !apiKey.trim()) {
-    // Graceful fallback if AI is not configured
     return { suggested_parent_id: null, reasoning: 'AI not configured' };
   }
 
-  const prompt = buildJournalPrompt(newEntry, pastEntries);
+  const prompt = buildJournalPrompt(newEntry, limitedPastEntries);
 
   try {
+    let resp: Response;
     if (provider === 'google') {
       const model = localStorage.getItem('jild_google_model') || 'gemini-2.0-flash';
       const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       
-      const resp = await fetch(url, {
+      resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -68,18 +73,11 @@ export async function suggestJournalLink(
           },
         }),
       });
-
-      if (!resp.ok) throw new Error(`Google Gemini request failed (${resp.status})`);
-      const data = await resp.json();
-      const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      return parseAIResponse(content);
-      
     } else {
-      // Qwen
       const model = localStorage.getItem('jild_qwen_model') || 'qwen-vl-max-latest';
       const url = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
       
-      const resp = await fetch(url, {
+      resp = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,12 +89,26 @@ export async function suggestJournalLink(
           temperature: 0.1,
         }),
       });
-
-      if (!resp.ok) throw new Error(`Qwen request failed (${resp.status})`);
-      const data = await resp.json();
-      const content = data.choices?.[0]?.message?.content || '';
-      return parseAIResponse(content);
     }
+
+    if (resp.status === 429) {
+      return { suggested_parent_id: null, reasoning: 'Rate limit reached. Try again in 1 minute.' };
+    }
+
+    if (!resp.ok) {
+      throw new Error(`AI request failed (${resp.status})`);
+    }
+
+    const data = await resp.json();
+    let content = '';
+    if (provider === 'google') {
+      content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      content = data.choices?.[0]?.message?.content || '';
+    }
+    
+    return parseAIResponse(content);
+
   } catch (err: any) {
     console.error('Journal AI Suggestion error:', err);
     return { suggested_parent_id: null, reasoning: err.message };
