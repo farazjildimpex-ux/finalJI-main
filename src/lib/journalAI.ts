@@ -1,4 +1,4 @@
-import { JournalEntry } from '../types';
+import type { JournalEntry } from '../types';
 
 export interface AISuggestion {
   suggested_parent_id: string | null;
@@ -48,7 +48,7 @@ export async function suggestJournalLink(
   const provider = localStorage.getItem('jild_ai_provider') || 'google';
   const apiKey = provider === 'google' 
     ? localStorage.getItem('jild_google_key') 
-    : localStorage.getItem('jild_qwen_key');
+    : localStorage.getItem('jild_openai_key'); // Switch from qwen to openai
 
   if (!apiKey || !apiKey.trim()) {
     return { suggested_parent_id: null, reasoning: 'AI not configured' };
@@ -74,8 +74,9 @@ export async function suggestJournalLink(
         }),
       });
     } else {
-      const model = localStorage.getItem('jild_qwen_model') || 'qwen-vl-max-latest';
-      const url = 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions';
+      // OpenAI (Replacing Qwen)
+      const model = localStorage.getItem('jild_openai_model') || 'gpt-4o-mini';
+      const url = 'https://api.openai.com/v1/chat/completions';
       
       resp = await fetch(url, {
         method: 'POST',
@@ -85,8 +86,9 @@ export async function suggestJournalLink(
         },
         body: JSON.stringify({
           model,
-          messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
+          messages: [{ role: 'user', content: prompt }],
           temperature: 0.1,
+          response_format: { type: 'json_object' }
         }),
       });
     }

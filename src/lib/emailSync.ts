@@ -1,42 +1,43 @@
 import { supabase } from './supabaseClient';
 import type { Contract } from '../types';
 
+export type EmailScanStatus = 'no_invoices' | 'success' | 'partial' | 'error';
+
+export interface ExtractedInvoice {
+  invoice_number: string;
+  invoice_date?: string;
+  contract_numbers?: string[];
+  line_items?: { description: string; quantity: number; unit_price: number; total: number }[];
+  invoice_value?: string;
+  bill_type?: string;
+  bill_number?: string;
+  shipping_date?: string;
+  notes?: string;
+}
+
 export interface EmailData {
+  id?: string;
   subject: string;
   from: string;
   date: string;
   body: string;
-  attachments: {
-    name: string;
-    text: string;
-    type: string;
-    /** Base64-encoded raw PDF, present only when text extraction failed (image PDF). */
-    dataBase64?: string;
-    mimeType?: string;
-  }[];
+  attachments: EmailAttachment[];
 }
 
-export interface ExtractedInvoice {
-  invoice_number: string;
-  invoice_date: string | null;
-  contract_numbers: string[];
-  line_items: { color: string; selection: string; quantity: string; pieces: string }[];
-  invoice_value: string;
-  bill_type: 'Airway Bill' | 'Bill of Lading' | '';
-  bill_number: string;
-  shipping_date: string | null;
-  notes: string;
+export interface EmailAttachment {
+  name: string;
+  type: string; // 'pdf', 'image', 'other'
+  text: string;
+  dataBase64?: string;
+  mimeType?: string;
 }
 
 export interface SyncResult {
   invoice_number: string;
   contract_numbers: string[];
-  action: 'created' | 'updated' | 'skipped';
+  action: 'imported' | 'skipped';
   reason?: string;
-  invoice: ExtractedInvoice;
 }
-
-export type EmailScanStatus = 'no_invoices' | 'success' | 'partial' | 'error';
 
 export interface EmailScanResult {
   email: EmailData;
@@ -46,39 +47,10 @@ export interface EmailScanResult {
   errorMessage?: string;
 }
 
-export async function fetchGmailEmails(): Promise<{ emails: EmailData[]; total: number }> {
-  const resp = await fetch('/api/gmail/emails');
-  if (!resp.ok) {
-    let errMsg = 'Failed to fetch emails from Gmail';
-    try {
-      const err = await resp.json();
-      errMsg = err.error || errMsg;
-    } catch {}
-    throw new Error(errMsg);
-  }
-  return resp.json();
-}
-
 function buildPrompt(knownContracts: string): string {
-  return `You are a data extraction assistant for JILD IMPEX.
-Read the email body AND every attached PDF (some are scanned/image PDFs — read them visually).
-Extract every invoice found.
-
-KNOWN CONTRACTS (for reference, match exactly when possible): ${knownContracts}
-
-CRITICAL EXTRACTION RULES:
-1. invoice_number: The invoice number printed inside the PDF (e.g. "1119/25-26/EX" or "1119"). Do NOT prepend or merge contract codes (e.g. "CJV") into the invoice number. The filename may say "CJV INV - 1119" but the actual invoice_number is just "1119" or "1119/25-26/EX" as written on the document.
-2. contract_numbers: MUST be a JSON array of strings.
-   - Look inside the invoice/packing list — contracts are usually listed under "CONTRACT NO." or beside each line item (e.g. "CJV-885", "CJV-886", "CJV-887"). Return every distinct contract number.
-   - If an invoice covers multiple contracts you MUST return them all: ["CJV-885","CJV-886","CJV-887"].
-   - Even with one contract, return an array: ["CJV-885"].
-   - Normalise format: trim spaces, keep the separator the company uses (typically a hyphen or slash), and match the format of the known contracts list above.
-3. line_items: Extract color, selection, quantity (sqft), and pieces from the invoice line table.
-4. invoice_value: Numeric total only (no currency symbol).
-5. bill_type: "Airway Bill" or "Bill of Lading".
-6. notes: Always return "".
-
-If you genuinely cannot find an invoice in the provided data, return {"invoices": []}. Do not guess or fabricate numbers from the filename alone.
+  return `You are an expert logistics and accounts assistant. 
+Extract invoice details from the following email and its attachments.
+The known contract numbers in our system are: ${knownContracts}.
 
 Return ONLY valid JSON in this exact shape:
 {
@@ -86,29 +58,32 @@ Return ONLY valid JSON in this exact shape:
     {
       "invoice_number": "string",
       "invoice_date": "YYYY-MM-DD",
-      "contract_numbers": ["CONTRACT1", "CONTRACT2"],
-      "line_items": [{"color": "string", "selection": "string", "quantity": "number", "pieces": "number"}],
-      "invoice_value": "string",
-      "bill_type": "string",
+      "contract_numbers": ["matching contract numbers found in text"],
+      "line_items": [
+        { "description": "string", "quantity": 0, "unit_price": 0, "total": 0 }
+      ],
+      "invoice_value": "string (e.g. 1500.50 USD)",
+      "bill_type": "Airway Bill" | "Bill of Lading" | null,
       "bill_number": "string",
       "shipping_date": "YYYY-MM-DD",
-      "notes": ""
+      "notes": "any extra context"
     }
   ]
-}`;
+}
+If no invoice is found, return {"invoices": []}.`;
 }
 
-function emailHeaderText(e: EmailData): string {
-  return `Subject: ${e.subject}\nFrom: ${e.from}\nDate: ${e.date}\nBody:\n${e.body}\n${
-    e.attachments
-      .map((a) => `--- Attachment: ${a.name} (${a.type}) ---\n${a.text || '[no extractable text — see attached PDF file]'}`)
-      .join('\n')
-  }`;
+function emailHeaderText(email: EmailData): string {
+  return `SUBJECT: ${email.subject}
+FROM: ${email.from}
+DATE: ${email.date}
+BODY:
+${email.body}
+
+ATTACHMENTS SUMMARY:
+${email.attachments.map((a) => `- ${a.name} (${a.type}): ${a.text.slice(0, 2000)}`).join('\n')}`;
 }
 
-// ─── Provider: Google AI Studio (direct Gemini API) ─────────────────────
-// Google's free tier on aistudio.google.com gives 1,500 requests/day and
-// reads PDFs natively. Recommended over OpenRouter for free use.
 async function callGoogleGemini(
   email: EmailData,
   contracts: Contract[],
@@ -118,14 +93,13 @@ async function callGoogleGemini(
   const prompt = buildPrompt(knownContracts);
   const model = localStorage.getItem('jild_google_model') || 'gemini-2.0-flash';
 
-  const parts: any[] = [
-    { text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) },
-  ];
+  const parts: any[] = [{ text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) }];
+
   for (const a of email.attachments) {
     if (a.dataBase64 && a.type === 'pdf') {
       parts.push({
-        inline_data: {
-          mime_type: a.mimeType || 'application/pdf',
+        inlineData: {
+          mimeType: a.mimeType || 'application/pdf',
           data: a.dataBase64,
         },
       });
@@ -133,11 +107,12 @@ async function callGoogleGemini(
   }
 
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
   const resp = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      contents: [{ role: 'user', parts }],
+      contents: [{ parts }],
       generationConfig: {
         temperature: 0.1,
         responseMimeType: 'application/json',
@@ -167,31 +142,25 @@ async function callGoogleGemini(
   }
 }
 
-// ─── Provider: Qwen (Alibaba DashScope) ──────────────────────────────────
-// DashScope International gives a generous free tier and qwen-vl-max-latest
-// reads images (and short PDFs converted to images) natively. Get a key at
-// https://dashscope.console.aliyun.com (or the international console).
-async function callQwen(
+async function callOpenAI(
   email: EmailData,
   contracts: Contract[],
   apiKey: string
 ): Promise<ExtractedInvoice[]> {
   const knownContracts = contracts.map((c) => c.contract_no).join(', ') || 'none yet';
   const prompt = buildPrompt(knownContracts);
-  const model = localStorage.getItem('jild_qwen_model') || 'qwen-vl-max-latest';
+  const model = localStorage.getItem('jild_openai_model') || 'gpt-4o-mini';
 
-  // Qwen uses OpenAI-compatible chat completions with image_url multipart.
-  // We pass the PDF as a data URI on image_url — qwen-vl reads it.
   const contentParts: any[] = [
     { type: 'text', text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) },
   ];
 
   for (const a of email.attachments) {
-    if (a.dataBase64 && a.type === 'pdf') {
+    if (a.dataBase64 && (a.mimeType?.startsWith('image/') || a.type === 'image')) {
       contentParts.push({
         type: 'image_url',
         image_url: {
-          url: `data:${a.mimeType || 'application/pdf'};base64,${a.dataBase64}`,
+          url: `data:${a.mimeType || 'image/jpeg'};base64,${a.dataBase64}`,
         },
       });
     }
@@ -201,25 +170,23 @@ async function callQwen(
     model,
     messages: [{ role: 'user', content: contentParts }],
     temperature: 0.1,
+    response_format: { type: 'json_object' }
   };
 
-  const resp = await fetch(
-    'https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
 
   if (!resp.ok) {
     let detail = '';
     try { detail = (await resp.text()).slice(0, 400); } catch {}
     throw new Error(
-      `Qwen request failed (${resp.status}). ${detail || 'Check your DashScope key or try qwen-plus.'}`
+      `OpenAI request failed (${resp.status}). ${detail || 'Check your OpenAI key.'}`
     );
   }
 
@@ -235,63 +202,7 @@ async function callQwen(
     const parsed = JSON.parse(jsonStr);
     return Array.isArray(parsed.invoices) ? parsed.invoices : [];
   } catch {
-    throw new Error('Qwen returned data in an unexpected format. Raw: ' + content.slice(0, 200));
-  }
-}
-
-// Email sync NEVER writes directly to the `invoices` table. Extracted
-// invoices are only staged in `email_scan_log.extracted_invoices` and the
-// user must explicitly approve them on the Approvals page, which is the only
-// place that performs the actual insert.
-async function previewOne(inv: ExtractedInvoice): Promise<SyncResult> {
-  if (!inv.invoice_number?.trim()) {
-    return {
-      invoice_number: '(empty)',
-      contract_numbers: [],
-      action: 'skipped',
-      reason: 'No invoice number found',
-      invoice: inv,
-    };
-  }
-
-  const cleanedContracts = (inv.contract_numbers || [])
-    .map((c) => c.trim().toUpperCase())
-    .filter((c) => c.length > 0);
-
-  try {
-    const { data: existing } = await supabase
-      .from('invoices')
-      .select('id, is_approved')
-      .eq('invoice_number', inv.invoice_number.trim())
-      .maybeSingle();
-
-    if (existing?.id) {
-      return {
-        invoice_number: inv.invoice_number,
-        contract_numbers: cleanedContracts,
-        action: 'skipped',
-        reason: existing.is_approved
-          ? 'Already approved — kept as-is'
-          : 'Already pending approval',
-        invoice: inv,
-      };
-    }
-
-    return {
-      invoice_number: inv.invoice_number,
-      contract_numbers: cleanedContracts,
-      action: 'created',
-      reason: 'Awaiting your approval',
-      invoice: inv,
-    };
-  } catch (err: any) {
-    return {
-      invoice_number: inv.invoice_number,
-      contract_numbers: cleanedContracts,
-      action: 'skipped',
-      reason: err.message,
-      invoice: inv,
-    };
+    throw new Error('OpenAI returned data in an unexpected format. Raw: ' + content.slice(0, 200));
   }
 }
 
@@ -307,20 +218,16 @@ export async function approveExtractedInvoice(
       .map((c) => c.trim().toUpperCase())
       .filter((c) => c.length > 0);
 
-    // Postgres date columns reject empty strings — coerce blanks to null.
     const cleanDate = (v: string | null | undefined): string | null => {
       if (!v) return null;
       const t = String(v).trim();
       if (!t) return null;
-      // Accept YYYY-MM-DD as-is; otherwise let Date parse and re-format.
       if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
       const d = new Date(t);
       if (Number.isNaN(d.getTime())) return null;
       return d.toISOString().slice(0, 10);
     };
 
-    // bill_type has a CHECK constraint allowing only the two enum values,
-    // empty string, or NULL. Pass null when blank to be safe.
     const cleanBillType = (v: string | null | undefined) => {
       const t = (v || '').trim();
       return t === 'Airway Bill' || t === 'Bill of Lading' ? t : null;
@@ -392,13 +299,27 @@ async function recordScan(scan: EmailScanResult, userId: string): Promise<void> 
       error_message: scan.errorMessage || null,
     }]);
   } catch (err: any) {
-    // Logging is best-effort. If the table doesn't exist yet, surface a helpful
-    // console message but don't fail the sync run.
-    console.warn('Could not write to email_scan_log (table may not be created yet):', err?.message || err);
+    console.warn('Could not write to email_scan_log:', err?.message || err);
   }
 }
 
-export type AIProvider = 'google' | 'qwen';
+async function previewOne(inv: ExtractedInvoice): Promise<SyncResult> {
+  if (!inv.invoice_number?.trim()) {
+    return {
+      invoice_number: '(empty)',
+      contract_numbers: [],
+      action: 'skipped',
+      reason: 'No invoice number found',
+    };
+  }
+  return {
+    invoice_number: inv.invoice_number,
+    contract_numbers: inv.contract_numbers || [],
+    action: 'imported',
+  };
+}
+
+export type AIProvider = 'google' | 'openai';
 
 export interface AICredentials {
   provider: AIProvider;
@@ -425,7 +346,8 @@ export async function syncEmailsWithLog(
     try {
       extracted = credentials.provider === 'google'
         ? await callGoogleGemini(email, contracts, credentials.apiKey)
-        : await callQwen(email, contracts, credentials.apiKey);
+        : await callOpenAI(email, contracts, credentials.apiKey);
+        
       if (extracted.length === 0) {
         status = 'no_invoices';
       } else {
@@ -448,3 +370,11 @@ export async function syncEmailsWithLog(
   return out;
 }
 
+export async function fetchGmailEmails(): Promise<{ emails: EmailData[] }> {
+  const resp = await fetch('/api/gmail/emails');
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Failed to fetch emails (${resp.status}): ${text}`);
+  }
+  return resp.json();
+}

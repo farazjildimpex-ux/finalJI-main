@@ -5,7 +5,7 @@ import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft } from 'lucide-react'
 import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
-import { JournalEntry } from '../../types';
+import type { JournalEntry } from '../../types';
 import DatePicker from '../UI/DatePicker';
 import { dialogService } from '../../lib/dialogService';
 

@@ -22,14 +22,16 @@ import {
   Check,
 } from 'lucide-react';
 import type { SyncResult, EmailScanResult } from '../../lib/emailSync';
+import { fetchGmailEmails, syncEmailsWithLog } from '../../lib/emailSync';
+import { supabase } from '../../lib/supabaseClient';
 
-const QWEN_KEY_STORAGE = 'jild_qwen_key';
-const QWEN_MODEL_STORAGE = 'jild_qwen_model';
+const OPENAI_KEY_STORAGE = 'jild_openai_key';
+const OPENAI_MODEL_STORAGE = 'jild_openai_model';
 const GOOGLE_KEY_STORAGE = 'jild_google_key';
 const GOOGLE_MODEL_STORAGE = 'jild_google_model';
 const PROVIDER_STORAGE = 'jild_ai_provider';
 
-type Provider = 'google' | 'qwen';
+type Provider = 'google' | 'openai';
 
 // Direct Google AI Studio models — free tier: 1,500 requests/day, native PDF reading.
 const GOOGLE_MODELS = [
@@ -38,12 +40,10 @@ const GOOGLE_MODELS = [
   { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite — lighter, faster' },
 ];
 
-// Qwen / Alibaba DashScope International models. Vision-capable first.
-const QWEN_MODELS = [
-  { value: 'qwen-vl-max-latest',  label: 'Qwen-VL Max (latest) — reads scanned PDFs · recommended' },
-  { value: 'qwen-vl-plus-latest', label: 'Qwen-VL Plus — cheaper, reads images' },
-  { value: 'qwen-plus',           label: 'Qwen Plus — text only, fast' },
-  { value: 'qwen-max',            label: 'Qwen Max — text only, smarter' },
+// OpenAI models. gpt-4o is excellent for PDFs/Vision.
+const OPENAI_MODELS = [
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini — very cheap, fast, great reasoning · recommended' },
+  { value: 'gpt-4o',      label: 'GPT-4o — smartest model, best for complex invoices' },
 ];
 
 const StatusBadge: React.FC<{ action: SyncResult['action'] }> = ({ action }) => {
@@ -95,25 +95,25 @@ const EmailSyncSection: React.FC = () => {
   const [googleModel, setGoogleModel] = useState<string>(
     () => localStorage.getItem(GOOGLE_MODEL_STORAGE) || 'gemini-2.0-flash'
   );
-  const [qwenKey, setQwenKey] = useState<string>(
-    () => localStorage.getItem(QWEN_KEY_STORAGE) || ''
+  const [openaiKey, setOpenaiKey] = useState<string>(
+    () => localStorage.getItem(OPENAI_KEY_STORAGE) || ''
   );
-  const [qwenModel, setQwenModel] = useState<string>(
-    () => localStorage.getItem(QWEN_MODEL_STORAGE) || 'qwen-vl-max-latest'
+  const [openaiModel, setOpenaiModel] = useState<string>(
+    () => localStorage.getItem(OPENAI_MODEL_STORAGE) || 'gpt-4o-mini'
   );
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
 
-  // Migrate any saved 'openrouter' provider preference to 'qwen' silently.
+  // Migrate any saved 'qwen' or 'openrouter' provider preference to 'openai' silently.
   useEffect(() => {
     const saved = localStorage.getItem(PROVIDER_STORAGE);
-    if (saved === 'openrouter') {
-      localStorage.setItem(PROVIDER_STORAGE, 'qwen');
-      setProvider('qwen');
+    if (saved === 'openrouter' || saved === 'qwen') {
+      localStorage.setItem(PROVIDER_STORAGE, 'openai');
+      setProvider('openai');
     }
   }, []);
 
-  const activeKey = provider === 'google' ? googleKey : qwenKey;
+  const activeKey = provider === 'google' ? googleKey : openaiKey;
 
   const [showSetup, setShowSetup] = useState(false);
 
@@ -203,17 +203,17 @@ const EmailSyncSection: React.FC = () => {
       localStorage.setItem(GOOGLE_KEY_STORAGE, googleKey.trim());
       localStorage.setItem(GOOGLE_MODEL_STORAGE, googleModel);
     } else {
-      if (!qwenKey.trim()) return;
-      localStorage.setItem(QWEN_KEY_STORAGE, qwenKey.trim());
-      localStorage.setItem(QWEN_MODEL_STORAGE, qwenModel);
+      if (!openaiKey.trim()) return;
+      localStorage.setItem(OPENAI_KEY_STORAGE, openaiKey.trim());
+      localStorage.setItem(OPENAI_MODEL_STORAGE, openaiModel);
     }
     setKeySaved(true);
     setTimeout(() => setKeySaved(false), 2000);
   };
 
-  const handleQwenModelChange = (model: string) => {
-    setQwenModel(model);
-    localStorage.setItem(QWEN_MODEL_STORAGE, model);
+  const handleOpenaiModelChange = (model: string) => {
+    setOpenaiModel(model);
+    localStorage.setItem(OPENAI_MODEL_STORAGE, model);
   };
 
   const handleGoogleModelChange = (model: string) => {
@@ -236,12 +236,10 @@ const EmailSyncSection: React.FC = () => {
     if (!key) { setShowSetup(true); return; }
     if (gmailStatus !== 'ok') { setShowSetup(true); return; }
     if (provider === 'google') localStorage.setItem(GOOGLE_KEY_STORAGE, key);
-    else localStorage.setItem(QWEN_KEY_STORAGE, key);
+    else localStorage.setItem(OPENAI_KEY_STORAGE, key);
 
     setRunning(true); setSyncError(null); setResults(null); setScans(null); setStage('fetching');
     try {
-      const { fetchGmailEmails, syncEmailsWithLog } = await import('../../lib/emailSync');
-      const { supabase } = await import('../../lib/supabaseClient');
       const { emails } = await fetchGmailEmails();
       if (emails.length === 0) { setResults([]); setScans([]); setStage('done'); setShowResults(true); return; }
       setStage('analyzing');
@@ -394,7 +392,7 @@ const EmailSyncSection: React.FC = () => {
                           ))}
                         </div>
                         <p className="text-[10px] text-red-600 leading-relaxed">
-                          Try a different model in Setup &amp; Configuration below. Vision-capable models (Gemini, Llama Vision, Qwen VL) are needed for scanned PDFs.
+                          Try a different model in Setup &amp; Configuration below. Vision-capable models (Gemini, GPT-4o) are needed for scanned PDFs.
                         </p>
                       </div>
                     )}
@@ -507,13 +505,13 @@ const EmailSyncSection: React.FC = () => {
                     <span className="block text-[9px] font-normal text-emerald-600 mt-0.5">Free · 1,500/day · recommended</span>
                   </button>
                   <button
-                    onClick={() => handleProviderChange('qwen')}
+                    onClick={() => handleProviderChange('openai')}
                     className={`px-3 py-2 text-[11px] font-bold rounded-lg transition-colors ${
-                      provider === 'qwen' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      provider === 'openai' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                     }`}
                   >
-                    Qwen (Alibaba)
-                    <span className="block text-[9px] font-normal text-gray-500 mt-0.5">Free tier · backup option</span>
+                    OpenAI (GPT-4o)
+                    <span className="block text-[9px] font-normal text-gray-500 mt-0.5">Paid · reliable · best reasoning</span>
                   </button>
                 </div>
 
@@ -564,14 +562,14 @@ const EmailSyncSection: React.FC = () => {
                   </div>
                 )}
 
-                {/* Qwen / DashScope block */}
-                {provider === 'qwen' && (
+                {/* OpenAI block */}
+                {provider === 'openai' && (
                   <div className="space-y-1.5">
                     <div className="flex gap-2">
                       <input
                         type={showKey ? 'text' : 'password'}
-                        value={qwenKey}
-                        onChange={(e) => { setQwenKey(e.target.value); setKeySaved(false); }}
+                        value={openaiKey}
+                        onChange={(e) => { setOpenaiKey(e.target.value); setKeySaved(false); }}
                         placeholder="sk-..."
                         className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-gray-50"
                       />
@@ -580,35 +578,35 @@ const EmailSyncSection: React.FC = () => {
                       </button>
                       <button
                         onClick={handleSaveKey}
-                        disabled={!qwenKey.trim()}
+                        disabled={!openaiKey.trim()}
                         className={`px-3 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 ${keySaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
                       >
                         {keySaved ? '✓ Saved' : 'Save'}
                       </button>
                     </div>
-                    <a href="https://bailian.console.aliyun.com/?apiKey=1" target="_blank" rel="noopener noreferrer"
+                    <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
-                      Get a free DashScope key at bailian.console.aliyun.com <ExternalLink className="h-3 w-3" />
+                      Get an OpenAI API key at platform.openai.com <ExternalLink className="h-3 w-3" />
                     </a>
                     <div className="mt-2">
                       <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
-                        Qwen Model <span className="text-gray-400 font-normal normal-case">(VL models read scanned PDFs)</span>
+                        OpenAI Model
                       </label>
                       <select
-                        value={qwenModel}
-                        onChange={(e) => handleQwenModelChange(e.target.value)}
+                        value={openaiModel}
+                        onChange={(e) => handleOpenaiModelChange(e.target.value)}
                         className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
                       >
-                        {QWEN_MODELS.map((m) => (
+                        {OPENAI_MODELS.map((m) => (
                           <option key={m.value} value={m.value}>{m.label}</option>
                         ))}
                       </select>
                     </div>
-                    <div className="p-2 bg-amber-50 border border-amber-100 rounded-lg">
-                      <p className="text-[10px] text-amber-800 leading-relaxed">
-                        <strong>Use as a backup:</strong> Qwen is good when Google's quota runs out. Sign up at
-                        Alibaba Cloud's Bailian / DashScope console — the international site has a free tier with
-                        about 1 million tokens. The key starts with <code className="bg-white px-1 rounded">sk-</code>.
+                    <div className="p-2 bg-blue-50 border border-blue-100 rounded-lg">
+                      <p className="text-[10px] text-blue-800 leading-relaxed">
+                        <strong>Stable &amp; Smart:</strong> OpenAI is the industry leader for stability. GPT-4o-mini is
+                        extremely cheap and fast, while GPT-4o is the smartest model for complex document layouts.
+                        Requires pre-funding your account with min. $5.
                       </p>
                     </div>
                   </div>

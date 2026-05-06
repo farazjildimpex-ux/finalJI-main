@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Link2Off, Link as LinkIcon, X, MessageSquarePlus, Pencil, Bell } from 'lucide-react';
+import { Search, Plus, Link2Off, Link as LinkIcon, X, MessageSquarePlus, Pencil, Bell, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
-import { JournalEntry } from '../../types';
+import type { JournalEntry } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
 import JournalEntryForm from './JournalEntryForm';
 import { dialogService } from '../../lib/dialogService';
+import { suggestJournalLink } from '../../lib/journalAI';
 
 interface JournalEntryPopupProps {
   entry: JournalEntry;
@@ -106,6 +107,53 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
       onUpdate();
     } catch (error) {
       console.error('Error unlinking entry:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAskAI = async () => {
+    try {
+      setIsProcessing(true);
+      dialogService.toast({ message: 'AI is analyzing related entries...', durationMs: 2000 });
+      
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+      
+      const pastEntries = allEntries.filter(
+        e => e.id !== currentEntry.id && 
+             e.id !== rootId && 
+             e.parent_id !== rootId &&
+             new Date(e.entry_date) >= tenDaysAgo
+      );
+
+      if (pastEntries.length === 0) {
+        dialogService.alert({ title: 'No entries found', message: 'No entries found from the last 10 days to analyze.' });
+        return;
+      }
+
+      const suggestion = await suggestJournalLink(currentEntry, pastEntries);
+      
+      if (suggestion.suggested_parent_id) {
+        const parent = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
+        if (parent) {
+          const ok = await dialogService.confirm({
+            title: 'AI Suggestion',
+            message: `AI suggests linking to: "${parent.title}"\n\nReason: ${suggestion.reasoning}\n\nLink them now?`,
+            confirmLabel: 'Link'
+          });
+          if (ok) {
+            await handleLinkEntry(parent.id);
+          }
+        } else {
+          dialogService.toast({ message: 'AI didn\'t find a strong match.' });
+        }
+      } else {
+        dialogService.alert({ title: 'No match', message: 'AI didn\'t find any strongly related entries for this one.' });
+      }
+    } catch (error: any) {
+      console.error('AI Link error:', error);
+      dialogService.alert({ title: 'AI Error', message: error.message });
     } finally {
       setIsProcessing(false);
     }
@@ -329,17 +377,27 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
             </div>
 
             <div className="p-4 flex-1 flex flex-col min-h-0 gap-3">
-              <div className="relative shrink-0">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search entries…"
-                  value={linkSearchTerm}
-                  onChange={(e) => setLinkSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
-                  autoFocus
-                />
-              </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search entries…"
+                        value={linkSearchTerm}
+                        onChange={(e) => setLinkSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      onClick={handleAskAI}
+                      disabled={isProcessing}
+                      className="px-3 bg-violet-50 text-violet-600 rounded-xl border border-violet-100 hover:bg-violet-100 transition-colors flex items-center justify-center disabled:opacity-50"
+                      title="Ask AI to find link"
+                    >
+                      <Sparkles className={`h-4 w-4 ${isProcessing ? 'animate-pulse' : ''}`} />
+                    </button>
+                  </div>
 
               <div className="flex-1 overflow-y-auto space-y-1.5">
                 {availableEntries.map((e) => (

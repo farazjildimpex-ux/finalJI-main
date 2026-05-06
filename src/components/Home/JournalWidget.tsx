@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { addDays, format } from 'date-fns';
-import { JournalEntry } from '../../types';
+import type { JournalEntry } from '../../types';
 import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryCard from '../Journal/JournalEntryCard';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
