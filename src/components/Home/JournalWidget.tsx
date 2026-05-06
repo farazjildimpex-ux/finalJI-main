@@ -6,6 +6,9 @@ import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryCard from '../Journal/JournalEntryCard';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
 import DatePicker from '../UI/DatePicker';
+import { suggestJournalLink } from '../../lib/journalAI';
+import { dialogService } from '../../lib/dialogService';
+import { supabase } from '../../lib/supabaseClient';
 
 interface JournalWidgetProps {
   entries: JournalEntry[];
@@ -135,10 +138,41 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
             setIsFormOpen(false);
             setEditingEntry(null);
           }}
-          onSave={() => {
+          onSave={async (savedEntry?: JournalEntry) => {
             setIsFormOpen(false);
             setEditingEntry(null);
             onEntriesUpdated();
+
+            if (savedEntry && !savedEntry.parent_id && !editingEntry) {
+              const tenDaysAgo = new Date();
+              tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+              
+              const pastEntries = entries.filter(
+                e => e.id !== savedEntry.id && new Date(e.entry_date) >= tenDaysAgo
+              );
+              
+              if (pastEntries.length > 0) {
+                const suggestion = await suggestJournalLink(savedEntry, pastEntries);
+                if (suggestion.suggested_parent_id) {
+                  const parentEntry = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
+                  if (parentEntry) {
+                    const link = await dialogService.confirm({
+                      title: 'Link Journal Entry?',
+                      message: `AI noticed this entry is related to: "${parentEntry.title}".\n\nReason: ${suggestion.reasoning}\n\nWould you like to link them together in a thread?`,
+                      confirmLabel: 'Link Entries',
+                    });
+                    if (link) {
+                      await supabase
+                        .from('journal_entries')
+                        .update({ parent_id: parentEntry.id })
+                        .eq('id', savedEntry.id);
+                      onEntriesUpdated();
+                      dialogService.success('Entries linked successfully.');
+                    }
+                  }
+                }
+              }
+            }
           }}
         />
       )}

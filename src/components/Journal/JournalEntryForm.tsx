@@ -21,7 +21,7 @@ const REMINDER_PRESETS: { label: string; days: number }[] = [
 const JournalEntryForm: React.FC<{
   initialDate: Date;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (entry?: JournalEntry) => void;
   parentId?: string | null;
   initialEntry?: JournalEntry | null;
 }> = ({
@@ -69,22 +69,28 @@ const JournalEntryForm: React.FC<{
         updated_at: new Date().toISOString(),
       };
 
+      let savedEntry: JournalEntry;
+
       if (initialEntry) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('journal_entries')
           .update(payload)
-          .eq('id', initialEntry.id);
+          .eq('id', initialEntry.id)
+          .select()
+          .single();
         if (error) throw error;
+        savedEntry = data;
       } else {
-        const { error } = await supabase.from('journal_entries').insert({
+        const { data, error } = await supabase.from('journal_entries').insert({
           ...payload,
           user_id: user.id,
           parent_id: parentId,
-        });
+        }).select().single();
         if (error) throw error;
+        savedEntry = data;
       }
 
-      onSave();
+      onSave(savedEntry);
     } catch (error: any) {
       console.error('Error saving entry:', error);
       dialogService.alert({

@@ -10,6 +10,8 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { AlertCircle } from 'lucide-react';
 import type { Order, JournalEntry } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { suggestJournalLink } from '../../lib/journalAI';
+import { dialogService } from '../../lib/dialogService';
 
 function getGreeting() {
   const h = new Date().getHours();
@@ -284,10 +286,41 @@ const HomePage: React.FC = () => {
             setIsJournalFormOpen(false);
             setEditingEntry(null);
           }}
-          onSave={() => {
+          onSave={async (savedEntry?: JournalEntry) => {
             setIsJournalFormOpen(false);
             setEditingEntry(null);
             fetchJournalEntries();
+            
+            if (savedEntry && !savedEntry.parent_id && !editingEntry) {
+              const tenDaysAgo = new Date();
+              tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+              
+              const pastEntries = journalEntries.filter(
+                e => e.id !== savedEntry.id && new Date(e.entry_date) >= tenDaysAgo
+              );
+              
+              if (pastEntries.length > 0) {
+                const suggestion = await suggestJournalLink(savedEntry, pastEntries);
+                if (suggestion.suggested_parent_id) {
+                  const parentEntry = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
+                  if (parentEntry) {
+                    const link = await dialogService.confirm({
+                      title: 'Link Journal Entry?',
+                      message: `AI noticed this entry is related to: "${parentEntry.title}".\n\nReason: ${suggestion.reasoning}\n\nWould you like to link them together in a thread?`,
+                      confirmLabel: 'Link Entries',
+                    });
+                    if (link) {
+                      await supabase
+                        .from('journal_entries')
+                        .update({ parent_id: parentEntry.id })
+                        .eq('id', savedEntry.id);
+                      fetchJournalEntries();
+                      dialogService.success('Entries linked successfully.');
+                    }
+                  }
+                }
+              }
+            }
           }}
         />
       )}
