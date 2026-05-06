@@ -55,7 +55,7 @@ export async function suggestJournalLink(
   try {
     if (provider === 'google') {
       const model = localStorage.getItem('jild_google_model') || 'gemini-2.0-flash';
-      const url = \`https://generativelanguage.googleapis.com/v1beta/models/\${model}:generateContent?key=\${encodeURIComponent(apiKey)}\`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
       
       const resp = await fetch(url, {
         method: 'POST',
@@ -69,7 +69,7 @@ export async function suggestJournalLink(
         }),
       });
 
-      if (!resp.ok) throw new Error(\`Google Gemini request failed (\${resp.status})\`);
+      if (!resp.ok) throw new Error(`Google Gemini request failed (${resp.status})`);
       const data = await resp.json();
       const content = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
       return parseAIResponse(content);
@@ -83,7 +83,7 @@ export async function suggestJournalLink(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: \`Bearer \${apiKey}\`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model,
@@ -92,7 +92,7 @@ export async function suggestJournalLink(
         }),
       });
 
-      if (!resp.ok) throw new Error(\`Qwen request failed (\${resp.status})\`);
+      if (!resp.ok) throw new Error(`Qwen request failed (${resp.status})`);
       const data = await resp.json();
       const content = data.choices?.[0]?.message?.content || '';
       return parseAIResponse(content);
@@ -107,7 +107,7 @@ function parseAIResponse(content: string): AISuggestion {
   try {
     let jsonStr = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
     if (!jsonStr.startsWith('{')) {
-      const m = jsonStr.match(/\\{[\\s\\S]*\\}/);
+      const m = jsonStr.match(/\{[\s\S]*\}/);
       if (m) jsonStr = m[0];
     }
     const parsed = JSON.parse(jsonStr);
