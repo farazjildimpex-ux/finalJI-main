@@ -300,7 +300,11 @@ const HomePage: React.FC = () => {
               );
               
               if (pastEntries.length > 0) {
+                console.log(`[AI Journal] Analyzing entry "${savedEntry.title}" against ${pastEntries.length} past entries.`);
+                dialogService.toast({ message: 'AI is looking for related entries...', durationMs: 2000 });
+                
                 const suggestion = await suggestJournalLink(savedEntry, pastEntries);
+                console.log('[AI Journal] Suggestion:', suggestion);
                 if (suggestion.suggested_parent_id) {
                   const parentEntry = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
                   if (parentEntry) {
