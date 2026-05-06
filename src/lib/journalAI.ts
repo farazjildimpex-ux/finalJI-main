@@ -48,7 +48,7 @@ export async function suggestJournalLink(
   const provider = localStorage.getItem('jild_ai_provider') || 'google';
   const apiKey = provider === 'google' 
     ? localStorage.getItem('jild_google_key') 
-    : localStorage.getItem('jild_openai_key'); // Switch from qwen to openai
+    : localStorage.getItem('jild_openai_key');
 
   if (!apiKey || !apiKey.trim()) {
     return { suggested_parent_id: null, reasoning: 'AI not configured' };
@@ -74,7 +74,7 @@ export async function suggestJournalLink(
         }),
       });
     } else {
-      // OpenAI (Replacing Qwen)
+      // OpenAI
       const model = localStorage.getItem('jild_openai_model') || 'gpt-4o-mini';
       const url = 'https://api.openai.com/v1/chat/completions';
       

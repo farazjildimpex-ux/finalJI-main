@@ -19,7 +19,7 @@ import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedTextareaClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
 
@@ -468,7 +468,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
             type="text"
             value={value}
             onChange={(e) => handleArrayFieldChange(field, index, e.target.value)}
-            className={zohoInputClass}
+            className={roundedInputClass}
             placeholder={placeholder}
           />
           {index > 0 && (
@@ -503,19 +503,19 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         </div>
       }>
         <FField label="Company Name" htmlFor="company_name" required>
-          <select id="company_name" value={formData.company_name} onChange={(e) => setField('company_name', e.target.value)} className={zohoInputClass} required>
+          <select id="company_name" value={formData.company_name} onChange={(e) => setField('company_name', e.target.value)} className={roundedInputClass} required>
             <option value="">Select Company</option>
             {companies.map((company) => (<option key={company.id} value={company.name}>{company.name}</option>))}
           </select>
         </FField>
         <FField label="Letter Number" htmlFor="sample_number" required>
-          <input id="sample_number" type="text" value={formData.sample_number} onChange={(e) => setField('sample_number', e.target.value)} className={zohoInputClass} required />
+          <input id="sample_number" type="text" value={formData.sample_number} onChange={(e) => setField('sample_number', e.target.value)} className={roundedInputClass} required />
         </FField>
         <FField label="Date">
           <DatePicker value={formData.date || ''} onChange={(val) => setField('date', val)} />
         </FField>
         <FField label="Status" htmlFor="status">
-          <select id="status" value={formData.status} onChange={(e) => setField('status', e.target.value as Sample['status'])} className={`${zohoInputClass} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
+          <select id="status" value={formData.status} onChange={(e) => setField('status', e.target.value as Sample['status'])} className={`${roundedInputClass} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>
             {STATUS_OPTIONS.map((status) => (<option key={status} value={status}>{status}</option>))}
           </select>
         </FField>
@@ -524,7 +524,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
       <FSectionCard title="Supplier Information" icon={Building2} accent="slate">
         <FField label="Supplier Name" htmlFor="supplier_name" required>
           <div className="relative">
-            <input id="supplier_name" type="text" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setField('supplier_name', e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={zohoInputClass} placeholder="Search supplier…" autoComplete="off" required />
+            <input id="supplier_name" type="text" value={supplierSearch} onChange={(e) => { setSupplierSearch(e.target.value); setField('supplier_name', e.target.value); setShowSupplierDropdown(true); }} onFocus={() => setShowSupplierDropdown(true)} onBlur={() => setTimeout(() => setShowSupplierDropdown(false), 150)} className={roundedInputClass} placeholder="Search supplier…" autoComplete="off" required />
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
             {showSupplierDropdown && filteredContacts.length > 0 && (
               <div className="absolute z-50 mt-1.5 w-full max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl">
@@ -542,7 +542,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
 
       <FSectionCard title="Letter Content" icon={Mail} accent="violet">
         <FField label="Description" htmlFor="description" span="full">
-          <input id="description" type="text" value={formData.description} onChange={(e) => setField('description', e.target.value)} className={zohoInputClass} placeholder="Short bold heading for the letter" />
+          <input id="description" type="text" value={formData.description} onChange={(e) => setField('description', e.target.value)} className={roundedInputClass} placeholder="Short bold heading for the letter" />
         </FField>
         <FField label="Letter Details" span="full" hint="Basic formatting: bold, underline, font size and color.">
           <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -568,14 +568,14 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
 
       <FSectionCard title="Courier & Tracking" icon={Package} accent="teal">
         <FField label="Courier Provider" htmlFor="courier_provider">
-          <select id="courier_provider" value={formData.courier_provider || ''} onChange={(e) => setField('courier_provider', e.target.value || null)} className={zohoInputClass}>
+          <select id="courier_provider" value={formData.courier_provider || ''} onChange={(e) => setField('courier_provider', e.target.value || null)} className={roundedInputClass}>
             <option value="">— Select courier —</option>
             {COURIERS.map((c) => (<option key={c.id} value={c.id}>{c.label}</option>))}
           </select>
         </FField>
         <FField label="Tracking / AWB Number" htmlFor="courier_reference">
           <div className="flex gap-2">
-            <input id="courier_reference" type="text" value={formData.courier_reference || ''} onChange={(e) => setField('courier_reference', e.target.value || null)} className={zohoInputClass} placeholder="e.g. 1234567890" />
+            <input id="courier_reference" type="text" value={formData.courier_reference || ''} onChange={(e) => setField('courier_reference', e.target.value || null)} className={roundedInputClass} placeholder="e.g. 1234567890" />
             {(() => {
               const url = buildTrackingUrl(formData.courier_provider, formData.courier_reference);
               return url ? (
@@ -585,7 +585,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
           </div>
         </FField>
         <FField label="Courier Status" htmlFor="courier_status">
-          <select id="courier_status" value={formData.courier_status || ''} onChange={(e) => setField('courier_status', e.target.value || null)} className={zohoInputClass}>
+          <select id="courier_status" value={formData.courier_status || ''} onChange={(e) => setField('courier_status', e.target.value || null)} className={roundedInputClass}>
             <option value="">— Select status —</option>
             <option value="Pending">Pending</option>
             <option value="In Transit">In Transit</option>
@@ -600,7 +600,7 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
 
       <FSectionCard title="Signature" icon={PenLine} accent="rose">
         <FField label="Signee Name" htmlFor="signee_name">
-          <input id="signee_name" type="text" value={formData.customer_comments || ''} onChange={(e) => setField('customer_comments', e.target.value)} className={zohoInputClass} placeholder="Name that appears at the bottom" />
+          <input id="signee_name" type="text" value={formData.customer_comments || ''} onChange={(e) => setField('customer_comments', e.target.value)} className={roundedInputClass} placeholder="Name that appears at the bottom" />
         </FField>
       </FSectionCard>
 

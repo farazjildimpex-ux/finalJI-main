@@ -17,14 +17,6 @@ import {
   renderSuccessPage,
   renderErrorPage,
 } from './gmailLib.js';
-import {
-  zohoConfigured,
-  getZohoCreds,
-  getZohoAccessToken,
-  buildZohoAuthUrl,
-  exchangeZohoCode,
-  sendZohoEmail,
-} from './zohoLib.js';
 import { retrievePdf } from './pdfLinks.js';
 
 initReplitSecretWatcher();
@@ -296,83 +288,6 @@ app.get('/api/google/oauth/callback', async (req, res) => {
     res.type('html').send(renderSuccessPage(data.refresh_token));
   } catch (err) {
     res.status(500).type('html').send(renderErrorPage('Unexpected error', err.message));
-  }
-});
-
-// ─── Zoho Mail OAuth ──────────────────────────────────────────────────────
-
-app.get('/api/zoho/status', (req, res) => {
-  const { clientId, clientSecret, refreshToken, fromEmail, fromName } = getZohoCreds();
-  res.json({
-    configured: !!(clientId && clientSecret && refreshToken),
-    hasFromEmail: !!fromEmail,
-    missing: {
-      ZOHO_CLIENT_ID: !clientId,
-      ZOHO_CLIENT_SECRET: !clientSecret,
-      ZOHO_REFRESH_TOKEN: !refreshToken,
-      ZOHO_FROM_EMAIL: !fromEmail,
-      ZOHO_FROM_NAME: !fromName,
-    },
-    authBase: process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com',
-  });
-});
-
-/** Build the public base URL for OAuth callbacks.
- *  Priority: ZOHO_REDIRECT_BASE env var → REPLIT_DEV_DOMAIN → request headers */
-function getPublicBase(req) {
-  if (process.env.ZOHO_REDIRECT_BASE) return process.env.ZOHO_REDIRECT_BASE.replace(/\/$/, '');
-  if (process.env.REPLIT_DEV_DOMAIN) return `https://${process.env.REPLIT_DEV_DOMAIN}`;
-  const proto = req.headers['x-forwarded-proto'] || req.protocol;
-  const host  = req.get('x-forwarded-host') || req.get('host');
-  return `${proto}://${host}`;
-}
-
-app.get('/api/zoho/oauth/redirect-uri', (req, res) => {
-  const uri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
-  res.json({ redirectUri: uri });
-});
-
-app.get('/api/zoho/oauth/start', (req, res) => {
-  try {
-    const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
-    const url = buildZohoAuthUrl(redirectUri);
-    res.redirect(url);
-  } catch (err) {
-    res.status(400).type('html').send(renderErrorPage('Zoho OAuth error', err.message));
-  }
-});
-
-app.get('/api/zoho/oauth/callback', async (req, res) => {
-  const code = req.query.code;
-  const error = req.query.error;
-  if (error) return res.status(400).type('html').send(renderErrorPage('Zoho sign-in cancelled', String(error)));
-  if (!code) return res.status(400).type('html').send(renderErrorPage('Missing code', 'No authorization code returned by Zoho.'));
-  try {
-    const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
-    const data = await exchangeZohoCode(String(code), redirectUri);
-    res.type('html').send(renderSuccessPage(data.refresh_token || '(no refresh token — check Zoho app settings)', {
-      title:      'Zoho Mail connected!',
-      secretName: 'ZOHO_REFRESH_TOKEN',
-      step3:      'Return to the app Settings page, restart the workflow, then refresh — you should see the green <strong>Connected</strong> badge.',
-      footer:     'This token gives the app permission to send emails on your behalf via Zoho Mail. Revoke any time in your Zoho API Console.',
-    }));
-  } catch (err) {
-    const redirectUri = `${getPublicBase(req)}/api/zoho/oauth/callback`;
-    const authBase = process.env.ZOHO_AUTH_BASE || 'https://accounts.zoho.com (default — no ZOHO_AUTH_BASE secret set)';
-    const detail = [
-      err.message,
-      '',
-      `Zoho auth server used:  ${authBase}`,
-      `Redirect URI sent:      ${redirectUri}`,
-      '',
-      'Checklist:',
-      '1. Is the auth server above the correct region for your Zoho account?',
-      '   (If your account is on .in/.eu/.com.au, set ZOHO_AUTH_BASE in Replit Secrets and restart)',
-      '2. Is the redirect URI above saved under "Authorized Redirect URIs" in your Zoho API Console app?',
-      '3. Did you create the API Console app on the same regional console as your Zoho account?',
-      '   (e.g. India accounts must use api-console.zoho.in, not api-console.zoho.com)',
-    ].join('\n');
-    res.status(500).type('html').send(renderErrorPage('Zoho token exchange failed', detail));
   }
 });
 

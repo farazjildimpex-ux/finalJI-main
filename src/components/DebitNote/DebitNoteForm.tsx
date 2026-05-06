@@ -8,7 +8,7 @@ import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoInputReadOnlyClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedInputReadOnlyClass, roundedTextareaClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
 
 /** Increment the trailing number in any document reference, preserving zero-padding and prefix. */
@@ -533,8 +533,8 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   };
 
 
-  const inputClassName = zohoInputClass;
-  const inputReadOnlyClass = zohoInputReadOnlyClass;
+  const inputClassName = roundedInputClass;
+  const inputReadOnlyClass = roundedInputReadOnlyClass;
 
   const renderToggle = (checked: boolean, onClick: () => void) => (
     <button

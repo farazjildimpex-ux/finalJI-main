@@ -487,7 +487,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
           {/* ─ Footer ─ */}
           <div className="h-px bg-slate-100 mx-5" />
           <div className="px-5 py-4 flex items-center justify-between shrink-0">
-            <p className="text-xs text-slate-400">via <span className="font-semibold text-slate-600">Zoho Mail</span></p>
+            <p className="text-xs text-slate-400">via <span className="font-semibold text-slate-600">Gmail</span></p>
             <div className="flex gap-2">
               <button onClick={onClose}
                 className="px-4 py-2.5 text-sm font-semibold rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition">

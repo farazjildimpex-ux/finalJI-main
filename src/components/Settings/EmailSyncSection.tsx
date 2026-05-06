@@ -104,14 +104,7 @@ const EmailSyncSection: React.FC = () => {
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
 
-  // Migrate any saved 'qwen' or 'openrouter' provider preference to 'openai' silently.
-  useEffect(() => {
-    const saved = localStorage.getItem(PROVIDER_STORAGE);
-    if (saved === 'openrouter' || saved === 'qwen') {
-      localStorage.setItem(PROVIDER_STORAGE, 'openai');
-      setProvider('openai');
-    }
-  }, []);
+
 
   const activeKey = provider === 'google' ? googleKey : openaiKey;
 

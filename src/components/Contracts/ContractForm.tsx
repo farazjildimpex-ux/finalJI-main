@@ -3,7 +3,7 @@ import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
-import FormRow, { CollapsibleFormSection, formInputClass, ZohoRow, ZohoSection, FGrid, FField, FSectionCard, zohoInputClass, zohoTextareaClass } from '../UI/FormRow';
+import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedTextareaClass } from '../UI/FormRow';
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
@@ -399,7 +399,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     contact.name.toLowerCase().includes(supplierSearch.toLowerCase())
   );
 
-  const inputClassName = zohoInputClass;
+  const inputClassName = roundedInputClass;
   const dropdownClassName = "absolute z-50 mt-1.5 w-full max-w-[520px] max-h-60 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-xl";
   const dropdownItemClassName = "cursor-pointer px-3.5 py-2.5 text-[13.5px] text-gray-700 hover:bg-blue-50";
 
@@ -544,7 +544,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
           <input type="text" id="measurement" value={formData.measurement} onChange={(e) => setFormData({ ...formData, measurement: e.target.value })} className={inputClassName} />
         </FField>
         <FField label="Description" htmlFor="description" span="full">
-          <textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={zohoTextareaClass} rows={2} />
+          <textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className={roundedTextareaClass} rows={2} />
         </FField>
       </FSectionCard>
 
@@ -612,7 +612,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
           {renderArrayList('destination', formData.destination, 'Destination', 'Add Destination')}
         </FField>
         <FField label="Payment Terms" htmlFor="payment_terms" span="full">
-          <textarea id="payment_terms" value={formData.payment_terms} onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })} className={zohoTextareaClass} rows={2} />
+          <textarea id="payment_terms" value={formData.payment_terms} onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })} className={roundedTextareaClass} rows={2} />
         </FField>
       </FSectionCard>
 

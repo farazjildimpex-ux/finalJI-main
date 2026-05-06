@@ -34,7 +34,6 @@ const EmailTemplatesPage: React.FC = () => {
   const [loading, setLoading]                 = useState(true);
   const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | 'new' | null>(null);
   const [composeTemplate, setComposeTemplate] = useState<EmailTemplate | null>(null);
-  const [zohoConfigured, setZohoConfigured]   = useState<boolean | null>(null);
   const [tab, setTab]                         = useState<'templates' | 'history'>('templates');
 
   /* email log */
@@ -62,9 +61,7 @@ const EmailTemplatesPage: React.FC = () => {
   };
 
   useEffect(() => { load(); }, [user?.id]);
-  useEffect(() => {
-    fetch('/api/zoho/status').then(r => r.json()).then(d => setZohoConfigured(!!d.configured)).catch(() => setZohoConfigured(false));
-  }, []);
+
   useEffect(() => { if (tab === 'history') loadLogs(); }, [tab, user?.id]);
 
   const handleDeleteLog = async (id: string) => {
@@ -119,13 +116,7 @@ const EmailTemplatesPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ── Zoho warning ── */}
-      {zohoConfigured === false && tab === 'templates' && (
-        <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-2xl text-sm text-amber-800 flex items-start gap-3">
-          <Info className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" />
-          <span>Zoho Mail is not connected. Go to <strong>Settings → Email (Zoho)</strong> to complete setup.</span>
-        </div>
-      )}
+
 
       {/* ══ TEMPLATES TAB ══ */}
       {tab === 'templates' && (

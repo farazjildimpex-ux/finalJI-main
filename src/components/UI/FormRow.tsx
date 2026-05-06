@@ -164,16 +164,16 @@ export const formInputClass =
 export const formInputReadOnlyClass =
   'block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-600 shadow-sm';
 
-export const zohoInputClass =
+export const roundedInputClass =
   'block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10';
 
-export const zohoTextareaClass =
+export const roundedTextareaClass =
   'block w-full rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-[13.5px] text-gray-900 placeholder:text-gray-400 transition-colors focus:border-blue-400 focus:outline-none focus:ring-4 focus:ring-blue-500/10 resize-y';
 
-export const zohoInputReadOnlyClass =
+export const roundedInputReadOnlyClass =
   'block w-full rounded-xl border border-gray-100 bg-gray-50/80 px-3.5 py-2.5 text-[13.5px] text-gray-500 cursor-default select-none';
 
-interface ZohoRowProps {
+interface ModernRowProps {
   label: React.ReactNode;
   required?: boolean;
   htmlFor?: string;
@@ -182,7 +182,7 @@ interface ZohoRowProps {
   fullWidth?: boolean;
 }
 
-export const ZohoRow: React.FC<ZohoRowProps> = ({ label, required, htmlFor, hint, children, fullWidth }) => (
+export const ModernRow: React.FC<ModernRowProps> = ({ label, required, htmlFor, hint, children, fullWidth }) => (
   <div className="px-6 py-2 grid grid-cols-1 sm:grid-cols-[190px_1fr] gap-x-5 items-start border-b border-gray-100 last:border-b-0">
     <label
       htmlFor={htmlFor}
@@ -197,12 +197,12 @@ export const ZohoRow: React.FC<ZohoRowProps> = ({ label, required, htmlFor, hint
   </div>
 );
 
-interface ZohoSectionProps {
+interface ModernSectionProps {
   title: string;
   right?: React.ReactNode;
 }
 
-export const ZohoSection: React.FC<ZohoSectionProps> = ({ title, right }) => (
+export const ModernSection: React.FC<ModernSectionProps> = ({ title, right }) => (
   <div className="px-6 pt-3 pb-2 bg-gray-50 border-y border-gray-200 flex items-center justify-between">
     <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{title}</span>
     {right && <div className="flex items-center gap-2">{right}</div>}

@@ -8,8 +8,8 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Debit Notes** — Calculate commissions with currency conversion, export documents
 - **Contact Book** — Directory for business contacts and clients (with contact_person + email_cc fields)
 - **Journal & Reminders** — Daily entries with time-based push notification reminders
-- **Auto Invoice Sync** — Connects to Gmail via OAuth, downloads PDF attachments from the last 7 days, uses Google Gemini or Qwen AI to extract invoice data, stages for approval
-- **Email System** — Zoho Mail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal with rich-text editor (bold/italic/underline/font size/color), email log history
+- **Auto Invoice Sync** — Connects to Gmail via OAuth, downloads PDF attachments from the last 7 days, uses Google Gemini or OpenAI to extract invoice data, stages for approval
+- **Email System** — Gmail OAuth sending, Email Templates CRUD with `{{variable}}` substitution, ComposeModal with rich-text editor (bold/italic/underline/font size/color), email log history
 - **Rich Text Email Editor** — `src/components/Email/RichTextEditor.tsx` — contenteditable toolbar with formatting, preview uses app system font
 - **CommunicateButton** — `src/components/Email/CommunicateButton.tsx` — WhatsApp/Email choice popup on Contract/Letter/Payment pages
 - **PDF Attachment Without Save** — PDF generators return base64 string; email compose can include the document PDF
@@ -24,7 +24,7 @@ A management portal for JILD IMPEX, a leather import/export business based in Ch
 - **Styling**: Tailwind CSS
 - **Routing**: React Router DOM v6
 - **Backend/Auth/DB**: Supabase (PostgreSQL + Auth + Storage + Edge Functions)
-- **Server**: Express.js on port 3001 (proxied by Vite on port 5000) — handles Gmail OAuth, Zoho Mail OAuth, email sending, PDF downloads, LWG scraping
+- **Server**: Express.js on port 3001 (proxied by Vite on port 5000) — handles Gmail OAuth, email sending, PDF downloads, LWG scraping
 - **Notifications**: Firebase Cloud Messaging (optional — degrades gracefully if not configured)
 - **Documents**: jsPDF, jspdf-autotable, docxtemplater, pizzip
 
@@ -41,7 +41,7 @@ Starts both the Vite dev server (port 5000) and Express API server (port 3001) c
 - **Workflow**: `Start application` runs `npm run dev` (Vite on port 5000, Express on port 3001)
 - **Production deploy**: `NODE_ENV=production node server/index.js` — Express serves built `dist/` with SPA fallback
 - **Live secrets**: `server/replitSecrets.js` watches `/run/replit/env/latest.json` for live Replit secret updates without workflow restarts
-- **OAuth redirect URI**: Uses `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS` env vars (auto-set by Replit) for correct redirect URIs in Google and Zoho OAuth flows
+- **OAuth redirect URI**: Uses `REPLIT_DEV_DOMAIN` / `REPLIT_DOMAINS` env vars (auto-set by Replit) for correct redirect URIs in Google OAuth flows
 - **Vite proxy**: `/api/*` requests from the frontend are proxied to `http://localhost:3001`
 
 ## Required Replit Secrets
@@ -55,17 +55,10 @@ All secrets are stored in Replit Secrets (Secrets tab), never in `.env` files:
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID (Gmail sync + send) |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `GOOGLE_REFRESH_TOKEN` | Google refresh token (via `/api/google/oauth/start`) |
-| `ZOHO_CLIENT_ID` | Zoho Developer Console Web app Client ID (optional) |
-| `ZOHO_CLIENT_SECRET` | Zoho Client Secret (optional) |
-| `ZOHO_REFRESH_TOKEN` | Zoho refresh token via `/api/zoho/oauth/start` (optional) |
-| `ZOHO_FROM_EMAIL` | The Zoho Mail address to send from (optional) |
-| `ZOHO_FROM_NAME` | Display name for outgoing Zoho emails (optional) |
-| `ZOHO_AUTH_BASE` | Zoho auth DC base URL, default `https://accounts.zoho.com` (optional) |
-| `ZOHO_API_BASE` | Zoho API DC base URL, default `https://mail.zoho.com` (optional) |
 
 Firebase variables (`VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID`, `VITE_FIREBASE_VAPID_KEY`) are optional — app degrades gracefully without them.
 
-AI keys (Google Gemini / Qwen DashScope) are stored in the user's browser localStorage via the Settings page — no server secret needed.
+AI keys (Google Gemini / OpenAI) are stored in the user's browser localStorage via the Settings page — no server secret needed.
 
 ## Project Structure
 
@@ -85,7 +78,7 @@ src/
     EmailTemplates/ # EmailTemplatesPage, TemplateForm
     Journal/      # JournalEntryCard, JournalEntryForm, JournalEntryPopup
     Notes/        # NotesPage
-    Settings/     # SettingsPage + email/Gmail/Zoho setup sections
+    Settings/     # SettingsPage + email/Gmail setup sections
     UI/           # Shared UI (dialogs, loading screen, error boundary, notification bell)
   hooks/          # useAuth, useNotifications, useReminderChecker
   lib/            # supabaseClient.ts, firebase.ts, courierTracking.ts, emailSync.ts, emailCompose.ts, dialogService.ts
@@ -94,9 +87,8 @@ src/
   App.tsx         # Router + route definitions
   main.tsx        # Bootstrap, service worker registration
 server/
-  index.js        # Express API server (Gmail, Zoho, email send, PDF download, LWG scraper)
+  index.js        # Express API server (Gmail, email send, PDF download, LWG scraper)
   gmailLib.js     # Gmail OAuth token management, email fetching/sending
-  zohoLib.js      # Zoho Mail OAuth and email sending
   pdfLinks.js     # In-memory PDF link store for download tokens
   replitSecrets.js # Live-reloads Replit secrets from /run/replit/env/latest.json
 supabase/
@@ -124,7 +116,7 @@ All tables use Row Level Security (RLS) with Supabase Auth JWT.
 ## AI Providers for Invoice Extraction
 
 - **Google AI Studio (Gemini)** — direct API, native PDF reading, 1500 req/day free. Recommended. User sets key in Settings → stored in localStorage as `jild_google_api_key`
-- **Qwen / DashScope (Alibaba)** — backup. User sets key in Settings → stored in localStorage as `jild_qwen_api_key`
+- **OpenAI (GPT-4o)** — backup. User sets key in Settings → stored in localStorage as `jild_openai_api_key`
 
 ## Invoice Approval Flow
 
