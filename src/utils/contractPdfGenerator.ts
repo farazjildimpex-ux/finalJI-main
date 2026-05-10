@@ -90,9 +90,16 @@ export const generateContractPDF = async (
   }
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
-  const addLabelValue = (labelText: string, value: string, x: number, y: number, lw: number = labelOffset, spacing = 6) => {
-    doc.setFont(ff, 'bold');   doc.text(labelText, x, y);
-    doc.setFont(ff, 'normal'); doc.text(value || '', x + lw, y);
+  const addLabelValue = (
+    labelText: string, value: string, x: number, y: number,
+    lw: number = labelOffset, spacing = 6,
+    labelStyle: string = 'bold', dataStyle: string = 'normal',
+    dataSize?: number,
+  ) => {
+    doc.setFont(ff, labelStyle); doc.text(labelText, x, y);
+    doc.setFont(ff, dataStyle);
+    if (dataSize) doc.setFontSize(dataSize);
+    doc.text(value || '', x + lw, y);
     return spacing * ls;
   };
 
@@ -131,25 +138,25 @@ export const generateContractPDF = async (
   let contractInfoY = suppY;
   if (fDate.visible) {
     const dx = xRight + fDate.xOffset, dy = contractInfoY + fDate.yOffset;
-    doc.setFont(ff, 'bold'); doc.setFontSize(fDate.fontSize);
+    doc.setFont(ff, fDate.fontStyle); doc.setFontSize(fDate.fontSize);
     doc.text(fDate.customLabel || 'Date:', dx, dy);
-    doc.setFont(ff, 'normal');
+    doc.setFont(ff, fDate.dataFontStyle ?? 'normal'); doc.setFontSize(fDate.dataFontSize ?? fDate.fontSize);
     doc.text(new Date(contract.contract_date).toLocaleDateString('en-GB'), dx + 30, dy);
     contractInfoY += 6 * ls;
   }
   if (fContractNo.visible) {
     const dx = xRight + fContractNo.xOffset, dy = contractInfoY + fContractNo.yOffset;
-    doc.setFont(ff, 'bold'); doc.setFontSize(fContractNo.fontSize);
+    doc.setFont(ff, fContractNo.fontStyle); doc.setFontSize(fContractNo.fontSize);
     doc.text(fContractNo.customLabel || 'Contract No:', dx, dy);
-    doc.setFont(ff, 'normal');
+    doc.setFont(ff, fContractNo.dataFontStyle ?? 'normal'); doc.setFontSize(fContractNo.dataFontSize ?? fContractNo.fontSize);
     doc.text(contract.contract_no, dx + 30, dy);
     contractInfoY += 6 * ls;
   }
   if (fBuyersRef.visible && contract.buyers_reference) {
     const dx = xRight + fBuyersRef.xOffset, dy = contractInfoY + fBuyersRef.yOffset;
-    doc.setFont(ff, 'bold'); doc.setFontSize(fBuyersRef.fontSize);
+    doc.setFont(ff, fBuyersRef.fontStyle); doc.setFontSize(fBuyersRef.fontSize);
     doc.text(fBuyersRef.customLabel || "Buyer's Ref:", dx, dy);
-    doc.setFont(ff, 'normal');
+    doc.setFont(ff, fBuyersRef.dataFontStyle ?? 'normal'); doc.setFontSize(fBuyersRef.dataFontSize ?? fBuyersRef.fontSize);
     doc.text(contract.buyers_reference, dx + 30, dy);
     contractInfoY += 6 * ls;
   }
@@ -211,25 +218,25 @@ export const generateContractPDF = async (
 
   if (fDesc.visible) {
     doc.setFontSize(fDesc.fontSize);
-    leftY += addLabelValue(fDesc.customLabel || 'Description:', contract.description, margin + fDesc.xOffset, leftY + fDesc.yOffset);
+    leftY += addLabelValue(fDesc.customLabel || 'Description:', contract.description, margin + fDesc.xOffset, leftY + fDesc.yOffset, labelOffset, 6, fDesc.fontStyle, fDesc.dataFontStyle ?? 'normal', fDesc.dataFontSize);
   }
   if (fArticle.visible) {
     doc.setFontSize(fArticle.fontSize);
-    leftY += addLabelValue(fArticle.customLabel || 'Article:', contract.article, margin + fArticle.xOffset, leftY + fArticle.yOffset);
+    leftY += addLabelValue(fArticle.customLabel || 'Article:', contract.article, margin + fArticle.xOffset, leftY + fArticle.yOffset, labelOffset, 6, fArticle.fontStyle, fArticle.dataFontStyle ?? 'normal', fArticle.dataFontSize);
   }
   if (fSize.visible) {
     doc.setFontSize(fSize.fontSize);
     let sizeText = contract.size || '';
     if (contract.average?.trim()) sizeText += `   Avg: ${contract.average}`;
-    leftY += addLabelValue(fSize.customLabel || 'Size:', sizeText, margin + fSize.xOffset, leftY + fSize.yOffset);
+    leftY += addLabelValue(fSize.customLabel || 'Size:', sizeText, margin + fSize.xOffset, leftY + fSize.yOffset, labelOffset, 6, fSize.fontStyle, fSize.dataFontStyle ?? 'normal', fSize.dataFontSize);
   }
   if (fSubstance.visible) {
     doc.setFontSize(fSubstance.fontSize);
-    leftY += addLabelValue(fSubstance.customLabel || 'Substance:', contract.substance, margin + fSubstance.xOffset, leftY + fSubstance.yOffset);
+    leftY += addLabelValue(fSubstance.customLabel || 'Substance:', contract.substance, margin + fSubstance.xOffset, leftY + fSubstance.yOffset, labelOffset, 6, fSubstance.fontStyle, fSubstance.dataFontStyle ?? 'normal', fSubstance.dataFontSize);
   }
   if (fMeasurement.visible) {
     doc.setFontSize(fMeasurement.fontSize);
-    leftY += addLabelValue(fMeasurement.customLabel || 'Measurement:', contract.measurement, margin + fMeasurement.xOffset, leftY + fMeasurement.yOffset);
+    leftY += addLabelValue(fMeasurement.customLabel || 'Measurement:', contract.measurement, margin + fMeasurement.xOffset, leftY + fMeasurement.yOffset, labelOffset, 6, fMeasurement.fontStyle, fMeasurement.dataFontStyle ?? 'normal', fMeasurement.dataFontSize);
   }
 
   let rightY = yPosition;
@@ -297,29 +304,29 @@ export const generateContractPDF = async (
 
   if (fDelivery.visible) {
     doc.setFontSize(fDelivery.fontSize);
-    yPosition += addLabelValue(fDelivery.customLabel || 'Delivery:', contract.delivery_schedule.filter(Boolean).join(', '), margin + fDelivery.xOffset, yPosition + fDelivery.yOffset);
+    yPosition += addLabelValue(fDelivery.customLabel || 'Delivery:', contract.delivery_schedule.filter(Boolean).join(', '), margin + fDelivery.xOffset, yPosition + fDelivery.yOffset, labelOffset, 6, fDelivery.fontStyle, fDelivery.dataFontStyle ?? 'normal', fDelivery.dataFontSize);
   }
   if (fDestination.visible) {
     doc.setFontSize(fDestination.fontSize);
-    yPosition += addLabelValue(fDestination.customLabel || 'Destination:', contract.destination.filter(Boolean).join(', '), margin + fDestination.xOffset, yPosition + fDestination.yOffset);
+    yPosition += addLabelValue(fDestination.customLabel || 'Destination:', contract.destination.filter(Boolean).join(', '), margin + fDestination.xOffset, yPosition + fDestination.yOffset, labelOffset, 6, fDestination.fontStyle, fDestination.dataFontStyle ?? 'normal', fDestination.dataFontSize);
   }
   if (fPayment.visible) {
     doc.setFontSize(fPayment.fontSize);
-    yPosition += addLabelValue(fPayment.customLabel || 'Payment:', contract.payment_terms, margin + fPayment.xOffset, yPosition + fPayment.yOffset);
+    yPosition += addLabelValue(fPayment.customLabel || 'Payment:', contract.payment_terms, margin + fPayment.xOffset, yPosition + fPayment.yOffset, labelOffset, 6, fPayment.fontStyle, fPayment.dataFontStyle ?? 'normal', fPayment.dataFontSize);
   }
   if (fCommission.visible) {
     doc.setFontSize(fCommission.fontSize);
     let commissionText = contract.local_commission || '';
     if (contract.foreign_commission?.trim()) commissionText += commissionText ? `, ${contract.foreign_commission}` : contract.foreign_commission;
-    yPosition += addLabelValue(fCommission.customLabel || 'Commission:', commissionText, margin + fCommission.xOffset, yPosition + fCommission.yOffset);
+    yPosition += addLabelValue(fCommission.customLabel || 'Commission:', commissionText, margin + fCommission.xOffset, yPosition + fCommission.yOffset, labelOffset, 6, fCommission.fontStyle, fCommission.dataFontStyle ?? 'normal', fCommission.dataFontSize);
   }
   if (fNotify.visible) {
     doc.setFontSize(fNotify.fontSize);
-    yPosition += addLabelValue(fNotify.customLabel || 'Notify:', contract.notify_party, margin + fNotify.xOffset, yPosition + fNotify.yOffset);
+    yPosition += addLabelValue(fNotify.customLabel || 'Notify:', contract.notify_party, margin + fNotify.xOffset, yPosition + fNotify.yOffset, labelOffset, 6, fNotify.fontStyle, fNotify.dataFontStyle ?? 'normal', fNotify.dataFontSize);
   }
   if (fBankDocs.visible) {
     doc.setFontSize(fBankDocs.fontSize);
-    yPosition += addLabelValue(fBankDocs.customLabel || 'Bank Documents:', contract.bank_documents, margin + fBankDocs.xOffset, yPosition + fBankDocs.yOffset, 45);
+    yPosition += addLabelValue(fBankDocs.customLabel || 'Bank Documents:', contract.bank_documents, margin + fBankDocs.xOffset, yPosition + fBankDocs.yOffset, 45, 6, fBankDocs.fontStyle, fBankDocs.dataFontStyle ?? 'normal', fBankDocs.dataFontSize);
   }
   yPosition += 8;
 
@@ -329,17 +336,17 @@ export const generateContractPDF = async (
   const tlw         = 30;
 
   if (fTerms.visible) {
-    doc.setFont(ff, 'bold'); doc.setFontSize(fTerms.fontSize);
+    doc.setFont(ff, fTerms.fontStyle); doc.setFontSize(fTerms.fontSize);
     doc.text(fTerms.customLabel || 'Terms:', margin + fTerms.xOffset, yPosition + fTerms.yOffset);
-    doc.setFont(ff, 'normal');
+    doc.setFont(ff, fTerms.dataFontStyle ?? 'normal'); doc.setFontSize(fTerms.dataFontSize ?? fTerms.fontSize);
     const tLines = doc.splitTextToSize('This contract is subjected to all terms and conditions of the international finished leather contract No.7.', contentWidth - tlw - 5);
     doc.text(tLines, margin + tlw + fTerms.xOffset, yPosition + fTerms.yOffset);
     yPosition += tLines.length * 5 * ls + 2;
   }
   if (fInspection.visible) {
-    doc.setFont(ff, 'bold'); doc.setFontSize(fInspection.fontSize);
+    doc.setFont(ff, fInspection.fontStyle); doc.setFontSize(fInspection.fontSize);
     doc.text(fInspection.customLabel || 'Inspection:', margin + fInspection.xOffset, yPosition + fInspection.yOffset);
-    doc.setFont(ff, 'normal');
+    doc.setFont(ff, fInspection.dataFontStyle ?? 'normal'); doc.setFontSize(fInspection.dataFontSize ?? fInspection.fontSize);
     const iLines = doc.splitTextToSize('Notwithstanding anything to the contrary in contract No.7, the place of inspection of the goods shall be within 15 days after delivery of the goods in the warehouse of the buyer.', contentWidth - tlw - 5);
     doc.text(iLines, margin + tlw + fInspection.xOffset, yPosition + fInspection.yOffset);
     yPosition += 14 * ls;

@@ -218,10 +218,46 @@ const PdfLayoutEditor: React.FC = () => {
                               </div>
                             </div>
 
+                            {/* Data field font controls (shown for fields that have a value column) */}
+                            {field.hasData && field.visible && (
+                              <div className="mt-1.5 ml-9 flex items-center gap-2 flex-wrap">
+                                <span className="text-xs text-gray-400 shrink-0 w-9">Data:</span>
+                                {/* Data font size */}
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    onClick={() => updateField(field.id, { dataFontSize: Math.max(6, +((field.dataFontSize ?? field.fontSize) - 0.5).toFixed(1)) })}
+                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-bold"
+                                  >−</button>
+                                  <span className="text-xs font-bold text-gray-700 w-9 text-center">{field.dataFontSize ?? field.fontSize}pt</span>
+                                  <button
+                                    onClick={() => updateField(field.id, { dataFontSize: Math.min(36, +((field.dataFontSize ?? field.fontSize) + 0.5).toFixed(1)) })}
+                                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 text-xs font-bold"
+                                  >+</button>
+                                </div>
+                                {/* Data font style B / I / N */}
+                                <div className="flex items-center gap-0.5">
+                                  {(['bold', 'italic', 'normal'] as FontStyle[]).map(style => (
+                                    <button
+                                      key={style}
+                                      onClick={() => updateField(field.id, { dataFontStyle: style })}
+                                      title={style}
+                                      className={`w-7 h-7 flex items-center justify-center rounded-lg text-xs transition-colors ${
+                                        (field.dataFontStyle ?? 'normal') === style
+                                          ? 'bg-blue-600 text-white font-bold'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                      }`}
+                                    >
+                                      {style === 'bold' ? 'B' : style === 'italic' ? 'I' : 'N'}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
                             {/* Label text override */}
                             {hasCustomLabel && field.visible && (
-                              <div className="mt-2 ml-9 flex items-center gap-2">
-                                <span className="text-xs text-gray-400 shrink-0">Label:</span>
+                              <div className="mt-1.5 ml-9 flex items-center gap-2">
+                                <span className="text-xs text-gray-400 shrink-0 w-9">Label:</span>
                                 <input
                                   type="text"
                                   value={field.customLabel}
