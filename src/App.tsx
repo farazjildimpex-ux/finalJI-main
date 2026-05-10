@@ -16,6 +16,7 @@ import SettingsPage from './components/Settings/SettingsPage';
 import ApprovalsPage from './components/Approvals/ApprovalsPage';
 import EmailTemplatesPage from './components/EmailTemplates/EmailTemplatesPage';
 import SalesPage from './components/Sales/SalesPage';
+import PdfLayoutEditor from './components/PdfEditor/PdfLayoutEditor';
 import { useAuth } from './hooks/useAuth';
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
             <Route path="sales" element={<SalesPage />} />
             <Route path="email-templates" element={<EmailTemplatesPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="pdf-editor" element={<PdfLayoutEditor />} />
             <Route path="*" element={<Navigate to="/app/home" replace />} />
           </Route>
           <Route path="/" element={<Navigate to="/login" replace />} />
