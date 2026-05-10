@@ -175,8 +175,8 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
         onDoubleClick={onClose}
       >
         <div
-          className="bg-white w-full max-w-xl rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ maxHeight: 'min(88vh, 680px)' }}
+          className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ maxHeight: 'min(92vh, 780px)' }}
           onClick={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}
         >
@@ -233,38 +233,38 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                   <div
                     className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
                       isSelected
-                        ? 'border-blue-200 bg-blue-50/40 shadow-sm shadow-blue-100'
-                        : 'border-slate-100 bg-white'
+                        ? 'border-blue-200 bg-blue-50/30 shadow-md shadow-blue-100/60'
+                        : 'border-slate-100 bg-white shadow-sm'
                     }`}
                   >
                     {/* Accent bar for selected */}
                     {isSelected && (
-                      <div className="h-0.5 bg-gradient-to-r from-blue-400 to-indigo-400 w-full" />
+                      <div className="h-1 bg-gradient-to-r from-blue-400 to-indigo-400 w-full" />
                     )}
 
-                    <div className="p-4 sm:p-5">
+                    <div className="p-5 sm:p-6">
                       {/* Title row with actions */}
-                      <div className="flex items-start justify-between gap-2 mb-2.5">
-                        <h3 className={`text-base font-bold leading-snug flex-1 ${
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <h3 className={`text-xl font-bold leading-snug flex-1 ${
                           isSelected ? 'text-blue-900' : 'text-slate-900'
                         }`}>
                           {item.title}
                         </h3>
-                        <div className="flex items-center gap-0.5 shrink-0 -mt-0.5">
+                        <div className="flex items-center gap-1 shrink-0 -mt-0.5">
                           <button
                             onClick={() => setEditingEntry(item)}
-                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
                             title="Edit"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
+                            <Pencil className="h-4 w-4" />
                           </button>
                           {item.parent_id && (
                             <button
                               onClick={() => handleUnlinkEntry(item.id)}
-                              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all"
+                              className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all"
                               title="Remove from thread"
                             >
-                              <Link2Off className="h-3.5 w-3.5" />
+                              <Link2Off className="h-4 w-4" />
                             </button>
                           )}
                         </div>
@@ -272,25 +272,25 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
 
                       {/* Content — this is the star */}
                       {item.content && (
-                        <p className="text-sm leading-relaxed text-slate-700 whitespace-pre-wrap mb-3">
+                        <p className="text-[16px] leading-[1.75] text-slate-700 whitespace-pre-wrap mb-4 tracking-[0.01em]">
                           {item.content}
                         </p>
                       )}
 
-                      {/* Metadata row — small, subtle */}
-                      <div className="flex items-center flex-wrap gap-2 mt-1">
-                        <span className="text-[11px] text-slate-400 font-medium">
+                      {/* Metadata row */}
+                      <div className="flex items-center flex-wrap gap-2 pt-3 border-t border-slate-100">
+                        <span className="text-xs text-slate-400 font-semibold">
                           {format(new Date(item.entry_date), 'MMM d, yyyy')}
                         </span>
-                        <span className="text-[11px] text-slate-300">·</span>
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-xs text-slate-300">·</span>
+                        <span className="text-xs text-slate-400">
                           {format(new Date(item.created_at), 'h:mm a')}
                         </span>
                         {hasReminder && (
                           <>
-                            <span className="text-[11px] text-slate-300">·</span>
-                            <span className="flex items-center gap-1 text-[11px] text-amber-500 font-medium">
-                              <Bell className="h-3 w-3" />
+                            <span className="text-xs text-slate-300">·</span>
+                            <span className="flex items-center gap-1 text-xs text-amber-500 font-semibold">
+                              <Bell className="h-3.5 w-3.5" />
                               {format(new Date(item.reminder_date!), 'MMM d')}
                               {item.reminder_time ? ` ${formatReminderTime(item.reminder_time)}` : ''}
                             </span>
