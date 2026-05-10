@@ -6,7 +6,7 @@ import {
   Database, Download, Upload, AlertCircle, HardDrive, Trash2,
   ChevronDown, ChevronUp, ChevronRight, FileText, Book, Bookmark,
   Receipt, Clipboard, Search, RefreshCw, CheckCircle2, ShieldCheck,
-  Bell, BellOff, BellRing,
+  Bell, BellOff, BellRing, LayoutTemplate,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -174,6 +174,23 @@ const SettingsPage: React.FC = () => {
             </div>
           </div>
           <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-emerald-500 transition-colors" />
+        </Link>
+
+        {/* ── PDF Layout Editor link ── */}
+        <Link
+          to="/app/settings/pdf-editor"
+          className="flex items-center justify-between p-4 bg-white rounded-3xl border border-gray-200 shadow-sm hover:border-blue-300 hover:shadow-md transition-all group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-blue-50 group-hover:bg-blue-100 transition-colors">
+              <LayoutTemplate className="h-4 w-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">PDF Layout</p>
+              <p className="text-xs text-gray-500">Customise every field, font, label &amp; header in the contract PDF</p>
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
         </Link>
 
         {/* ── Scan history ── */}

@@ -50,7 +50,7 @@ function App() {
             <Route path="sales" element={<SalesPage />} />
             <Route path="email-templates" element={<EmailTemplatesPage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="pdf-editor" element={<PdfLayoutEditor />} />
+            <Route path="settings/pdf-editor" element={<PdfLayoutEditor />} />
             <Route path="*" element={<Navigate to="/app/home" replace />} />
           </Route>
           <Route path="/" element={<Navigate to="/login" replace />} />

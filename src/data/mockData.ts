@@ -43,10 +43,4 @@ export const navigationItems: NavigationItem[] = [
     icon: 'database',
     mobile: false,
   },
-  {
-    name: 'PDF Layout',
-    path: '/app/pdf-editor',
-    icon: 'layoutTemplate',
-    mobile: false,
-  },
 ];
