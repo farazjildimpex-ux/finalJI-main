@@ -14,6 +14,7 @@ import { dialogService } from '../../lib/dialogService';
 import EmailSyncSection from './EmailSyncSection';
 import EmailScanHistory from './EmailScanHistory';
 import GmailSendSection from './GmailSendSection';
+import NotificationSetupGuide from './NotificationSetupGuide';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -256,6 +257,8 @@ const SettingsPage: React.FC = () => {
             </div>
           )}
         </div>
+
+        <NotificationSetupGuide />
 
         {/* ── Data section label ── */}
         <div className="pt-2">
