@@ -221,7 +221,7 @@ const PdfLayoutEditor: React.FC = () => {
                             {/* Label text override */}
                             {hasCustomLabel && field.visible && (
                               <div className="mt-2 ml-9 flex items-center gap-2">
-                                <span className="text-xs text-gray-400 shrink-0">Label text:</span>
+                                <span className="text-xs text-gray-400 shrink-0">Label:</span>
                                 <input
                                   type="text"
                                   value={field.customLabel}
@@ -234,6 +234,51 @@ const PdfLayoutEditor: React.FC = () => {
                                     onClick={() => updateField(field.id, { customLabel: defaultField?.customLabel ?? '' })}
                                     className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg hover:bg-gray-100 shrink-0"
                                   >reset</button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Position nudge controls */}
+                            {field.visible && (
+                              <div className="mt-2 ml-9 flex items-center gap-3 flex-wrap">
+                                {/* Horizontal offset */}
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-gray-400 w-4 text-center">↔</span>
+                                  <button
+                                    onClick={() => updateField(field.id, { xOffset: +(field.xOffset - 1).toFixed(1) })}
+                                    className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-500 hover:bg-gray-200 text-xs font-bold"
+                                  >←</button>
+                                  <span className={`text-xs font-mono w-10 text-center ${field.xOffset !== 0 ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
+                                    {field.xOffset > 0 ? `+${field.xOffset}` : field.xOffset}mm
+                                  </span>
+                                  <button
+                                    onClick={() => updateField(field.id, { xOffset: +(field.xOffset + 1).toFixed(1) })}
+                                    className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-500 hover:bg-gray-200 text-xs font-bold"
+                                  >→</button>
+                                </div>
+
+                                {/* Vertical offset */}
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[10px] text-gray-400 w-4 text-center">↕</span>
+                                  <button
+                                    onClick={() => updateField(field.id, { yOffset: +(field.yOffset - 1).toFixed(1) })}
+                                    className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-500 hover:bg-gray-200 text-xs font-bold"
+                                  >↑</button>
+                                  <span className={`text-xs font-mono w-10 text-center ${field.yOffset !== 0 ? 'text-blue-600 font-bold' : 'text-gray-400'}`}>
+                                    {field.yOffset > 0 ? `+${field.yOffset}` : field.yOffset}mm
+                                  </span>
+                                  <button
+                                    onClick={() => updateField(field.id, { yOffset: +(field.yOffset + 1).toFixed(1) })}
+                                    className="w-5 h-5 flex items-center justify-center rounded bg-gray-100 text-gray-500 hover:bg-gray-200 text-xs font-bold"
+                                  >↓</button>
+                                </div>
+
+                                {/* Reset position */}
+                                {(field.xOffset !== 0 || field.yOffset !== 0) && (
+                                  <button
+                                    onClick={() => updateField(field.id, { xOffset: 0, yOffset: 0 })}
+                                    className="text-[10px] text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100"
+                                  >reset pos</button>
                                 )}
                               </div>
                             )}

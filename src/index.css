@@ -7,13 +7,23 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    /* 90% base (= 14.4px rem) keeps mobile looking native on high-DPR screens.
+       On desktop (1×DPR) fractional rem causes subpixel blur — restore to 100%. */
     font-size: 90%;
   }
-  
+  @media (min-width: 768px) {
+    html {
+      font-size: 100%; /* 1rem = 16px, all Tailwind sizes are integer pixels → crisp */
+    }
+  }
+
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     @apply text-gray-800 antialiased bg-white;
     font-size: 14px;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     /* Enable momentum scrolling on iOS */
     -webkit-overflow-scrolling: touch;
     /* Prevent text selection on UI elements for a more native feel */
