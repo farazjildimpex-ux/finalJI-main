@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
@@ -39,7 +39,6 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
-  const exportMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [formData, setFormData] = useState<Partial<Contract>>({
     company_name: '',
     contract_no: '',
@@ -630,8 +629,16 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <button type="button" onClick={handleSaveAsNew} disabled={saving} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50">
           <Copy className="h-4 w-4" /> Save as New
         </button>
-        <div className="relative flex flex-col" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
-          <button type="button" disabled={saving || generatingPdf || generatingWord} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50 w-full sm:w-auto">
+        <div className="relative flex flex-col">
+          {showExportMenu && (
+            <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
+          )}
+          <button
+            type="button"
+            disabled={saving || generatingPdf || generatingWord}
+            onClick={() => setShowExportMenu(v => !v)}
+            className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50 w-full sm:w-auto"
+          >
             <FileDown className="h-4 w-4" />
             {generatingPdf ? 'Generating PDF…' : generatingWord ? 'Generating Word…' : 'Export'}
             <ChevronDown className="h-3.5 w-3.5" />

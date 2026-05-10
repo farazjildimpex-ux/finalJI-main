@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Save, FileDown, Trash2, ChevronDown, X, Search, Plus, Minus, AlertCircle, ClipboardList, Building2, FileText, Receipt, Calculator } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
@@ -127,8 +127,6 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   const [generatingWord, setGeneratingWord] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
-  const exportMenuTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const [formData, setFormData] = useState<DebitNote>({
     debit_note_no: '',
     debit_note_date: new Date().toISOString().split('T')[0],
@@ -709,8 +707,16 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
           <Save className="h-4 w-4" />
           {loading ? 'Saving…' : (initialData?.id ? 'Update Debit Note' : 'Save Debit Note')}
         </button>
-        <div className="relative flex flex-col" onMouseEnter={() => { if (exportMenuTimeoutRef.current) clearTimeout(exportMenuTimeoutRef.current); setShowExportMenu(true); }} onMouseLeave={() => { exportMenuTimeoutRef.current = setTimeout(() => setShowExportMenu(false), 200); }}>
-          <button type="button" disabled={loading || generatingWord} className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50 w-full sm:w-auto">
+        <div className="relative flex flex-col">
+          {showExportMenu && (
+            <div className="fixed inset-0 z-20" onClick={() => setShowExportMenu(false)} />
+          )}
+          <button
+            type="button"
+            disabled={loading || generatingWord}
+            onClick={() => setShowExportMenu(v => !v)}
+            className="inline-flex justify-center items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 shadow-sm disabled:opacity-50 w-full sm:w-auto"
+          >
             <FileDown className="h-4 w-4" />
             {generatingWord ? 'Generating Word…' : 'Export'}
             <ChevronDown className="h-3.5 w-3.5" />
