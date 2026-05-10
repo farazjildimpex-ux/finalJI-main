@@ -30,17 +30,29 @@ export function useReminderChecker() {
       for (const entry of dueReminders) {
         const reminderDateTime = new Date(`${entry.reminder_date}T${entry.reminder_time}`);
         if (reminderDateTime <= now) {
+          const notifTitle = `⏰ Reminder: ${entry.title}`;
+          const notifBody  = entry.content?.slice(0, 120) || 'Tap to open journal entry';
+          const entryUrl   = `/app/home?entry=${entry.id}`;
+
           try {
             const reg = await navigator.serviceWorker.ready;
-            await reg.showNotification(`Reminder: ${entry.title}`, {
-              body: entry.content || 'Journal reminder',
-              icon: '/icon-192.png',
-              badge: '/icon-192.png',
-              tag: `reminder-${entry.id}`,
-            });
+            await reg.showNotification(notifTitle, {
+              body:               notifBody,
+              icon:               '/icon-192.png',
+              badge:              '/icon-192.png',
+              tag:                `reminder-${entry.id}`,
+              data:               { url: entryUrl, entryId: entry.id },
+              requireInteraction: true,
+              vibrate:            [200, 100, 200, 100, 200],
+              actions: [
+                { action: 'open',    title: '📖 Open Entry' },
+                { action: 'dismiss', title: 'Dismiss'       },
+              ],
+            } as NotificationOptions);
           } catch {
-            new Notification(`Reminder: ${entry.title}`, {
-              body: entry.content || 'Journal reminder',
+            // Fallback: plain Notification (no click-to-navigate, but better than nothing)
+            new Notification(notifTitle, {
+              body: notifBody,
               icon: '/icon-192.png',
             });
           }

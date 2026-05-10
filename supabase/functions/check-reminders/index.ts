@@ -76,8 +76,10 @@ async function sendFCMNotification(
   projectId: string,
   fcmToken: string,
   title: string,
-  body: string
+  body: string,
+  entryId: string,
 ): Promise<void> {
+  const entryUrl = `/app/home?entry=${entryId}`;
   const resp = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
     {
@@ -90,12 +92,23 @@ async function sendFCMNotification(
         message: {
           token: fcmToken,
           notification: { title, body },
+          data: {
+            url:     entryUrl,
+            entryId: entryId,
+            tag:     `reminder-${entryId}`,
+          },
           webpush: {
             notification: {
-              icon: "/icon-192.png",
-              badge: "/icon-192.png",
-              requireInteraction: false,
+              icon:               "/icon-192.png",
+              badge:              "/icon-192.png",
+              requireInteraction: true,
+              vibrate:            [200, 100, 200, 100, 200],
+              actions: [
+                { action: "open",    title: "📖 Open Entry" },
+                { action: "dismiss", title: "Dismiss"       },
+              ],
             },
+            fcm_options: { link: entryUrl },
           },
         },
       }),
@@ -188,8 +201,9 @@ Deno.serve(async (req: Request) => {
                   accessToken,
                   firebaseProjectId!,
                   row.token,
-                  `Reminder: ${entry.title}`,
-                  entry.content || "Journal reminder"
+                  `⏰ Reminder: ${entry.title}`,
+                  (entry.content || "Tap to open journal entry").slice(0, 120),
+                  entry.id,
                 );
                 sentCount++;
                 pushSucceededForEntry = true;

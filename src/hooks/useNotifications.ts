@@ -26,15 +26,36 @@ export function useNotifications() {
     }
   }, []);
 
-  // Listen for foreground messages
+  // Listen for foreground messages — use the SW so the notification is
+  // clickable with data (plain new Notification() can't carry data for click nav)
   useEffect(() => {
     const unsub = onForegroundMessage((payload) => {
       console.log('Foreground message received:', payload);
-      const title = payload.notification?.title || 'JILD IMPEX';
-      const body = payload.notification?.body || '';
-      if (Notification.permission === 'granted') {
+      if (Notification.permission !== 'granted') return;
+
+      const title     = payload.notification?.title || 'JILD IMPEX';
+      const body      = payload.notification?.body  || '';
+      const entryId   = payload.data?.entryId || '';
+      const targetUrl = payload.data?.url || '/app/home';
+
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(title, {
+          body,
+          icon:               '/icon-192.png',
+          badge:              '/icon-192.png',
+          tag:                payload.data?.tag || 'jild-foreground',
+          data:               { url: targetUrl, entryId },
+          requireInteraction: true,
+          vibrate:            [200, 100, 200, 100, 200],
+          actions: [
+            { action: 'open',    title: '📖 Open Entry' },
+            { action: 'dismiss', title: 'Dismiss'       },
+          ],
+        } as NotificationOptions);
+      }).catch(() => {
+        // SW not ready fallback
         new Notification(title, { body, icon: '/icon-192.png' });
-      }
+      });
     });
     return unsub;
   }, []);

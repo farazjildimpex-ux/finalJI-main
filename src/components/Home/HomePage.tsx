@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import SearchBar from './SearchBar';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -33,6 +34,7 @@ function formatToday() {
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [orders, setOrders] = useState<Order[]>([]);
@@ -150,6 +152,30 @@ const HomePage: React.FC = () => {
       fetchJournalEntries();
     }
   }, [user, fetchJournalEntries]);
+
+  // Open specific journal entry when navigated from a notification (?entry=ID)
+  useEffect(() => {
+    const entryId = searchParams.get('entry');
+    if (!entryId || journalLoading) return;
+
+    const found = journalEntries.find((e) => e.id === entryId);
+    if (found) {
+      setSelectedEntryForPopup(found);
+      // Remove the param from the URL so a refresh doesn't re-open it
+      setSearchParams({}, { replace: true });
+    } else if (!journalLoading && journalEntries.length > 0) {
+      // Entry not in local list — fetch it directly then open
+      supabase
+        .from('journal_entries')
+        .select('*')
+        .eq('id', entryId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setSelectedEntryForPopup(data as JournalEntry);
+          setSearchParams({}, { replace: true });
+        });
+    }
+  }, [searchParams, journalEntries, journalLoading]);
 
   const filteredOrders = orders.filter((order) => {
     // First check database filter
