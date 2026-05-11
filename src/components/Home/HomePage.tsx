@@ -76,6 +76,7 @@ const HomePage: React.FC = () => {
         article: contract.article,
         color: contract.color?.join(', ') || '',
         date: contract.contract_date,
+        createdAt: contract.created_at,
         status: contract.status,
         type: 'contract',
         contractData: contract,
@@ -88,6 +89,7 @@ const HomePage: React.FC = () => {
         article: sample.description || '',
         color: sample.company_name || '',
         date: sample.date,
+        createdAt: sample.created_at,
         status: sample.status,
         type: 'sample',
         sampleData: sample,
@@ -100,15 +102,21 @@ const HomePage: React.FC = () => {
         article: debitNote.contract_no,
         color: debitNote.invoice_no,
         date: debitNote.debit_note_date,
+        createdAt: debitNote.created_at,
         status: debitNote.status,
         type: 'debit_note',
         debitNoteData: debitNote,
       }));
 
+      const toMs = (d?: string | null) => (d ? new Date(d).getTime() : 0);
+
       const allOrders = [...contractOrders, ...sampleOrders, ...debitNoteOrders].sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return dateB.getTime() - dateA.getTime();
+        // Primary: issue date descending (newest first); null dates sort to the bottom
+        const dateA = toMs((a as any).date);
+        const dateB = toMs((b as any).date);
+        if (dateB !== dateA) return dateB - dateA;
+        // Tiebreaker: created_at descending so CJV 889 beats CJV 888 when same date
+        return toMs((b as any).createdAt) - toMs((a as any).createdAt);
       });
 
       setOrders(allOrders);

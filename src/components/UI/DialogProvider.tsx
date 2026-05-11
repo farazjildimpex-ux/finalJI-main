@@ -41,18 +41,25 @@ const ToneIcon = ({ tone }: { tone: ConfirmTone }) => {
   return <Info className={cls} />;
 };
 
-const TOAST_TONE: Record<ConfirmTone, string> = {
-  default: 'border-blue-200 bg-white text-gray-800',
-  danger: 'border-rose-200 bg-white text-gray-800',
-  warning: 'border-amber-200 bg-white text-gray-800',
-  success: 'border-emerald-200 bg-white text-gray-800',
+const TOAST_BG: Record<ConfirmTone, string> = {
+  default: 'bg-blue-600',
+  danger:  'bg-rose-600',
+  warning: 'bg-amber-500',
+  success: 'bg-emerald-600',
 };
 
-const TOAST_ICON_BG: Record<ConfirmTone, string> = {
-  default: 'bg-blue-50 text-blue-600',
-  danger: 'bg-rose-50 text-rose-600',
-  warning: 'bg-amber-50 text-amber-600',
-  success: 'bg-emerald-50 text-emerald-600',
+const TOAST_ICON_COLOR: Record<ConfirmTone, string> = {
+  default: 'text-blue-100',
+  danger:  'text-rose-100',
+  warning: 'text-amber-100',
+  success: 'text-emerald-100',
+};
+
+const TOAST_GLOW: Record<ConfirmTone, string> = {
+  default: 'shadow-blue-900/30',
+  danger:  'shadow-rose-900/30',
+  warning: 'shadow-amber-900/30',
+  success: 'shadow-emerald-900/30',
 };
 
 const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -186,35 +193,41 @@ const DialogProvider: React.FC<{ children: React.ReactNode }> = ({ children }) =
             })}
 
             {toasts.length > 0 && (
-              <div className="fixed top-4 right-4 z-[1100] flex w-full max-w-sm flex-col gap-2 pointer-events-none">
+              <div className="fixed bottom-6 left-0 right-0 z-[1100] flex flex-col-reverse items-center gap-2.5 px-4 pointer-events-none sm:bottom-6 sm:right-5 sm:left-auto sm:items-end sm:px-0">
                 {toasts.map((t) => {
                   const tone: ConfirmTone = t.tone ?? 'default';
                   return (
                     <div
                       key={t.id}
-                      className={`pointer-events-auto flex items-start gap-3 rounded-xl border ${TOAST_TONE[tone]} px-3.5 py-2.5 shadow-lg ring-1 ring-black/5 animate-[slideIn_180ms_ease-out]`}
+                      onClick={() => dismissToast(t.id)}
+                      className={`
+                        pointer-events-auto w-full max-w-sm cursor-pointer
+                        flex items-center gap-3.5
+                        ${TOAST_BG[tone]} text-white
+                        px-4 py-3.5 rounded-2xl
+                        shadow-2xl ${TOAST_GLOW[tone]}
+                        animate-[toastSlideUp_220ms_cubic-bezier(0.34,1.56,0.64,1)]
+                      `}
                     >
-                      <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${TOAST_ICON_BG[tone]}`}
-                      >
+                      <div className={`shrink-0 ${TOAST_ICON_COLOR[tone]}`}>
                         <ToneIcon tone={tone} />
                       </div>
-                      <div className="min-w-0 flex-1 pt-0.5">
+                      <div className="min-w-0 flex-1">
                         {t.title && (
-                          <p className="text-sm font-semibold text-gray-900">
+                          <p className="text-sm font-bold text-white leading-tight">
                             {t.title}
                           </p>
                         )}
-                        <p className="text-xs text-gray-600 leading-relaxed">
+                        <p className={`text-sm leading-snug ${t.title ? 'text-white/80 mt-0.5' : 'text-white font-semibold'}`}>
                           {t.message}
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => dismissToast(t.id)}
-                        className="text-gray-400 hover:text-gray-600 -mr-1 -mt-1 p-1"
+                        onClick={(e) => { e.stopPropagation(); dismissToast(t.id); }}
+                        className="shrink-0 text-white/60 hover:text-white transition-colors -mr-1 p-1"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
                   );
