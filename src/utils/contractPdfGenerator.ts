@@ -12,7 +12,7 @@ export const generateContractPDF = async (
 ): Promise<string> => {
   const cfg = layoutConfig ?? loadPdfLayoutConfig();
 
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: false });
   const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin       = cfg.page.margin;
@@ -28,19 +28,19 @@ export const generateContractPDF = async (
   // ── Header / Letterhead ──────────────────────────────────────────────────────
   if (letterheadImages?.headerBase64) {
     const ext = (letterheadImages.headerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-    doc.addImage(`data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`, ext, 0, 0, pageWidth, headerH);
+    doc.addImage(`data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
     yPosition = headerH + cfg.header.yOffset;
     if (letterheadImages.footerBase64) {
       const fExt = (letterheadImages.footerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-      doc.addImage(`data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH);
+      doc.addImage(`data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
     }
   } else if (cfg.header.type === 'image' && cfg.header.imageBase64) {
     const ext = (cfg.header.imageExt === 'jpg' ? 'JPEG' : 'PNG') as 'PNG' | 'JPEG';
-    doc.addImage(`data:image/${cfg.header.imageExt};base64,${cfg.header.imageBase64}`, ext, 0, 0, pageWidth, headerH);
+    doc.addImage(`data:image/${cfg.header.imageExt};base64,${cfg.header.imageBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
     yPosition = headerH + cfg.header.yOffset;
     if (cfg.footer.type === 'image' && cfg.footer.imageBase64) {
       const fExt = (cfg.footer.imageExt === 'jpg' ? 'JPEG' : 'PNG') as 'PNG' | 'JPEG';
-      doc.addImage(`data:image/${cfg.footer.imageExt};base64,${cfg.footer.imageBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH);
+      doc.addImage(`data:image/${cfg.footer.imageExt};base64,${cfg.footer.imageBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
     }
   } else if (cfg.header.type === 'text') {
     const align = cfg.header.align as 'center' | 'left' | 'right';

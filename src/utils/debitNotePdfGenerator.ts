@@ -31,7 +31,7 @@ export const generateDebitNotePDF = (
   letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
   download: boolean = true
 ): string => {
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: false });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 15;
@@ -44,13 +44,13 @@ export const generateDebitNotePDF = (
   if (letterheadImages?.headerBase64) {
     const ext = (letterheadImages.headerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
     const dataUrl = `data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`;
-    doc.addImage(dataUrl, ext, 0, 0, pageWidth, headerImageHeight);
+    doc.addImage(dataUrl, ext, 0, 0, pageWidth, headerImageHeight, undefined, 'NONE');
     yPosition = headerImageHeight + 5;
 
     if (letterheadImages.footerBase64) {
       const fExt = (letterheadImages.footerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
       const fDataUrl = `data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`;
-      doc.addImage(fDataUrl, fExt, 0, pageHeight - footerImageHeight, pageWidth, footerImageHeight);
+      doc.addImage(fDataUrl, fExt, 0, pageHeight - footerImageHeight, pageWidth, footerImageHeight, undefined, 'NONE');
     }
   } else if (showCompanyInPdf) {
     doc.setFont('helvetica', 'bold');
