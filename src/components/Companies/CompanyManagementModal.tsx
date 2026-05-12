@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Copy, Loader2, ChevronDown, ChevronRight, Info, CheckCircle2 } from 'lucide-react';
+import { X, Plus, Minus, Save, Trash2, Building2, Upload, FileText, Copy, Loader2, ChevronDown, ChevronRight, Info, CheckCircle2, Image, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company } from '../../types';
 import { dialogService } from '../../lib/dialogService';
@@ -20,10 +20,16 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
   const [editMode, setEditMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [uploadingLetterhead, setUploadingLetterhead] = useState(false);
+  const [uploadingHeader, setUploadingHeader] = useState(false);
+  const [uploadingFooter, setUploadingFooter] = useState(false);
   const [letterheadFile, setLetterheadFile] = useState<File | null>(null);
+  const [headerFile, setHeaderFile] = useState<File | null>(null);
+  const [footerFile, setFooterFile] = useState<File | null>(null);
   const [showPlaceholders, setShowPlaceholders] = useState(true);
   const letterheadInputRef = useRef<HTMLInputElement>(null);
-  
+  const headerInputRef = useRef<HTMLInputElement>(null);
+  const footerInputRef = useRef<HTMLInputElement>(null);
+
   const [formData, setFormData] = useState({
     name: '',
     address: [''],
@@ -31,6 +37,12 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     email: '',
     letterhead_url: '',
     letterhead_name: '',
+    header_url: '' as string | null,
+    footer_url: '' as string | null,
+    header_ext: 'png',
+    footer_ext: 'png',
+    header_height: 30,
+    footer_height: 20,
   });
 
   useEffect(() => {
@@ -65,15 +77,31 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       email: company.email || '',
       letterhead_url: company.letterhead_url || '',
       letterhead_name: company.letterhead_name || '',
+      header_url: company.header_url || null,
+      footer_url: company.footer_url || null,
+      header_ext: company.header_ext || 'png',
+      footer_ext: company.footer_ext || 'png',
+      header_height: company.header_height ?? 30,
+      footer_height: company.footer_height ?? 20,
     });
     setLetterheadFile(null);
+    setHeaderFile(null);
+    setFooterFile(null);
     setEditMode(false);
   };
 
   const handleNewCompany = () => {
     setSelectedCompany(null);
-    setFormData({ name: '', address: [''], phone: '', email: '', letterhead_url: '', letterhead_name: '' });
+    setFormData({
+      name: '', address: [''], phone: '', email: '',
+      letterhead_url: '', letterhead_name: '',
+      header_url: null, footer_url: null,
+      header_ext: 'png', footer_ext: 'png',
+      header_height: 30, footer_height: 20,
+    });
     setLetterheadFile(null);
+    setHeaderFile(null);
+    setFooterFile(null);
     setEditMode(true);
   };
 
@@ -110,20 +138,27 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     try {
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const storagePath = `letterheads/${companyId}/${Date.now()}-${safeName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('contract-files')
-        .upload(storagePath, file);
-
+      const { error: uploadError } = await supabase.storage.from('contract-files').upload(storagePath, file);
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('contract-files')
-        .getPublicUrl(storagePath);
-
+      const { data: { publicUrl } } = supabase.storage.from('contract-files').getPublicUrl(storagePath);
       return { url: publicUrl, name: file.name };
     } catch (err) {
       console.error('Upload error:', err);
+      return null;
+    }
+  };
+
+  const uploadImageFile = async (file: File, companyId: string, slot: 'header' | 'footer'): Promise<{ url: string; ext: string } | null> => {
+    try {
+      const ext = file.type === 'image/jpeg' ? 'jpg' : 'png';
+      const storagePath = `letterhead-images/${companyId}/${slot}.${ext}`;
+      // upsert: overwrite existing if any
+      const { error } = await supabase.storage.from('contract-files').upload(storagePath, file, { upsert: true });
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from('contract-files').getPublicUrl(storagePath);
+      return { url: publicUrl, ext };
+    } catch (err) {
+      console.error(`Upload ${slot} error:`, err);
       return null;
     }
   };
@@ -165,16 +200,41 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
         companyId = data.id;
       }
 
+      const extraUpdates: Record<string, unknown> = {};
+
       if (letterheadFile && companyId) {
         setUploadingLetterhead(true);
         const result = await uploadLetterheadFile(letterheadFile, companyId);
-        if (result) {
-          await supabase
-            .from('companies')
-            .update({ letterhead_url: result.url, letterhead_name: result.name })
-            .eq('id', companyId);
-        }
+        if (result) { extraUpdates.letterhead_url = result.url; extraUpdates.letterhead_name = result.name; }
         setUploadingLetterhead(false);
+      }
+
+      if (headerFile && companyId) {
+        setUploadingHeader(true);
+        const result = await uploadImageFile(headerFile, companyId, 'header');
+        if (result) {
+          extraUpdates.header_url = result.url;
+          extraUpdates.header_ext = result.ext;
+        }
+        setUploadingHeader(false);
+      }
+
+      if (footerFile && companyId) {
+        setUploadingFooter(true);
+        const result = await uploadImageFile(footerFile, companyId, 'footer');
+        if (result) {
+          extraUpdates.footer_url = result.url;
+          extraUpdates.footer_ext = result.ext;
+        }
+        setUploadingFooter(false);
+      }
+
+      // Always save height settings + any uploaded URLs
+      extraUpdates.header_height = formData.header_height;
+      extraUpdates.footer_height = formData.footer_height;
+
+      if (Object.keys(extraUpdates).length > 0 && companyId) {
+        await supabase.from('companies').update(extraUpdates).eq('id', companyId);
       }
 
       await fetchCompanies();
@@ -286,12 +346,18 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                     >
                       <p className="font-bold text-gray-900 truncate">{company.name}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        {company.letterhead_url ? (
-                          <span className="text-[10px] text-green-600 font-black uppercase flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" /> Template Active
+                        {company.letterhead_url && (
+                          <span className="text-[10px] text-blue-600 font-black uppercase flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" /> Word
                           </span>
-                        ) : (
-                          <span className="text-[10px] text-gray-400 font-bold uppercase">No Template</span>
+                        )}
+                        {(company.header_url || company.footer_url) && (
+                          <span className="text-[10px] text-emerald-600 font-black uppercase flex items-center gap-1">
+                            <Image className="h-3 w-3" /> PDF Images
+                          </span>
+                        )}
+                        {!company.letterhead_url && !company.header_url && !company.footer_url && (
+                          <span className="text-[10px] text-gray-400 font-bold uppercase">No Templates</span>
                         )}
                       </div>
                     </li>
@@ -482,13 +548,165 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                     </div>
                   </div>
 
+                    {/* PDF Header & Footer Images */}
+                    <div className="bg-emerald-50 rounded-2xl p-6 border border-emerald-100">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Image className="h-6 w-6 text-emerald-600" />
+                        <h4 className="font-black text-emerald-900 uppercase tracking-tight">PDF Header &amp; Footer Images</h4>
+                      </div>
+                      <p className="text-xs text-emerald-700 mb-4 font-medium">
+                        These images are placed at the top and bottom of every exported PDF. PNG files work best.
+                        Recommended: full-width letterhead (A4 = 210 mm wide). Header ≤ 35 mm tall, Footer ≤ 25 mm tall.
+                      </p>
+
+                      {editMode ? (
+                        <div className="space-y-5">
+                          {/* Header Image */}
+                          <div className="bg-white rounded-xl p-4 border border-emerald-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-black text-gray-800 uppercase tracking-tight">Header Image</p>
+                              {(formData.header_url || headerFile) && (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> Active
+                                </span>
+                              )}
+                            </div>
+                            {formData.header_url && !headerFile && (
+                              <img src={formData.header_url} alt="Current header" className="w-full h-16 object-contain mb-3 rounded border border-gray-100 bg-gray-50" />
+                            )}
+                            {headerFile && (
+                              <div className="text-xs font-bold text-emerald-600 mb-2 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> {headerFile.name} (pending save)
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => headerInputRef.current?.click()}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-all"
+                              >
+                                <Upload className="h-4 w-4" />
+                                {headerFile ? 'Change Header' : formData.header_url ? 'Replace Header' : 'Upload Header PNG'}
+                              </button>
+                              {formData.header_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, header_url: null })}
+                                  className="px-3 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-100"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <input ref={headerInputRef} type="file" accept="image/png,image/jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) setHeaderFile(f); }} className="hidden" />
+                            <div className="mt-3 flex items-center gap-2">
+                              <label className="text-xs font-bold text-gray-600">Height in PDF (mm):</label>
+                              <input
+                                type="number"
+                                min={10} max={60} step={1}
+                                value={formData.header_height}
+                                onChange={(e) => setFormData({ ...formData, header_height: Number(e.target.value) })}
+                                className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                              />
+                              <span className="text-xs text-gray-400">(default 30 mm)</span>
+                            </div>
+                          </div>
+
+                          {/* Footer Image */}
+                          <div className="bg-white rounded-xl p-4 border border-emerald-100">
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-sm font-black text-gray-800 uppercase tracking-tight">Footer Image</p>
+                              {(formData.footer_url || footerFile) && (
+                                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full flex items-center gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> Active
+                                </span>
+                              )}
+                            </div>
+                            {formData.footer_url && !footerFile && (
+                              <img src={formData.footer_url} alt="Current footer" className="w-full h-12 object-contain mb-3 rounded border border-gray-100 bg-gray-50" />
+                            )}
+                            {footerFile && (
+                              <div className="text-xs font-bold text-emerald-600 mb-2 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> {footerFile.name} (pending save)
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => footerInputRef.current?.click()}
+                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-all"
+                              >
+                                <Upload className="h-4 w-4" />
+                                {footerFile ? 'Change Footer' : formData.footer_url ? 'Replace Footer' : 'Upload Footer PNG'}
+                              </button>
+                              {formData.footer_url && (
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, footer_url: null })}
+                                  className="px-3 py-2.5 bg-red-50 text-red-600 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-100"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            <input ref={footerInputRef} type="file" accept="image/png,image/jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFooterFile(f); }} className="hidden" />
+                            <div className="mt-3 flex items-center gap-2">
+                              <label className="text-xs font-bold text-gray-600">Height in PDF (mm):</label>
+                              <input
+                                type="number"
+                                min={5} max={40} step={1}
+                                value={formData.footer_height}
+                                onChange={(e) => setFormData({ ...formData, footer_height: Number(e.target.value) })}
+                                className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                              />
+                              <span className="text-xs text-gray-400">(default 20 mm)</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                            <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                            <p className="text-xs text-amber-700 font-medium">
+                              Images are stretched to full A4 width. For best results use a PNG at least 2480 px wide. Keep file size under 2 MB.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Header preview */}
+                          <div className="bg-white/60 rounded-xl p-3 border border-emerald-100">
+                            <p className="text-xs font-black text-gray-500 uppercase mb-2">Header</p>
+                            {formData.header_url ? (
+                              <>
+                                <img src={formData.header_url} alt="Header" className="w-full h-12 object-contain rounded border border-gray-100 bg-gray-50 mb-1" />
+                                <p className="text-[10px] text-gray-400 font-medium">{formData.header_height} mm tall</p>
+                              </>
+                            ) : (
+                              <p className="text-xs text-gray-400 font-medium">Not set</p>
+                            )}
+                          </div>
+                          {/* Footer preview */}
+                          <div className="bg-white/60 rounded-xl p-3 border border-emerald-100">
+                            <p className="text-xs font-black text-gray-500 uppercase mb-2">Footer</p>
+                            {formData.footer_url ? (
+                              <>
+                                <img src={formData.footer_url} alt="Footer" className="w-full h-10 object-contain rounded border border-gray-100 bg-gray-50 mb-1" />
+                                <p className="text-[10px] text-gray-400 font-medium">{formData.footer_height} mm tall</p>
+                              </>
+                            ) : (
+                              <p className="text-xs text-gray-400 font-medium">Not set</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                   {/* Footer Actions */}
                   <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
                     {editMode ? (
                       <>
                         <button onClick={handleCancel} className="px-6 py-2.5 text-sm font-bold text-gray-500 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all">Cancel</button>
-                        <button onClick={handleSave} disabled={loading || uploadingLetterhead} className="inline-flex items-center px-6 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all">
-                          {(loading || uploadingLetterhead) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        <button onClick={handleSave} disabled={loading || uploadingLetterhead || uploadingHeader || uploadingFooter} className="inline-flex items-center px-6 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all">
+                          {(loading || uploadingLetterhead || uploadingHeader || uploadingFooter) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                           Save Company
                         </button>
                       </>

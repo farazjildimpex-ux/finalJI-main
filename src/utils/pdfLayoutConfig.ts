@@ -185,3 +185,59 @@ export function resetPdfLayoutConfig(): PdfLayoutConfig {
 export function getField(config: PdfLayoutConfig, id: string): PdfFieldConfig {
   return config.fields.find(f => f.id === id) ?? (DEFAULT_FIELDS.find(f => f.id === id) as PdfFieldConfig);
 }
+
+// ── Company letterhead loading ────────────────────────────────────────────────
+
+async function urlToBase64(url: string): Promise<{ base64: string; ext: 'png' | 'jpg' } | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    const ext: 'png' | 'jpg' = blob.type === 'image/jpeg' ? 'jpg' : 'png';
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload  = () => resolve({ base64: (reader.result as string).split(',')[1], ext });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+export interface LetterheadImages {
+  headerBase64: string | null;
+  footerBase64: string | null;
+  headerExt: string;
+  footerExt: string;
+  headerHeight: number;
+  footerHeight: number;
+}
+
+export async function loadCompanyLetterheadImages(company: {
+  header_url?: string | null;
+  footer_url?: string | null;
+  header_ext?: string;
+  footer_ext?: string;
+  header_height?: number;
+  footer_height?: number;
+}): Promise<LetterheadImages> {
+  const result: LetterheadImages = {
+    headerBase64: null, footerBase64: null,
+    headerExt: 'png',  footerExt: 'png',
+    headerHeight: company.header_height ?? 30,
+    footerHeight: company.footer_height ?? 20,
+  };
+
+  if (company.header_url) {
+    const img = await urlToBase64(company.header_url);
+    if (img) { result.headerBase64 = img.base64; result.headerExt = company.header_ext || img.ext; }
+  }
+
+  if (company.footer_url) {
+    const img = await urlToBase64(company.footer_url);
+    if (img) { result.footerBase64 = img.base64; result.footerExt = company.footer_ext || img.ext; }
+  }
+
+  return result;
+}

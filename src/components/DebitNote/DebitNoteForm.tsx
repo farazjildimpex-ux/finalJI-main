@@ -6,6 +6,7 @@ import type { DebitNote, Contact, Contract, Company } from '../../types';
 import { generateDebitNotePDF } from '../../utils/debitNotePdfGenerator';
 import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
+import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedInputReadOnlyClass, roundedTextareaClass } from '../UI/FormRow';
@@ -127,6 +128,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   const [generatingWord, setGeneratingWord] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<DebitNote>({
     debit_note_no: '',
     debit_note_date: new Date().toISOString().split('T')[0],
@@ -190,6 +192,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     if (initialData?.company && companies.length > 0) {
       const co = companies.find(c => c.name === initialData.company);
       setCompanyLetterheadUrl(co?.letterhead_url || null);
+      setSelectedCompany(co || null);
     }
   }, [initialData, companies]);
 
@@ -483,7 +486,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     setShowExportMenu(false);
     try {
       let letterheadImages: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string } | undefined;
-      if (companyLetterheadUrl) {
+      if (selectedCompany?.header_url || selectedCompany?.footer_url) {
+        const imgs = await loadCompanyLetterheadImages(selectedCompany);
+        if (imgs.headerBase64 || imgs.footerBase64) letterheadImages = imgs;
+      } else if (companyLetterheadUrl) {
         const imgs = await extractLetterheadImages(companyLetterheadUrl);
         if (imgs.headerBase64) letterheadImages = imgs;
       }
@@ -586,7 +592,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </div>
       }>
         <FField label="Company" htmlFor="company" span="full">
-          <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
+          <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); setSelectedCompany(selected || null); }} className={inputClassName}>
             <option value="">Select a company</option>
             {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>

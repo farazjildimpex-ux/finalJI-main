@@ -60,9 +60,18 @@ const HomePage: React.FC = () => {
       setError(null);
 
       const [contractsRes, samplesRes, debitNotesRes] = await Promise.all([
-        supabase.from('contracts').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('samples').select('*').order('created_at', { ascending: false }).limit(100),
-        supabase.from('debit_notes').select('*').order('created_at', { ascending: false }).limit(100)
+        supabase.from('contracts').select('*')
+          .order('contract_date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(200),
+        supabase.from('samples').select('*')
+          .order('date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(200),
+        supabase.from('debit_notes').select('*')
+          .order('debit_note_date', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .limit(200),
       ]);
 
       if (contractsRes.error) throw contractsRes.error;

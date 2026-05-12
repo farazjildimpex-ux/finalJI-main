@@ -7,6 +7,7 @@ import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSecti
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
+import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
 import { useNavigate } from 'react-router-dom';
 import { dialogService } from '../../lib/dialogService';
 
@@ -39,6 +40,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<Partial<Contract>>({
     company_name: '',
     contract_no: '',
@@ -88,6 +90,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     if (initialContract?.company_name && companies.length > 0) {
       const co = companies.find(c => c.name === initialContract.company_name);
       setCompanyLetterheadUrl(co?.letterhead_url || null);
+      setSelectedCompany(co || null);
     }
   }, [initialContract, companies]);
 
@@ -348,7 +351,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     setGeneratingPdf(true);
     try {
       let letterheadImages: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string } | undefined;
-      if (companyLetterheadUrl) {
+      if (selectedCompany?.header_url || selectedCompany?.footer_url) {
+        const imgs = await loadCompanyLetterheadImages(selectedCompany);
+        if (imgs.headerBase64 || imgs.footerBase64) letterheadImages = imgs;
+      } else if (companyLetterheadUrl) {
         const imgs = await extractLetterheadImages(companyLetterheadUrl);
         if (imgs.headerBase64) letterheadImages = imgs;
       }
@@ -466,7 +472,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </div>
       }>
         <FField label="Company Name" htmlFor="company_name">
-          <select id="company_name" value={formData.company_name} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); setFormData({ ...formData, company_name: e.target.value }); setCompanyLetterheadUrl(selected?.letterhead_url || null); }} className={inputClassName}>
+          <select id="company_name" value={formData.company_name} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); setFormData({ ...formData, company_name: e.target.value }); setCompanyLetterheadUrl(selected?.letterhead_url || null); setSelectedCompany(selected || null); }} className={inputClassName}>
             <option value="">Select Company</option>
             {companies.map(company => (<option key={company.id} value={company.name}>{company.name}</option>))}
           </select>

@@ -79,6 +79,12 @@ export interface Company {
   email?: string;
   letterhead_url?: string;
   letterhead_name?: string;
+  header_url?: string | null;
+  footer_url?: string | null;
+  header_ext?: string;
+  footer_ext?: string;
+  header_height?: number;
+  footer_height?: number;
   created_at: string;
   updated_at: string;
 }
