@@ -85,16 +85,18 @@ export const generateDebitNotePDF = (
   // 3. Left side: Messrs, Supplier Name & Address
   const leftStartY = yPosition;
   doc.setFontSize(11);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Messrs:', margin, leftStartY);
-  doc.setFont('helvetica', 'bold');
-  doc.text(debitNote.supplier_name, margin, leftStartY + 6);
-  
+  if (debitNote.supplier_name?.trim()) {
+    doc.setFont('helvetica', 'normal');
+    doc.text('Messrs:', margin, leftStartY);
+    doc.setFont('helvetica', 'bold');
+    doc.text(debitNote.supplier_name, margin, leftStartY + 6);
+  }
+
   let addressY = leftStartY + 11;
   doc.setFont('helvetica', 'normal');
   if (Array.isArray(debitNote.supplier_address)) {
     debitNote.supplier_address.forEach(line => {
-      if (line) {
+      if (line?.trim()) {
         doc.text(line, margin, addressY);
         addressY += 5;
       }
@@ -119,28 +121,47 @@ export const generateDebitNotePDF = (
   const contractDate = debitNote.contract_date ? new Date(debitNote.contract_date).toLocaleDateString('en-GB') : '';
   const invoiceDate = debitNote.invoice_date ? new Date(debitNote.invoice_date).toLocaleDateString('en-GB') : '';
 
-  drawStyledText(doc, [
-    { text: 'For our Contract No : ' },
-    { text: `${debitNote.contract_no} dated ${contractDate} `, bold: true },
-    { text: ' towards Buyer ' },
-    { text: debitNote.buyer_name, bold: true },
-  ], margin, yPosition);
+  // Contract / buyer line — skip if no contract no
+  if (debitNote.contract_no?.trim() || debitNote.buyer_name?.trim()) {
+    const contractLine: { text: string; bold?: boolean }[] = [];
+    if (debitNote.contract_no?.trim()) {
+      contractLine.push({ text: 'For our Contract No : ' });
+      contractLine.push({ text: `${debitNote.contract_no}${contractDate ? ` dated ${contractDate}` : ''} `, bold: true });
+    }
+    if (debitNote.buyer_name?.trim()) {
+      contractLine.push({ text: ' towards Buyer ' });
+      contractLine.push({ text: debitNote.buyer_name, bold: true });
+    }
+    drawStyledText(doc, contractLine, margin, yPosition);
+    yPosition += 7;
+  }
 
-  yPosition += 7;
-  drawStyledText(doc, [
-    { text: 'Against Your Invoice No :  ' },
-    { text: `${debitNote.invoice_no} dated ${invoiceDate}`, bold: true },
-    { text: ' with Quantity : ' },
-    { text: debitNote.quantity, bold: true },
-    { text: ' - Pieces : ' },
-    { text: debitNote.pieces, bold: true },
-  ], margin, yPosition);
+  // Invoice / quantity / pieces line — skip if no invoice no
+  if (debitNote.invoice_no?.trim()) {
+    const invoiceLine: { text: string; bold?: boolean }[] = [
+      { text: 'Against Your Invoice No :  ' },
+      { text: `${debitNote.invoice_no}${invoiceDate ? ` dated ${invoiceDate}` : ''}`, bold: true },
+    ];
+    if (debitNote.quantity?.trim()) {
+      invoiceLine.push({ text: ' with Quantity : ' });
+      invoiceLine.push({ text: debitNote.quantity, bold: true });
+    }
+    if (debitNote.pieces?.trim()) {
+      invoiceLine.push({ text: ' - Pieces : ' });
+      invoiceLine.push({ text: debitNote.pieces, bold: true });
+    }
+    drawStyledText(doc, invoiceLine, margin, yPosition);
+    yPosition += 7;
+  }
 
-  yPosition += 7;
-  drawStyledText(doc, [
-      { text: 'Shipment made from Chennai to '},
-      { text: debitNote.destination, bold: true }
-  ], margin, yPosition);
+  // Shipment destination — skip if empty
+  if (debitNote.destination?.trim()) {
+    drawStyledText(doc, [
+      { text: 'Shipment made from Chennai to ' },
+      { text: debitNote.destination, bold: true },
+    ], margin, yPosition);
+    yPosition += 7;
+  }
   
   yPosition += 15;
   doc.setFont('helvetica', 'normal');
