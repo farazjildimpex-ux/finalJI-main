@@ -619,6 +619,20 @@ app.get('/api/scrape/lwg/profile', async (req, res) => {
   }
 });
 
+// ─── Android TWA: Digital Asset Links ────────────────────────────────────
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const assetLinksPath = isProd
+    ? path.resolve(__dirname, '..', 'dist', '.well-known', 'assetlinks.json')
+    : path.resolve(__dirname, '..', 'public', '.well-known', 'assetlinks.json');
+  if (fs.existsSync(assetLinksPath)) {
+    res.setHeader('Content-Type', 'application/json');
+    res.sendFile(assetLinksPath);
+  } else {
+    res.status(404).json({ error: 'assetlinks.json not found' });
+  }
+});
+
 // ─── SPA static + fallback (production only) ──────────────────────────────
 if (isProd) {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import type { DebitNote } from '../types';
+import { loadPdfLayoutConfig } from './pdfLayoutConfig';
 
 const drawStyledText = (
   doc: jsPDF,
@@ -31,49 +32,81 @@ export const generateDebitNotePDF = (
   letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
   download: boolean = true
 ): string => {
+  const cfg = loadPdfLayoutConfig();
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: false });
-  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageWidth  = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 15;
+  const margin  = 15;
   let yPosition = margin;
 
-  const headerImageHeight = 30;
-  const footerImageHeight = 22;
+  const headerH = cfg.header.height || 30;
+  const footerH = cfg.footer.height || 22;
 
-  // 1. Letterhead Header
+  // ── Letterhead: 4-branch system ──────────────────────────────────────────
   if (letterheadImages?.headerBase64) {
+    // Branch 1: Company-specific letterhead images (passed from caller)
     const ext = (letterheadImages.headerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-    const dataUrl = `data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`;
-    doc.addImage(dataUrl, ext, 0, 0, pageWidth, headerImageHeight, undefined, 'NONE');
-    yPosition = headerImageHeight + 5;
-
+    doc.addImage(`data:image/${letterheadImages.headerExt || 'png'};base64,${letterheadImages.headerBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
+    yPosition = headerH + 5;
     if (letterheadImages.footerBase64) {
       const fExt = (letterheadImages.footerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-      const fDataUrl = `data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`;
-      doc.addImage(fDataUrl, fExt, 0, pageHeight - footerImageHeight, pageWidth, footerImageHeight, undefined, 'NONE');
+      doc.addImage(`data:image/${letterheadImages.footerExt || 'png'};base64,${letterheadImages.footerBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
+    }
+  } else if (cfg.header.type === 'image' && cfg.header.imageBase64) {
+    // Branch 2: PDF layout config image (from Settings → PDF Layout)
+    const ext = (cfg.header.imageExt === 'jpg' ? 'JPEG' : 'PNG') as 'PNG' | 'JPEG';
+    doc.addImage(`data:image/${cfg.header.imageExt};base64,${cfg.header.imageBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
+    yPosition = headerH + (cfg.header.yOffset || 5);
+    if (cfg.footer.type === 'image' && cfg.footer.imageBase64) {
+      const fExt = (cfg.footer.imageExt === 'jpg' ? 'JPEG' : 'PNG') as 'PNG' | 'JPEG';
+      doc.addImage(`data:image/${cfg.footer.imageExt};base64,${cfg.footer.imageBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
+    }
+  } else if (cfg.header.type === 'text') {
+    // Branch 3: Text header from PDF layout config
+    const align = (cfg.header.align || 'center') as 'center' | 'left' | 'right';
+    const xHead = align === 'center' ? pageWidth / 2 : align === 'right' ? pageWidth - margin : margin;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(cfg.header.fontSize || 18);
+    doc.text((cfg.header.text || debitNote.company).toUpperCase(), xHead, yPosition, { align });
+    yPosition += (cfg.header.fontSize || 18) * 0.35 + 2;
+    if (cfg.header.subText) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(cfg.header.subFontSize || 10);
+      const subLines = doc.splitTextToSize(cfg.header.subText, pageWidth - margin * 2);
+      doc.text(subLines, xHead, yPosition, { align });
+      yPosition += subLines.length * ((cfg.header.subFontSize || 10) * 0.35) + 2;
+    }
+    doc.setLineWidth(0.5);
+    doc.line(margin, yPosition, pageWidth - margin, yPosition);
+    yPosition += (cfg.header.yOffset || 12);
+    if (cfg.footer.type === 'text' && cfg.footer.text) {
+      const fAlign = (cfg.footer.align || 'center') as 'center' | 'left' | 'right';
+      const xFoot  = fAlign === 'center' ? pageWidth / 2 : fAlign === 'right' ? pageWidth - margin : margin;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(cfg.footer.fontSize || 9);
+      doc.text(cfg.footer.text, xFoot, pageHeight - footerH + 5, { align: fAlign });
     }
   } else if (showCompanyInPdf) {
+    // Branch 4: Hardcoded text fallback
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(20);
     doc.text(debitNote.company.toUpperCase(), pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 7;
-    
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
     doc.text('New No:11, Old No:698, First Street, Anna Nagar West Extension,', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 4.5;
     doc.text('Chennai - 600101 — Mob: +91 98410 91189, Email: office@jildimpex.com', pageWidth / 2, yPosition, { align: 'center' });
     yPosition += 6;
-    
-    // Horizontal Line
     doc.setLineWidth(0.5);
     doc.line(margin, yPosition, pageWidth - margin, yPosition);
     yPosition += 12;
   } else {
-    yPosition += 45; // Space for pre-printed letterhead
+    yPosition += 45;
   }
 
-  // 2. Title
+  // ── Title ────────────────────────────────────────────────────────────────
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   const title = 'DEBIT NOTE';
@@ -82,7 +115,7 @@ export const generateDebitNotePDF = (
   doc.line(pageWidth / 2 - titleWidth / 2, yPosition + 1, pageWidth / 2 + titleWidth / 2, yPosition + 1);
   yPosition += 15;
 
-  // 3. Left side: Messrs, Supplier Name & Address
+  // ── Left: Messrs / Supplier ──────────────────────────────────────────────
   const leftStartY = yPosition;
   doc.setFontSize(11);
   if (debitNote.supplier_name?.trim()) {
@@ -91,25 +124,20 @@ export const generateDebitNotePDF = (
     doc.setFont('helvetica', 'bold');
     doc.text(debitNote.supplier_name, margin, leftStartY + 6);
   }
-
   let addressY = leftStartY + 11;
   doc.setFont('helvetica', 'normal');
   if (Array.isArray(debitNote.supplier_address)) {
     debitNote.supplier_address.forEach(line => {
-      if (line?.trim()) {
-        doc.text(line, margin, addressY);
-        addressY += 5;
-      }
+      if (line?.trim()) { doc.text(line, margin, addressY); addressY += 5; }
     });
   }
 
-  // 4. Right side: Debit Note No & Date
+  // ── Right: Debit Note No & Date ──────────────────────────────────────────
   const rightAlign = pageWidth - margin;
   doc.setFont('helvetica', 'bold');
   doc.text('Debit Note No:', rightAlign - 50, leftStartY, { align: 'left' });
   doc.setFont('helvetica', 'normal');
   doc.text(debitNote.debit_note_no, rightAlign, leftStartY, { align: 'right' });
-
   doc.setFont('helvetica', 'bold');
   doc.text('Date:', rightAlign - 50, leftStartY + 6, { align: 'left' });
   doc.setFont('helvetica', 'normal');
@@ -117,11 +145,10 @@ export const generateDebitNotePDF = (
 
   yPosition = Math.max(addressY, leftStartY + 20) + 10;
 
-  // 5. Details
+  // ── Details ──────────────────────────────────────────────────────────────
   const contractDate = debitNote.contract_date ? new Date(debitNote.contract_date).toLocaleDateString('en-GB') : '';
-  const invoiceDate = debitNote.invoice_date ? new Date(debitNote.invoice_date).toLocaleDateString('en-GB') : '';
+  const invoiceDate  = debitNote.invoice_date  ? new Date(debitNote.invoice_date).toLocaleDateString('en-GB')  : '';
 
-  // Contract / buyer line — skip if no contract no
   if (debitNote.contract_no?.trim() || debitNote.buyer_name?.trim()) {
     const contractLine: { text: string; bold?: boolean }[] = [];
     if (debitNote.contract_no?.trim()) {
@@ -136,7 +163,6 @@ export const generateDebitNotePDF = (
     yPosition += 7;
   }
 
-  // Invoice / quantity / pieces line — skip if no invoice no
   if (debitNote.invoice_no?.trim()) {
     const invoiceLine: { text: string; bold?: boolean }[] = [
       { text: 'Against Your Invoice No :  ' },
@@ -154,7 +180,6 @@ export const generateDebitNotePDF = (
     yPosition += 7;
   }
 
-  // Shipment destination — skip if empty
   if (debitNote.destination?.trim()) {
     drawStyledText(doc, [
       { text: 'Shipment made from Chennai to ' },
@@ -162,11 +187,11 @@ export const generateDebitNotePDF = (
     ], margin, yPosition);
     yPosition += 7;
   }
-  
+
   yPosition += 15;
   doc.setFont('helvetica', 'normal');
   doc.text('We wish to debit your account towards Pre - Shipment Inspection and Export Service Charges', margin, yPosition);
-  
+
   yPosition += 10;
   const commissionPercentage = debitNote.local_commission?.match(/.*?%/)?.[0] || debitNote.local_commission || '';
   drawStyledText(doc, [
@@ -191,7 +216,7 @@ export const generateDebitNotePDF = (
     { text: debitNote.commission_in_words, bold: true },
     { text: '  ) ' },
   ], margin, yPosition);
-  
+
   yPosition += 25;
   doc.setFont('helvetica', 'normal');
   doc.text('Yours Faithfully,', pageWidth - margin, yPosition, { align: 'right' });
@@ -204,7 +229,6 @@ export const generateDebitNotePDF = (
     doc.line(pageWidth - margin - 40, yPosition, pageWidth - margin, yPosition);
     yPosition += 6;
   }
-
   doc.setFont('helvetica', 'bold');
   doc.text('Partner / Manager', pageWidth - margin, yPosition, { align: 'right' });
 

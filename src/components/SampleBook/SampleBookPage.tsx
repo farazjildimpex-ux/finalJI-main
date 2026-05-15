@@ -5,11 +5,13 @@ import SampleForm from './SampleForm';
 import CommunicateButton from '../Email/CommunicateButton';
 import EmailLogSection from '../Email/EmailLogSection';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
-import type { Sample } from '../../types';
+import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
+import type { Sample, Company } from '../../types';
 
 const SampleBookPage: React.FC = () => {
   const { id } = useParams();
-  const [sample, setSample] = useState<Sample | null>(null);
+  const [sample, setSample]   = useState<Sample | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -22,6 +24,10 @@ const SampleBookPage: React.FC = () => {
       const { data, error } = await supabase.from('samples').select('*').eq('id', sampleId).single();
       if (error) throw error;
       setSample(data);
+      if (data?.company_name) {
+        const { data: co } = await supabase.from('companies').select('*').eq('name', data.company_name).maybeSingle();
+        if (co) setCompany(co as Company);
+      }
     } catch (error) {
       console.error('Error fetching sample:', error);
     } finally {
@@ -53,7 +59,12 @@ const SampleBookPage: React.FC = () => {
               contextType="letter"
               contextData={sample as any}
               getPdfBase64={async () => {
-                const base64 = await generateSamplePDF(sample, null, true, false);
+                let letterheadImages: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string } | undefined;
+                if (company?.header_url || company?.footer_url) {
+                  const imgs = await loadCompanyLetterheadImages(company);
+                  if (imgs.headerBase64 || imgs.footerBase64) letterheadImages = imgs;
+                }
+                const base64 = await generateSamplePDF(sample, company, true, false, letterheadImages);
                 return { base64, filename: `letter-${sample.sample_number}.pdf` };
               }}
             />

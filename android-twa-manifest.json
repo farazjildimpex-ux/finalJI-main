@@ -1,0 +1,38 @@
+{
+  "packageId": "com.jildimpex.app",
+  "host": "REPLACE_WITH_YOUR_DEPLOYED_DOMAIN",
+  "name": "JILD IMPEX",
+  "launcherName": "JILD IMPEX",
+  "display": "standalone",
+  "themeColor": "#1e293b",
+  "navigationColor": "#0f172a",
+  "navigationColorDark": "#0f172a",
+  "navigationDividerColor": "#1e293b",
+  "navigationDividerColorDark": "#1e293b",
+  "backgroundColor": "#0f172a",
+  "enableNotifications": true,
+  "startUrl": "/app/home",
+  "iconUrl": "/icon-512.png",
+  "maskableIconUrl": "/icon-512.png",
+  "monochromeIconUrl": "/icon-192.png",
+  "appVersion": "1",
+  "appVersionCode": 1,
+  "signingMode": "mine",
+  "features": {
+    "locationDelegation": { "enabled": false },
+    "playBilling": { "enabled": false }
+  },
+  "shortcuts": [
+    { "name": "Home",      "shortName": "Home",      "url": "/app/home",     "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Contracts", "shortName": "Contracts", "url": "/app/contracts","icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Calendar",  "shortName": "Calendar",  "url": "/app/calendar", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ],
+  "webManifestUrl": "/manifest.json",
+  "generatorApp": "PWABuilder",
+  "orientation": "portrait",
+  "fingerprints": [],
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "minSdkVersion": 23,
+  "targetSdkVersion": 34
+}

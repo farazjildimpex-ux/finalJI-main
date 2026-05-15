@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './useAuth';
 
-const ICON   = '/icon-192.png';
-const BADGE  = '/icon-192.png';
+const ICON  = '/icon-192.png';
+const BADGE = '/icon-192.png';
 
 async function sendNotification(title: string, body: string, tag: string, url: string) {
   const options: NotificationOptions = {
@@ -11,10 +11,9 @@ async function sendNotification(title: string, body: string, tag: string, url: s
     icon:   ICON,
     badge:  BADGE,
     tag,
-    data:   { url },
-    silent: false,
+    renotify: false,
+    data: { url },
   };
-
   try {
     const reg = await navigator.serviceWorker.ready;
     await reg.showNotification(title, options);
@@ -31,12 +30,12 @@ export function useReminderChecker() {
     if (!user) return;
     if (Notification.permission !== 'granted') return;
 
-    const now       = new Date();
-    const todayDate = now.toISOString().split('T')[0];
-    const tomorrowDate = new Date(now.getTime() + 86400000).toISOString().split('T')[0];
+    const now          = new Date();
+    const todayStr     = now.toISOString().split('T')[0];
+    const tomorrowStr  = new Date(now.getTime() + 86_400_000).toISOString().split('T')[0];
 
     try {
-      // ── Journal reminders ─────────────────────────────────────────────────
+      // ── 1. Journal entry reminders (by time) ─────────────────────────────
       const { data: dueReminders } = await supabase
         .from('journal_entries')
         .select('id, title, content, reminder_date, reminder_time')
@@ -45,54 +44,58 @@ export function useReminderChecker() {
         .eq('reminder_sent', false)
         .not('reminder_date', 'is', null)
         .not('reminder_time', 'is', null)
-        .lte('reminder_date', todayDate);
+        .lte('reminder_date', todayStr);
 
       for (const entry of dueReminders || []) {
         const reminderDT = new Date(`${entry.reminder_date}T${entry.reminder_time}`);
         if (reminderDT <= now) {
+          const plainBody = (entry.content || '').replace(/<[^>]*>/g, '').slice(0, 120) || 'Tap to open journal entry';
           await sendNotification(
             `Reminder: ${entry.title}`,
-            entry.content?.replace(/<[^>]*>/g, '').slice(0, 120) || 'Tap to open journal entry',
+            plainBody,
             `reminder-${entry.id}`,
             `/app/home?entry=${entry.id}`
           );
-          await supabase.from('journal_entries').update({ reminder_sent: true }).eq('id', entry.id);
+          await supabase
+            .from('journal_entries')
+            .update({ reminder_sent: true })
+            .eq('id', entry.id);
         }
       }
 
-      // ── Contract delivery dates — notify on delivery day ──────────────────
+      // ── 2. Contract delivery dates (today + tomorrow) ─────────────────────
+      // contracts table has no user_id — RLS handles row-level security
       const { data: deliveryContracts } = await supabase
         .from('contracts')
         .select('id, contract_no, buyer_name, delivery_date')
-        .eq('user_id', user.id)
         .not('delivery_date', 'is', null)
-        .or(`delivery_date.eq.${todayDate},delivery_date.eq.${tomorrowDate}`);
+        .in('delivery_date', [todayStr, tomorrowStr]);
 
-      for (const contract of deliveryContracts || []) {
-        const isToday = contract.delivery_date === todayDate;
+      for (const c of deliveryContracts || []) {
+        const isToday = c.delivery_date === todayStr;
         await sendNotification(
-          isToday ? `Delivery today: ${contract.contract_no}` : `Delivery tomorrow: ${contract.contract_no}`,
-          contract.buyer_name ? `Buyer: ${contract.buyer_name}` : 'Tap to open contract',
-          `contract-delivery-${contract.id}-${contract.delivery_date}`,
-          `/app/contracts/${contract.id}`
+          isToday ? `Delivery today: ${c.contract_no}` : `Delivery tomorrow: ${c.contract_no}`,
+          c.buyer_name ? `Buyer: ${c.buyer_name}` : 'Tap to open contract',
+          `contract-${c.id}-${c.delivery_date}`,
+          `/app/contracts/${c.id}`
         );
       }
 
-      // ── Sample due dates — notify on due day ───────────────────────────────
+      // ── 3. Sample letter due dates (today + tomorrow) ─────────────────────
       const { data: dueSamples } = await supabase
         .from('samples')
         .select('id, sample_number, supplier_name, due_date')
         .eq('user_id', user.id)
         .not('due_date', 'is', null)
-        .or(`due_date.eq.${todayDate},due_date.eq.${tomorrowDate}`);
+        .in('due_date', [todayStr, tomorrowStr]);
 
-      for (const sample of dueSamples || []) {
-        const isToday = sample.due_date === todayDate;
+      for (const s of dueSamples || []) {
+        const isToday = s.due_date === todayStr;
         await sendNotification(
-          isToday ? `Letter due today: ${sample.sample_number}` : `Letter due tomorrow: ${sample.sample_number}`,
-          sample.supplier_name ? `Supplier: ${sample.supplier_name}` : 'Tap to open letter',
-          `sample-due-${sample.id}-${sample.due_date}`,
-          `/app/samples/${sample.id}`
+          isToday ? `Letter due today: ${s.sample_number}` : `Letter due tomorrow: ${s.sample_number}`,
+          s.supplier_name ? `Supplier: ${s.supplier_name}` : 'Tap to open letter',
+          `sample-${s.id}-${s.due_date}`,
+          `/app/samples/${s.id}`
         );
       }
     } catch (err) {

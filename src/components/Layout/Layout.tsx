@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 import MobileBottomNav from './MobileBottomNav';
 import ChangePasswordModal from './ChangePasswordModal';
 import CompanyManagementModal from '../Companies/CompanyManagementModal';
+import InstallPrompt from '../UI/InstallPrompt';
 import { useReminderChecker } from '../../hooks/useReminderChecker';
 
 const Layout: React.FC = () => {
@@ -54,6 +55,7 @@ const Layout: React.FC = () => {
         onClose={() => setIsCompanyModalOpen(false)}
         onCompanyUpdated={() => {}}
       />
+      <InstallPrompt />
     </div>
   );
 };
