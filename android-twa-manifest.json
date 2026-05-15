@@ -1,6 +1,6 @@
 {
   "packageId": "com.jildimpex.app",
-  "host": "REPLACE_WITH_YOUR_DEPLOYED_DOMAIN",
+  "host": "https://jildimpex.vercel.app/",
   "name": "JILD IMPEX",
   "launcherName": "JILD IMPEX",
   "display": "standalone",
@@ -23,9 +23,24 @@
     "playBilling": { "enabled": false }
   },
   "shortcuts": [
-    { "name": "Home",      "shortName": "Home",      "url": "/app/home",     "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Contracts", "shortName": "Contracts", "url": "/app/contracts","icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Calendar",  "shortName": "Calendar",  "url": "/app/calendar", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+    {
+      "name": "Home",
+      "shortName": "Home",
+      "url": "/app/home",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Contracts",
+      "shortName": "Contracts",
+      "url": "/app/contracts",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Calendar",
+      "shortName": "Calendar",
+      "url": "/app/calendar",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
   ],
   "webManifestUrl": "/manifest.json",
   "generatorApp": "PWABuilder",
