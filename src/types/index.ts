@@ -119,6 +119,7 @@ export interface Contract {
   bank_documents: string;
   important_notes: string[];
   currency: string;
+  delivery_date?: string | null;
   created_at: string;
   updated_at: string;
   status: 'Issued' | 'Inspected' | 'Completed';
@@ -151,6 +152,7 @@ export interface Sample {
   courier_status_updated_at?: string | null;
   delivered_at?: string | null;
   delivery_notified?: boolean | null;
+  due_date?: string | null;
   created_at?: string;
   updated_at?: string;
 }

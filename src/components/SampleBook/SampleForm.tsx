@@ -18,6 +18,7 @@ import {
 import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
+import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedTextareaClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
@@ -67,6 +68,7 @@ const createEmptySample = (): Sample => ({
   courier_reference: null,
   courier_status: null,
   delivered_at: null,
+  due_date: null,
 });
 
 const escapeHtml = (value: string) =>
@@ -419,13 +421,20 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
 
     setGeneratingPdf(true);
     try {
+      let letterheadImages: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string } | undefined;
+      if (selectedCompany?.header_url || selectedCompany?.footer_url) {
+        const imgs = await loadCompanyLetterheadImages(selectedCompany);
+        if (imgs.headerBase64 || imgs.footerBase64) letterheadImages = imgs;
+      }
       await generateSamplePDF(
         {
           ...formData,
           notes: getEditorHtml(),
         },
         selectedCompany,
-        showCompanyInPdf
+        showCompanyInPdf,
+        true,
+        letterheadImages
       );
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -513,6 +522,9 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         </FField>
         <FField label="Date">
           <DatePicker value={formData.date || ''} onChange={(val) => setField('date', val)} />
+        </FField>
+        <FField label="Due Date" hint="Appears on the Calendar page">
+          <DatePicker value={formData.due_date || ''} onChange={(val) => setField('due_date', val || null)} />
         </FField>
         <FField label="Status" htmlFor="status">
           <select id="status" value={formData.status} onChange={(e) => setField('status', e.target.value as Sample['status'])} className={`${roundedInputClass} font-semibold ${STATUS_COLORS[formData.status || 'Issued']}`}>

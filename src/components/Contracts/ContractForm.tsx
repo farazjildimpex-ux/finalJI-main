@@ -70,6 +70,7 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     bank_documents: '',
     important_notes: [''],
     currency: 'USD',
+    delivery_date: null,
     status: 'Issued' as typeof STATUS_OPTIONS[number]
   });
 
@@ -609,6 +610,12 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </FField>
         <FField label="Bank to Present Documents" htmlFor="bank_documents">
           <input type="text" id="bank_documents" value={formData.bank_documents} onChange={(e) => setFormData({ ...formData, bank_documents: e.target.value })} className={inputClassName} />
+        </FField>
+        <FField label="Delivery Date" hint="Exact date shown on the Calendar page">
+          <DatePicker
+            value={formData.delivery_date || ''}
+            onChange={(val) => setFormData({ ...formData, delivery_date: val || null })}
+          />
         </FField>
         <FField label="Delivery Schedule" span="full">
           {renderArrayList('delivery_schedule', formData.delivery_schedule, 'Schedule line', 'Add Delivery Schedule')}

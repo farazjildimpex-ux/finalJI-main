@@ -38,6 +38,12 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
+    name: 'Calendar',
+    path: '/app/calendar',
+    icon: 'calendarDays',
+    mobile: true,
+  },
+  {
     name: 'Data',
     path: '/app/settings',
     icon: 'database',
