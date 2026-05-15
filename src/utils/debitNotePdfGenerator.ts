@@ -30,7 +30,8 @@ export const generateDebitNotePDF = (
   showCompanyInPdf: boolean = true,
   includeSignature: boolean = false,
   letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
-  download: boolean = true
+  download: boolean = true,
+  signatureBase64?: string
 ): string => {
   const cfg = loadPdfLayoutConfig();
 
@@ -224,10 +225,17 @@ export const generateDebitNotePDF = (
   doc.setFont('helvetica', 'bold');
   doc.text(`For ${debitNote.company.toUpperCase()}`, pageWidth - margin, yPosition, { align: 'right' });
 
-  yPosition += 15;
-  if (includeSignature) {
-    doc.line(pageWidth - margin - 40, yPosition, pageWidth - margin, yPosition);
-    yPosition += 6;
+  yPosition += 5;
+  if (signatureBase64) {
+    const sigW = 48, sigH = 18;
+    doc.addImage(`data:image/png;base64,${signatureBase64}`, 'PNG', pageWidth - margin - sigW, yPosition, sigW, sigH, undefined, 'NONE');
+    yPosition += sigH + 3;
+  } else {
+    yPosition += 10;
+    if (includeSignature) {
+      doc.line(pageWidth - margin - 40, yPosition, pageWidth - margin, yPosition);
+      yPosition += 6;
+    }
   }
   doc.setFont('helvetica', 'bold');
   doc.text('Partner / Manager', pageWidth - margin, yPosition, { align: 'right' });

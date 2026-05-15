@@ -14,15 +14,17 @@ import {
   Mail,
   Package,
   PenLine,
+  CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Company, Contact, Sample } from '../../types';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
-import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
+import { loadCompanyLetterheadImages, urlToBase64 } from '../../utils/pdfLayoutConfig';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedTextareaClass } from '../UI/FormRow';
 import { COURIERS, buildTrackingUrl } from '../../lib/courierTracking';
 import { dialogService } from '../../lib/dialogService';
+import SignaturePickerModal, { type PickedSignature } from '../UI/SignaturePickerModal';
 
 /** Increment the trailing number in any document reference, preserving zero-padding and prefix. */
 function getNextNumber(last: string): string {
@@ -408,6 +410,10 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
     }
   };
 
+  const [signatureEnabled, setSignatureEnabled]         = useState(false);
+  const [selectedSignature, setSelectedSignature]       = useState<PickedSignature | null>(null);
+  const [showSignaturePicker, setShowSignaturePicker]   = useState(false);
+
   const handleExportPDF = async () => {
     if (!formData.company_name || !formData.sample_number || !formData.supplier_name) {
       dialogService.alert({
@@ -426,15 +432,19 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         const imgs = await loadCompanyLetterheadImages(selectedCompany);
         if (imgs.headerBase64 || imgs.footerBase64) letterheadImages = imgs;
       }
+      let sigBase64: string | undefined;
+      if (signatureEnabled && selectedSignature) {
+        const loaded = await urlToBase64(selectedSignature.imageUrl);
+        if (loaded) sigBase64 = loaded.base64;
+      }
       await generateSamplePDF(
-        {
-          ...formData,
-          notes: getEditorHtml(),
-        },
+        { ...formData, notes: getEditorHtml() },
         selectedCompany,
         showCompanyInPdf,
         true,
-        letterheadImages
+        letterheadImages,
+        undefined,
+        sigBase64
       );
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -610,11 +620,47 @@ const SampleForm: React.FC<SampleFormProps> = ({ initialData }) => {
         </FField>
       </FSectionCard>
 
-      <FSectionCard title="Signature" icon={PenLine} accent="rose">
+      <FSectionCard title="Signee & Signature" icon={PenLine} accent="rose">
         <FField label="Signee Name" htmlFor="signee_name">
           <input id="signee_name" type="text" value={formData.customer_comments || ''} onChange={(e) => setField('customer_comments', e.target.value)} className={roundedInputClass} placeholder="Name that appears at the bottom" />
         </FField>
+        <FField label="Signature Image" span="full">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-slate-500">Stamp a signature image on the PDF</p>
+            </div>
+            <button type="button" onClick={() => { if (signatureEnabled) { setSignatureEnabled(false); setSelectedSignature(null); } else { setShowSignaturePicker(true); } }}
+              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${signatureEnabled ? 'bg-rose-500' : 'bg-gray-200'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${signatureEnabled ? 'left-5' : 'left-0.5'}`} />
+            </button>
+          </div>
+          {signatureEnabled && (
+            <div className="mt-3">
+              {selectedSignature ? (
+                <div className="flex items-center gap-3 p-3 bg-rose-50 rounded-xl border border-rose-100">
+                  <img src={selectedSignature.imageUrl} alt={selectedSignature.name} className="h-10 object-contain" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-700 truncate">{selectedSignature.name}</p>
+                    <button type="button" onClick={() => setShowSignaturePicker(true)} className="text-xs text-rose-600 hover:underline">Change</button>
+                  </div>
+                  <CheckCircle2 className="h-4 w-4 text-rose-500 flex-shrink-0" />
+                </div>
+              ) : (
+                <button type="button" onClick={() => setShowSignaturePicker(true)}
+                  className="w-full py-2.5 text-sm font-semibold text-rose-600 border border-dashed border-rose-200 rounded-xl hover:bg-rose-50 transition-colors">
+                  Choose Signature →
+                </button>
+              )}
+            </div>
+          )}
+        </FField>
       </FSectionCard>
+
+      <SignaturePickerModal
+        isOpen={showSignaturePicker}
+        onClose={() => setShowSignaturePicker(false)}
+        onSelect={(sig) => { setSelectedSignature(sig); setSignatureEnabled(true); setShowSignaturePicker(false); }}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
         <button type="submit" disabled={loading} className="inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-50 shadow-sm">

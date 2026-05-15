@@ -1,14 +1,28 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import type { Company, Sample } from '../types';
-import { loadPdfLayoutConfig, getField, type PdfLayoutConfig } from './pdfLayoutConfig';
+import { loadPdfLayoutConfig, getField, urlToBase64, type PdfLayoutConfig } from './pdfLayoutConfig';
 
-const normalizeRichText = (value: string) => {
-  if (!value.trim()) return '<div><br></div>';
-  const hasHtml = /<\/?[a-z][\s\S]*>/i.test(value);
-  if (hasHtml) return value;
-  return value.split('\n').map((line) => (line ? `<div>${line}</div>` : '<div><br></div>')).join('');
-};
+/** Parse rich-text HTML into lines, preserving intentional blank lines. */
+function htmlToLines(html: string): string[] {
+  const text = html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+  const raw = text.split('\n');
+  // Trim leading/trailing empty lines only, not interior ones
+  let start = 0, end = raw.length - 1;
+  while (start < raw.length && !raw[start].trim()) start++;
+  while (end > start && !raw[end].trim()) end--;
+  return raw.slice(start, end + 1);
+}
 
 export const generateSamplePDF = async (
   sample: Sample,
@@ -16,7 +30,8 @@ export const generateSamplePDF = async (
   showCompanyInPdf = true,
   download = true,
   letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
-  layoutConfig?: PdfLayoutConfig
+  layoutConfig?: PdfLayoutConfig,
+  signatureBase64?: string
 ): Promise<string> => {
   const cfg = layoutConfig ?? loadPdfLayoutConfig();
 
@@ -31,14 +46,14 @@ export const generateSamplePDF = async (
   const headerH = cfg.header.height;
   const footerH = cfg.footer.height;
 
-  // ── Header / Letterhead ──────────────────────────────────────────────────────
+  // ── Header / Letterhead (4-branch) ───────────────────────────────────────
   if (letterheadImages?.headerBase64) {
     const ext = (letterheadImages.headerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-    doc.addImage(`data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
+    doc.addImage(`data:image/${letterheadImages.headerExt || 'png'};base64,${letterheadImages.headerBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
     y = headerH + cfg.header.yOffset;
     if (letterheadImages.footerBase64) {
       const fExt = (letterheadImages.footerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-      doc.addImage(`data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
+      doc.addImage(`data:image/${letterheadImages.footerExt || 'png'};base64,${letterheadImages.footerBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
     }
   } else if (cfg.header.type === 'image' && cfg.header.imageBase64) {
     const ext = (cfg.header.imageExt === 'jpg' ? 'JPEG' : 'PNG') as 'PNG' | 'JPEG';
@@ -64,8 +79,7 @@ export const generateSamplePDF = async (
       doc.text(subLines, xHead + fCA.xOffset, y + fCA.yOffset, { align });
       y += subLines.length * (fCA.fontSize * 0.35) + 2;
     }
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y);
     y += cfg.header.yOffset;
     if (cfg.footer.type === 'text' && cfg.footer.text) {
       const fAlign = cfg.footer.align as 'center' | 'left' | 'right';
@@ -88,87 +102,75 @@ export const generateSamplePDF = async (
       doc.text('Chennai - 600101 — Mob: +91 98410 91189, Email: office@jildimpex.com', pageWidth / 2 + fCA.xOffset, y + fCA.yOffset, { align: 'center' });
       y += 6;
     }
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, pageWidth - margin, y);
+    doc.setLineWidth(0.5); doc.line(margin, y, pageWidth - margin, y);
     y += 12;
   } else {
     y += 45;
   }
 
-  // ── Supplier Details (Left) and Date/Ref (Right) ─────────────────────────────
+  // ── Supplier & date block ─────────────────────────────────────────────────
   const startY = y;
-  doc.setFont(ff, 'bold');
-  doc.setFontSize(12);
-  doc.text('Messrs:', margin, y);
-  y += 5;
-  doc.text(sample.supplier_name, margin, y);
-  y += 5;
-  doc.setFont(ff, 'normal');
-  doc.setFontSize(11);
-  sample.supplier_address.forEach((line) => {
-    if (line) {
-      doc.text(line, margin, y);
-      y += 4.5;
-    }
-  });
+  doc.setFont(ff, 'bold'); doc.setFontSize(12);
+  doc.text('Messrs:', margin, y); y += 5;
+  doc.text(sample.supplier_name, margin, y); y += 5;
+  doc.setFont(ff, 'normal'); doc.setFontSize(11);
+  sample.supplier_address.forEach(line => { if (line) { doc.text(line, margin, y); y += 4.5; } });
 
   const rightX = pageWidth - margin;
-  doc.setFont(ff, 'bold');
-  doc.text('Date:', rightX - 45, startY);
-  doc.setFont(ff, 'normal');
-  doc.text(sample.date ? format(new Date(sample.date), 'dd/MM/yyyy') : '', rightX, startY, { align: 'right' });
-
-  doc.setFont(ff, 'bold');
-  doc.text('Letter No:', rightX - 45, startY + 6);
-  doc.setFont(ff, 'normal');
-  doc.text(sample.sample_number, rightX, startY + 6, { align: 'right' });
+  doc.setFont(ff, 'bold'); doc.text('Date:', rightX - 45, startY);
+  doc.setFont(ff, 'normal'); doc.text(sample.date ? format(new Date(sample.date), 'dd/MM/yyyy') : '', rightX, startY, { align: 'right' });
+  doc.setFont(ff, 'bold'); doc.text('Letter No:', rightX - 45, startY + 6);
+  doc.setFont(ff, 'normal'); doc.text(sample.sample_number, rightX, startY + 6, { align: 'right' });
 
   y = Math.max(y, startY + 20) + 10;
-
-  doc.text('Dear Sirs,', margin, y);
-  y += 8;
+  doc.text('Dear Sirs,', margin, y); y += 8;
 
   if (sample.description?.trim()) {
-    doc.setFont(ff, 'bold');
-    doc.setFontSize(13);
-    const descriptionLines = doc.splitTextToSize(sample.description.trim().toUpperCase(), contentWidth);
-    doc.text(descriptionLines, pageWidth / 2, y, { align: 'center' });
-    y += descriptionLines.length * 6 + 8;
+    doc.setFont(ff, 'bold'); doc.setFontSize(13);
+    const descLines = doc.splitTextToSize(sample.description.trim().toUpperCase(), contentWidth);
+    doc.text(descLines, pageWidth / 2, y, { align: 'center' });
+    y += descLines.length * 6 + 8;
   }
 
-  // ── Content ──────────────────────────────────────────────────────────────────
-  doc.setFont(ff, 'normal');
-  doc.setFontSize(11);
-  const cleanNotes = sample.notes.replace(/<[^>]*>/g, '\n').split('\n').filter(Boolean);
-  cleanNotes.forEach(line => {
-    if (y > pageHeight - 30) {
-      doc.addPage();
-      y = margin + 10;
+  // ── Letter body — preserving blank lines ──────────────────────────────────
+  doc.setFont(ff, 'normal'); doc.setFontSize(11);
+  const lines = htmlToLines(sample.notes || '');
+  lines.forEach(line => {
+    if (y > pageHeight - 50) { doc.addPage(); y = margin + 10; }
+    if (!line.trim()) {
+      y += 5; // intentional blank line → vertical gap
+      return;
     }
-    const lines = doc.splitTextToSize(line, contentWidth);
-    doc.text(lines, margin, y);
-    y += lines.length * 5.5;
+    const wrapped = doc.splitTextToSize(line.trim(), contentWidth);
+    doc.text(wrapped, margin, y);
+    y += wrapped.length * 5.5;
   });
 
-  // ── Closing ──────────────────────────────────────────────────────────────────
-  y += 15;
-  if (y > pageHeight - 40) {
-    doc.addPage();
-    y = margin + 10;
-  }
+  // ── Closing ───────────────────────────────────────────────────────────────
+  y += 12;
+  if (y > pageHeight - 55) { doc.addPage(); y = margin + 10; }
 
   doc.setFont(ff, 'normal');
-  doc.text('Yours Faithfully,', pageWidth - margin, y, { align: 'right' });
-  y += 6;
+  doc.text('Yours Faithfully,', pageWidth - margin, y, { align: 'right' }); y += 6;
   doc.setFont(ff, 'bold');
   doc.text(`For ${sample.company_name.toUpperCase()}`, pageWidth - margin, y, { align: 'right' });
 
-  y += 20;
-  if (sample.customer_comments) {
-    doc.text(sample.customer_comments, pageWidth - margin, y, { align: 'right' });
-    y += 6;
+  y += 5;
+
+  // ── Signature image ───────────────────────────────────────────────────────
+  if (signatureBase64) {
+    const sigW = 48, sigH = 20;
+    doc.addImage(`data:image/png;base64,${signatureBase64}`, 'PNG', pageWidth - margin - sigW, y, sigW, sigH, undefined, 'NONE');
+    y += sigH + 2;
+  } else {
+    y += 18;
   }
-  doc.setFont(ff, 'normal');
+
+  if (sample.customer_comments) {
+    doc.setFont(ff, 'bold'); doc.setFontSize(11);
+    doc.text(sample.customer_comments, pageWidth - margin, y, { align: 'right' }); y += 5;
+  }
+  doc.setFont(ff, 'normal'); doc.setFontSize(11);
   doc.text('Partner / Manager', pageWidth - margin, y, { align: 'right' });
 
   const base64 = doc.output('datauristring').split(',')[1];

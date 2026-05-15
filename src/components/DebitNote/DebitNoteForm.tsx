@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Save, FileDown, Trash2, ChevronDown, X, Search, Plus, Minus, AlertCircle, ClipboardList, Building2, FileText, Receipt, Calculator } from 'lucide-react';
+import { Save, FileDown, Trash2, ChevronDown, X, Search, Plus, Minus, AlertCircle, ClipboardList, Building2, FileText, Receipt, Calculator, PenLine, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { DebitNote, Contact, Contract, Company } from '../../types';
 import { generateDebitNotePDF } from '../../utils/debitNotePdfGenerator';
 import { generateDebitNoteWord } from '../../utils/debitNoteWordGenerator';
 import { extractLetterheadImages } from '../../utils/contractWordGenerator';
-import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
+import { loadCompanyLetterheadImages, urlToBase64 } from '../../utils/pdfLayoutConfig';
 import { useAuth } from '../../hooks/useAuth';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { CollapsibleFormSection, formInputClass, formInputReadOnlyClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedInputReadOnlyClass, roundedTextareaClass } from '../UI/FormRow';
 import { dialogService } from '../../lib/dialogService';
+import SignaturePickerModal, { type PickedSignature } from '../UI/SignaturePickerModal';
 
 /** Increment the trailing number in any document reference, preserving zero-padding and prefix. */
 function getNextNumber(last: string): string {
@@ -127,6 +128,9 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [generatingWord, setGeneratingWord] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [signatureEnabled, setSignatureEnabled]       = useState(false);
+  const [selectedSignature, setSelectedSignature]     = useState<PickedSignature | null>(null);
+  const [showSignaturePicker, setShowSignaturePicker] = useState(false);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [formData, setFormData] = useState<DebitNote>({
@@ -493,7 +497,12 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         const imgs = await extractLetterheadImages(companyLetterheadUrl);
         if (imgs.headerBase64) letterheadImages = imgs;
       }
-      generateDebitNotePDF(formData, showCompanyInPdf, false, letterheadImages);
+      let sigBase64: string | undefined;
+      if (signatureEnabled && selectedSignature) {
+        const loaded = await urlToBase64(selectedSignature.imageUrl);
+        if (loaded) sigBase64 = loaded.base64;
+      }
+      generateDebitNotePDF(formData, showCompanyInPdf, false, letterheadImages, true, sigBase64);
     } catch (err: any) {
       console.error('Error generating PDF:', err);
       dialogService.alert({
@@ -686,6 +695,43 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
           <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
         </FField>
       </FSectionCard>
+
+      <FSectionCard title="Signature" icon={PenLine} accent="teal">
+        <FField label="Signature Image" span="full">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">Stamp a signature image on the PDF export</p>
+            <button type="button" onClick={() => { if (signatureEnabled) { setSignatureEnabled(false); setSelectedSignature(null); } else { setShowSignaturePicker(true); } }}
+              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${signatureEnabled ? 'bg-teal-500' : 'bg-gray-200'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${signatureEnabled ? 'left-5' : 'left-0.5'}`} />
+            </button>
+          </div>
+          {signatureEnabled && (
+            <div className="mt-3">
+              {selectedSignature ? (
+                <div className="flex items-center gap-3 p-3 bg-teal-50 rounded-xl border border-teal-100">
+                  <img src={selectedSignature.imageUrl} alt={selectedSignature.name} className="h-10 object-contain" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-700 truncate">{selectedSignature.name}</p>
+                    <button type="button" onClick={() => setShowSignaturePicker(true)} className="text-xs text-teal-600 hover:underline">Change</button>
+                  </div>
+                  <CheckCircle2 className="h-4 w-4 text-teal-500 flex-shrink-0" />
+                </div>
+              ) : (
+                <button type="button" onClick={() => setShowSignaturePicker(true)}
+                  className="w-full py-2.5 text-sm font-semibold text-teal-600 border border-dashed border-teal-200 rounded-xl hover:bg-teal-50 transition-colors">
+                  Choose Signature →
+                </button>
+              )}
+            </div>
+          )}
+        </FField>
+      </FSectionCard>
+
+      <SignaturePickerModal
+        isOpen={showSignaturePicker}
+        onClose={() => setShowSignaturePicker(false)}
+        onSelect={(sig) => { setSelectedSignature(sig); setSignatureEnabled(true); setShowSignaturePicker(false); }}
+      />
 
       <FSectionCard title="Commission Calculation" icon={Calculator} accent="indigo">
         <FField label="Local Commission (%)" htmlFor="local_commission">

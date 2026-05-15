@@ -8,7 +8,8 @@ export const generateContractPDF = async (
   includeSignature: boolean = false,
   letterheadImages?: { headerBase64: string | null; footerBase64: string | null; headerExt?: string; footerExt?: string },
   download: boolean = true,
-  layoutConfig?: PdfLayoutConfig
+  layoutConfig?: PdfLayoutConfig,
+  signatureBase64?: string
 ): Promise<string> => {
   const cfg = layoutConfig ?? loadPdfLayoutConfig();
 
@@ -371,12 +372,19 @@ export const generateContractPDF = async (
     doc.setFont(ff, fClosingCompany.fontStyle); doc.setFontSize(fClosingCompany.fontSize);
     doc.text(`For ${contract.company_name.toUpperCase()}`, pageWidth - margin + fClosingCompany.xOffset, yPosition + fClosingCompany.yOffset, { align: 'right' });
   }
-  yPosition += 14 * ls;
+  yPosition += 5 * ls;
 
-  if (includeSignature) {
-    doc.setLineWidth(0.5);
-    doc.line(pageWidth - margin - 50, yPosition, pageWidth - margin, yPosition);
-    yPosition += 5 * ls;
+  if (signatureBase64) {
+    const sigW = 50, sigH = 20;
+    doc.addImage(`data:image/png;base64,${signatureBase64}`, 'PNG', pageWidth - margin - sigW, yPosition, sigW, sigH, undefined, 'NONE');
+    yPosition += sigH + 3;
+  } else {
+    yPosition += 9 * ls;
+    if (includeSignature) {
+      doc.setLineWidth(0.5);
+      doc.line(pageWidth - margin - 50, yPosition, pageWidth - margin, yPosition);
+      yPosition += 5 * ls;
+    }
   }
 
   // ── Seller / Buyer Line ──────────────────────────────────────────────────

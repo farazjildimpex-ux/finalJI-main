@@ -188,7 +188,7 @@ export function getField(config: PdfLayoutConfig, id: string): PdfFieldConfig {
 
 // ── Company letterhead loading ────────────────────────────────────────────────
 
-async function urlToBase64(url: string): Promise<{ base64: string; ext: 'png' | 'jpg' } | null> {
+export async function urlToBase64(url: string): Promise<{ base64: string; ext: 'png' | 'jpg' } | null> {
   try {
     const response = await fetch(url);
     if (!response.ok) return null;

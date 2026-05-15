@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote } from 'lucide-react';
+import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote, PenLine, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company } from '../../types';
 import DatePicker from '../UI/DatePicker';
@@ -7,9 +7,10 @@ import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSecti
 
 import { generateContractPDF } from '../../utils/contractPdfGenerator';
 import { generateContractWord, extractLetterheadImages } from '../../utils/contractWordGenerator';
-import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
+import { loadCompanyLetterheadImages, urlToBase64 } from '../../utils/pdfLayoutConfig';
 import { useNavigate } from 'react-router-dom';
 import { dialogService } from '../../lib/dialogService';
+import SignaturePickerModal, { type PickedSignature } from '../UI/SignaturePickerModal';
 
 
 
@@ -339,6 +340,10 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     }
   };
 
+  const [signatureEnabled, setSignatureEnabled]       = useState(false);
+  const [selectedSignature, setSelectedSignature]     = useState<PickedSignature | null>(null);
+  const [showSignaturePicker, setShowSignaturePicker] = useState(false);
+
   const handleExportPDF = async () => {
     if (!formData.contract_no) {
       dialogService.alert({
@@ -359,7 +364,12 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         const imgs = await extractLetterheadImages(companyLetterheadUrl);
         if (imgs.headerBase64) letterheadImages = imgs;
       }
-      await generateContractPDF(formData as Contract, showCompanyInPdf, false, letterheadImages);
+      let sigBase64: string | undefined;
+      if (signatureEnabled && selectedSignature) {
+        const loaded = await urlToBase64(selectedSignature.imageUrl);
+        if (loaded) sigBase64 = loaded.base64;
+      }
+      await generateContractPDF(formData as Contract, showCompanyInPdf, false, letterheadImages, true, undefined, sigBase64);
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       dialogService.alert({
@@ -633,6 +643,43 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
           {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
         </FField>
       </FSectionCard>
+
+      <FSectionCard title="Signature" icon={PenLine} accent="indigo">
+        <FField label="Signature Image" span="full">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-slate-500">Stamp a signature image on the PDF export</p>
+            <button type="button" onClick={() => { if (signatureEnabled) { setSignatureEnabled(false); setSelectedSignature(null); } else { setShowSignaturePicker(true); } }}
+              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${signatureEnabled ? 'bg-indigo-500' : 'bg-gray-200'}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${signatureEnabled ? 'left-5' : 'left-0.5'}`} />
+            </button>
+          </div>
+          {signatureEnabled && (
+            <div className="mt-3">
+              {selectedSignature ? (
+                <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border border-indigo-100">
+                  <img src={selectedSignature.imageUrl} alt={selectedSignature.name} className="h-10 object-contain" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-700 truncate">{selectedSignature.name}</p>
+                    <button type="button" onClick={() => setShowSignaturePicker(true)} className="text-xs text-indigo-600 hover:underline">Change</button>
+                  </div>
+                  <CheckCircle2 className="h-4 w-4 text-indigo-500 flex-shrink-0" />
+                </div>
+              ) : (
+                <button type="button" onClick={() => setShowSignaturePicker(true)}
+                  className="w-full py-2.5 text-sm font-semibold text-indigo-600 border border-dashed border-indigo-200 rounded-xl hover:bg-indigo-50 transition-colors">
+                  Choose Signature →
+                </button>
+              )}
+            </div>
+          )}
+        </FField>
+      </FSectionCard>
+
+      <SignaturePickerModal
+        isOpen={showSignaturePicker}
+        onClose={() => setShowSignaturePicker(false)}
+        onSelect={(sig) => { setSelectedSignature(sig); setSignatureEnabled(true); setShowSignaturePicker(false); }}
+      />
 
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
         <button type="submit" disabled={saving} className="inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm">

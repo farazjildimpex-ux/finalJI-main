@@ -71,6 +71,14 @@ export interface EmailLog {
   sent_at: string;
 }
 
+export interface Signature {
+  id: string;
+  user_id: string;
+  name: string;
+  image_url: string;
+  created_at: string;
+}
+
 export interface Company {
   id: string;
   name: string;
