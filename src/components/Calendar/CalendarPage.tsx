@@ -41,6 +41,65 @@ const ABBR: Record<EventType, string> = {
 const WEEKDAYS_LONG  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WEEKDAYS_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
+// ── Date extraction from free-text delivery schedule lines ────────────────
+const MONTHS: Record<string, string> = {
+  january:'01', february:'02', march:'03', april:'04', may:'05', june:'06',
+  july:'07', august:'08', september:'09', october:'10', november:'11', december:'12',
+  jan:'01', feb:'02', mar:'03', apr:'04', jun:'06', jul:'07', aug:'08',
+  sep:'09', oct:'10', nov:'11', dec:'12',
+};
+
+function extractDateFromText(text: string): string | null {
+  const s = text.toLowerCase().trim();
+
+  // ISO: 2026-06-10
+  const iso = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+
+  // DD/MM/YYYY or MM/DD/YYYY — assume DD/MM/YYYY (Indian convention)
+  const slash = s.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (slash) {
+    const [, d, m, y] = slash;
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+  }
+
+  // "10 June 2026" / "10th June 2026" / "June 10, 2026" / "by 10 June 2026"
+  const named = s.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{4})\b/);
+  if (named) {
+    const [, d, mon, y] = named;
+    const m = MONTHS[mon];
+    if (m) return `${y}-${m}-${d.padStart(2,'0')}`;
+  }
+
+  // "June 10, 2026" / "June 2026" (day=last of month as fallback)
+  const monthFirst = s.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/);
+  if (monthFirst) {
+    const [, mon, d, y] = monthFirst;
+    const m = MONTHS[mon];
+    if (m) return `${y}-${m}-${d.padStart(2,'0')}`;
+  }
+
+  // "June 2026" (month + year only) — use 1st of that month
+  const monthYear = s.match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d{4})\b/);
+  if (monthYear) {
+    const [, mon, y] = monthYear;
+    const m = MONTHS[mon];
+    if (m) return `${y}-${m}-01`;
+  }
+
+  return null;
+}
+
+function extractDateFromSchedule(schedule: string[] | null | undefined): string | null {
+  if (!schedule || !Array.isArray(schedule)) return null;
+  for (const line of schedule) {
+    if (!line) continue;
+    const d = extractDateFromText(line);
+    if (d) return d;
+  }
+  return null;
+}
+
 // Strip HTML tags for plain-text preview
 function stripHtml(html: string): string {
   return html
@@ -76,7 +135,7 @@ const CalendarPage: React.FC = () => {
     const [journalRes, reminderRes, contractRes, sampleRes] = await Promise.allSettled([
       supabase.from('journal_entries').select('id, title, entry_date').gte('entry_date', rangeStart).lte('entry_date', rangeEnd),
       supabase.from('journal_entries').select('id, title, reminder_date, reminder_time').eq('reminder_enabled', true).not('reminder_date', 'is', null).gte('reminder_date', rangeStart).lte('reminder_date', rangeEnd),
-      supabase.from('contracts').select('id, contract_no, buyer_name, delivery_date').not('delivery_date', 'is', null).gte('delivery_date', rangeStart).lte('delivery_date', rangeEnd),
+      supabase.from('contracts').select('id, contract_no, buyer_name, delivery_schedule'),
       supabase.from('samples').select('id, sample_number, supplier_name, due_date').not('due_date', 'is', null).gte('due_date', rangeStart).lte('due_date', rangeEnd),
     ]);
 
@@ -88,18 +147,16 @@ const CalendarPage: React.FC = () => {
     if (reminderRes.status === 'fulfilled' && reminderRes.value.data) {
       reminderRes.value.data.forEach(e => next.push({ id: `r-${e.id}`, type: 'reminder', title: e.title || 'Reminder', date: e.reminder_date as string, subtitle: e.reminder_time ? `at ${e.reminder_time}` : undefined, link: `/app/home?entry=${e.id}` }));
     }
-    if (contractRes.status === 'fulfilled') {
-      if (contractRes.value.error) {
-        console.error('[Calendar] Contract query error:', contractRes.value.error);
-        setContractQueryError(contractRes.value.error.message || 'Unknown error');
-      } else if (contractRes.value.data) {
-        console.log('[Calendar] Contracts found:', contractRes.value.data.length, contractRes.value.data);
-        setContractQueryError(null);
-        contractRes.value.data.forEach(c => next.push({ id: c.id, type: 'contract', title: c.contract_no, date: c.delivery_date as string, subtitle: c.buyer_name, link: `/app/contracts/${c.id}` }));
-      }
-    } else {
-      console.error('[Calendar] Contract query rejected:', contractRes.reason);
-      setContractQueryError(String(contractRes.reason));
+    if (contractRes.status === 'fulfilled' && contractRes.value.data) {
+      setContractQueryError(null);
+      contractRes.value.data.forEach(c => {
+        const date = extractDateFromSchedule(c.delivery_schedule);
+        if (date && date >= rangeStart && date <= rangeEnd) {
+          next.push({ id: c.id, type: 'contract', title: c.contract_no, date, subtitle: c.buyer_name, link: `/app/contracts/${c.id}` });
+        }
+      });
+    } else if (contractRes.status === 'fulfilled' && contractRes.value.error) {
+      setContractQueryError(contractRes.value.error.message || 'Unknown error');
     }
     if (sampleRes.status === 'fulfilled' && sampleRes.value.data) {
       sampleRes.value.data.forEach(s => next.push({ id: s.id, type: 'sample', title: s.sample_number, date: s.due_date as string, subtitle: s.supplier_name, link: `/app/samples/${s.id}` }));
