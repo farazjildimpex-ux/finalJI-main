@@ -43,6 +43,8 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
     footer_ext: 'png',
     header_height: 30,
     footer_height: 20,
+    header_scale: 100,
+    footer_scale: 100,
   });
 
   useEffect(() => {
@@ -83,6 +85,8 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       footer_ext: company.footer_ext || 'png',
       header_height: company.header_height ?? 30,
       footer_height: company.footer_height ?? 20,
+      header_scale: company.header_scale ?? 100,
+      footer_scale: company.footer_scale ?? 100,
     });
     setLetterheadFile(null);
     setHeaderFile(null);
@@ -98,6 +102,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       header_url: null, footer_url: null,
       header_ext: 'png', footer_ext: 'png',
       header_height: 30, footer_height: 20,
+      header_scale: 100, footer_scale: 100,
     });
     setLetterheadFile(null);
     setHeaderFile(null);
@@ -232,6 +237,8 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       // Always save height settings + any uploaded URLs
       extraUpdates.header_height = formData.header_height;
       extraUpdates.footer_height = formData.footer_height;
+      extraUpdates.header_scale  = formData.header_scale;
+      extraUpdates.footer_scale  = formData.footer_scale;
 
       if (Object.keys(extraUpdates).length > 0 && companyId) {
         await supabase.from('companies').update(extraUpdates).eq('id', companyId);
@@ -599,16 +606,34 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                               )}
                             </div>
                             <input ref={headerInputRef} type="file" accept="image/png,image/jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) setHeaderFile(f); }} className="hidden" />
-                            <div className="mt-3 flex items-center gap-2">
-                              <label className="text-xs font-bold text-gray-600">Height in PDF (mm):</label>
-                              <input
-                                type="number"
-                                min={10} max={60} step={1}
-                                value={formData.header_height}
-                                onChange={(e) => setFormData({ ...formData, header_height: Number(e.target.value) })}
-                                className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                              />
-                              <span className="text-xs text-gray-400">(default 30 mm)</span>
+                            <div className="mt-3 space-y-2.5">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-gray-600 w-24 flex-shrink-0">Height (mm):</label>
+                                <input
+                                  type="number"
+                                  min={10} max={60} step={1}
+                                  value={formData.header_height}
+                                  onChange={(e) => setFormData({ ...formData, header_height: Number(e.target.value) })}
+                                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                                />
+                                <span className="text-xs text-gray-400">{formData.header_height} mm</span>
+                              </div>
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-bold text-gray-600">Width scale:</label>
+                                  <span className="text-xs font-bold text-emerald-600">{formData.header_scale}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={30} max={100} step={5}
+                                  value={formData.header_scale}
+                                  onChange={(e) => setFormData({ ...formData, header_scale: Number(e.target.value) })}
+                                  className="w-full accent-emerald-600"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                                  <span>30% (smaller)</span><span>100% (full width)</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
 
@@ -650,16 +675,34 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                               )}
                             </div>
                             <input ref={footerInputRef} type="file" accept="image/png,image/jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFooterFile(f); }} className="hidden" />
-                            <div className="mt-3 flex items-center gap-2">
-                              <label className="text-xs font-bold text-gray-600">Height in PDF (mm):</label>
-                              <input
-                                type="number"
-                                min={5} max={40} step={1}
-                                value={formData.footer_height}
-                                onChange={(e) => setFormData({ ...formData, footer_height: Number(e.target.value) })}
-                                className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                              />
-                              <span className="text-xs text-gray-400">(default 20 mm)</span>
+                            <div className="mt-3 space-y-2.5">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs font-bold text-gray-600 w-24 flex-shrink-0">Height (mm):</label>
+                                <input
+                                  type="number"
+                                  min={5} max={40} step={1}
+                                  value={formData.footer_height}
+                                  onChange={(e) => setFormData({ ...formData, footer_height: Number(e.target.value) })}
+                                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
+                                />
+                                <span className="text-xs text-gray-400">{formData.footer_height} mm</span>
+                              </div>
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <label className="text-xs font-bold text-gray-600">Width scale:</label>
+                                  <span className="text-xs font-bold text-emerald-600">{formData.footer_scale}%</span>
+                                </div>
+                                <input
+                                  type="range"
+                                  min={30} max={100} step={5}
+                                  value={formData.footer_scale}
+                                  onChange={(e) => setFormData({ ...formData, footer_scale: Number(e.target.value) })}
+                                  className="w-full accent-emerald-600"
+                                />
+                                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                                  <span>30% (smaller)</span><span>100% (full width)</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
 

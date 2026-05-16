@@ -93,6 +93,8 @@ export interface Company {
   footer_ext?: string;
   header_height?: number;
   footer_height?: number;
+  header_scale?: number;
+  footer_scale?: number;
   created_at: string;
   updated_at: string;
 }

@@ -212,6 +212,8 @@ export interface LetterheadImages {
   footerExt: string;
   headerHeight: number;
   footerHeight: number;
+  headerScale: number;
+  footerScale: number;
 }
 
 export async function loadCompanyLetterheadImages(company: {
@@ -221,12 +223,16 @@ export async function loadCompanyLetterheadImages(company: {
   footer_ext?: string;
   header_height?: number;
   footer_height?: number;
+  header_scale?: number;
+  footer_scale?: number;
 }): Promise<LetterheadImages> {
   const result: LetterheadImages = {
     headerBase64: null, footerBase64: null,
     headerExt: 'png',  footerExt: 'png',
     headerHeight: company.header_height ?? 30,
     footerHeight: company.footer_height ?? 20,
+    headerScale:  company.header_scale  ?? 100,
+    footerScale:  company.footer_scale  ?? 100,
   };
 
   if (company.header_url) {

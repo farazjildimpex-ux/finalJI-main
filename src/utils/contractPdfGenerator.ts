@@ -29,11 +29,17 @@ export const generateContractPDF = async (
   // ── Header / Letterhead ──────────────────────────────────────────────────────
   if (letterheadImages?.headerBase64) {
     const ext = (letterheadImages.headerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-    doc.addImage(`data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`, ext, 0, 0, pageWidth, headerH, undefined, 'NONE');
+    const hScale = (letterheadImages.headerScale ?? 100) / 100;
+    const hW = pageWidth * hScale;
+    const hX = (pageWidth - hW) / 2;
+    doc.addImage(`data:image/${ext.toLowerCase()};base64,${letterheadImages.headerBase64}`, ext, hX, 0, hW, headerH, undefined, 'NONE');
     yPosition = headerH + cfg.header.yOffset;
     if (letterheadImages.footerBase64) {
       const fExt = (letterheadImages.footerExt || 'png').toUpperCase() as 'PNG' | 'JPEG';
-      doc.addImage(`data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`, fExt, 0, pageHeight - footerH, pageWidth, footerH, undefined, 'NONE');
+      const fScale = (letterheadImages.footerScale ?? 100) / 100;
+      const fW = pageWidth * fScale;
+      const fX = (pageWidth - fW) / 2;
+      doc.addImage(`data:image/${fExt.toLowerCase()};base64,${letterheadImages.footerBase64}`, fExt, fX, pageHeight - footerH, fW, footerH, undefined, 'NONE');
     }
   } else if (cfg.header.type === 'image' && cfg.header.imageBase64) {
     const ext = (cfg.header.imageExt === 'jpg' ? 'JPEG' : 'PNG') as 'PNG' | 'JPEG';

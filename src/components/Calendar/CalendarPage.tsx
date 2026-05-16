@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, ExternalLink, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -18,11 +18,20 @@ interface CalendarEvent {
   link?: string;
 }
 
-const EVENT_CFG: Record<EventType, { label: string; pill: string; bar: string; text: string; badge: string }> = {
-  journal:  { label: 'Journal',  pill: 'bg-violet-100 text-violet-800',  bar: 'bg-violet-500',  text: 'text-violet-700',  badge: 'bg-violet-500'  },
-  reminder: { label: 'Reminder', pill: 'bg-amber-100 text-amber-800',   bar: 'bg-amber-400',   text: 'text-amber-700',   badge: 'bg-amber-500'   },
-  contract: { label: 'Contract', pill: 'bg-emerald-100 text-emerald-800', bar: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-500' },
-  sample:   { label: 'Letter',   pill: 'bg-blue-100 text-blue-800',     bar: 'bg-blue-500',    text: 'text-blue-700',    badge: 'bg-blue-500'    },
+interface EventDetail {
+  loaded: boolean;
+  content?: string;       // journal content
+  description?: string;   // contract / sample description
+  article?: string;       // contract article
+  quantity?: string;      // contract quantity
+  notes?: string;         // sample notes
+}
+
+const EVENT_CFG: Record<EventType, { label: string; pill: string; bar: string; text: string; badge: string; openLabel: string }> = {
+  journal:  { label: 'Journal',  pill: 'bg-violet-100 text-violet-800',  bar: 'bg-violet-500',  text: 'text-violet-700',  badge: 'bg-violet-500',  openLabel: 'Open Entry'    },
+  reminder: { label: 'Reminder', pill: 'bg-amber-100 text-amber-800',    bar: 'bg-amber-400',   text: 'text-amber-700',   badge: 'bg-amber-500',   openLabel: 'View Reminder' },
+  contract: { label: 'Contract', pill: 'bg-emerald-100 text-emerald-800', bar: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-500', openLabel: 'Open Contract' },
+  sample:   { label: 'Letter',   pill: 'bg-blue-100 text-blue-800',      bar: 'bg-blue-500',    text: 'text-blue-700',    badge: 'bg-blue-500',    openLabel: 'Open Letter'   },
 };
 
 const ABBR: Record<EventType, string> = {
@@ -32,12 +41,25 @@ const ABBR: Record<EventType, string> = {
 const WEEKDAYS_LONG  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const WEEKDAYS_SHORT = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
+// Strip HTML tags for plain-text preview
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<\/(?:div|p)>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .trim();
+}
+
 const CalendarPage: React.FC = () => {
   const navigate = useNavigate();
   const [viewDate, setViewDate]         = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [events, setEvents]             = useState<CalendarEvent[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [expandedId, setExpandedId]     = useState<string | null>(null);
+  const [details, setDetails]           = useState<Record<string, EventDetail>>({});
 
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(viewDate));
@@ -78,6 +100,45 @@ const CalendarPage: React.FC = () => {
 
   useEffect(() => { fetchEvents(); }, [fetchEvents]);
 
+  // Lazy-load event details when expanded
+  useEffect(() => {
+    if (!expandedId) return;
+    if (details[expandedId]?.loaded) return;
+
+    const ev = events.find(e => e.id === expandedId);
+    if (!ev) return;
+
+    const mark = () => setDetails(p => ({ ...p, [expandedId]: { loaded: true } }));
+
+    if (ev.type === 'contract') {
+      supabase.from('contracts')
+        .select('description, article, quantity')
+        .eq('id', ev.id).single()
+        .then(({ data }) => {
+          if (!data) { mark(); return; }
+          const qty = Array.isArray(data.quantity) ? data.quantity[0] : data.quantity;
+          setDetails(p => ({ ...p, [expandedId]: { loaded: true, description: data.description, article: data.article, quantity: qty } }));
+        });
+    } else if (ev.type === 'journal') {
+      supabase.from('journal_entries')
+        .select('content')
+        .eq('id', ev.id).single()
+        .then(({ data }) => {
+          setDetails(p => ({ ...p, [expandedId]: { loaded: true, content: data?.content || '' } }));
+        });
+    } else if (ev.type === 'sample') {
+      supabase.from('samples')
+        .select('description, notes')
+        .eq('id', ev.id).single()
+        .then(({ data }) => {
+          setDetails(p => ({ ...p, [expandedId]: { loaded: true, description: data?.description, notes: data?.notes } }));
+        });
+    } else {
+      // reminder — no extra fetch needed
+      setDetails(p => ({ ...p, [expandedId]: { loaded: true } }));
+    }
+  }, [expandedId, events, details]);
+
   const byDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     events.forEach(ev => map.set(ev.date, [...(map.get(ev.date) || []), ev]));
@@ -90,6 +151,11 @@ const CalendarPage: React.FC = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     setViewDate(new Date());
     setSelectedDate(today);
+  };
+
+  const handleDateSelect = (ds: string) => {
+    setSelectedDate(ds);
+    setExpandedId(null);
   };
 
   // ── Day Cell ──────────────────────────────────────────────────────────────
@@ -108,7 +174,7 @@ const CalendarPage: React.FC = () => {
 
     return (
       <button
-        onClick={() => setSelectedDate(ds)}
+        onClick={() => handleDateSelect(ds)}
         className={`group relative flex flex-col min-h-[72px] sm:min-h-[88px] p-1 sm:p-1.5 transition-colors text-left
           border-b border-r border-gray-100 overflow-hidden
           ${isLastRow ? 'border-b-0' : ''}
@@ -116,7 +182,6 @@ const CalendarPage: React.FC = () => {
           ${isSel ? 'bg-blue-50 ring-1 ring-inset ring-blue-200' : 'hover:bg-gray-50/80'}
         `}
       >
-        {/* Date number */}
         <span className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-xs sm:text-sm font-bold mb-1 flex-shrink-0
           ${todayDay ? 'bg-blue-600 text-white' : ''}
           ${isSel && !todayDay ? 'text-blue-700' : ''}
@@ -126,7 +191,6 @@ const CalendarPage: React.FC = () => {
           {format(day, 'd')}
         </span>
 
-        {/* Event chips */}
         <div className="flex flex-col gap-0.5 w-full">
           {types.slice(0, 3).map(type => {
             const cfg   = EVENT_CFG[type];
@@ -139,35 +203,148 @@ const CalendarPage: React.FC = () => {
             );
           })}
           {types.length > 3 && (
-            <div className="text-[9px] font-bold text-gray-400 px-1">+{types.length - 3} more</div>
+            <div className="text-[9px] font-bold text-gray-400 px-1">+{types.length - 3}</div>
           )}
         </div>
       </button>
     );
   };
 
-  // ── Event Row ─────────────────────────────────────────────────────────────
+  // ── Expandable Event Row ──────────────────────────────────────────────────
   const EventRow = ({ ev }: { ev: CalendarEvent }) => {
-    const cfg = EVENT_CFG[ev.type];
-    return (
-      <button
-        onClick={() => ev.link && navigate(ev.link)}
-        className="group w-full flex items-start gap-3 p-3 sm:p-4 text-left hover:bg-gray-50 active:bg-gray-100 transition-colors border-b border-gray-100 last:border-b-0"
-      >
-        <div className={`mt-0.5 w-1 h-full min-h-[36px] rounded-full flex-shrink-0 ${cfg.bar}`} />
-        <div className="flex-1 min-w-0">
-          <span className={`inline-block text-[10px] font-bold uppercase tracking-wider mb-0.5 ${cfg.text}`}>
-            {cfg.label}
-          </span>
-          <p className="text-sm font-semibold text-slate-800 truncate leading-snug group-hover:text-blue-700 transition-colors">
-            {ev.title}
-          </p>
+    const cfg      = EVENT_CFG[ev.type];
+    const isOpen   = expandedId === ev.id;
+    const detail   = details[ev.id];
+
+    const toggle = () => setExpandedId(isOpen ? null : ev.id);
+
+    const renderDetail = () => {
+      if (!detail?.loaded) {
+        return (
+          <div className="flex items-center gap-2 py-2 text-slate-400">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span className="text-xs">Loading…</span>
+          </div>
+        );
+      }
+
+      if (ev.type === 'contract') {
+        return (
+          <div className="space-y-1.5">
+            {detail.article && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Article</span>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{detail.article}</p>
+              </div>
+            )}
+            {detail.description && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Description</span>
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed line-clamp-3">{detail.description}</p>
+              </div>
+            )}
+            {detail.quantity && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Quantity</span>
+                <p className="text-xs text-slate-600 mt-0.5">{detail.quantity}</p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      if (ev.type === 'journal') {
+        const preview = detail.content ? stripHtml(detail.content).slice(0, 280) : '';
+        return (
+          <div>
+            {preview ? (
+              <p className="text-xs text-slate-600 leading-relaxed">{preview}{detail.content && stripHtml(detail.content).length > 280 ? '…' : ''}</p>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No content</p>
+            )}
+          </div>
+        );
+      }
+
+      if (ev.type === 'sample') {
+        return (
+          <div className="space-y-1.5">
+            {detail.description && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Subject</span>
+                <p className="text-sm font-semibold text-slate-800 mt-0.5">{detail.description}</p>
+              </div>
+            )}
+            {detail.notes && (
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Notes preview</span>
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed line-clamp-2">{stripHtml(detail.notes).slice(0, 180)}</p>
+              </div>
+            )}
+          </div>
+        );
+      }
+
+      // reminder
+      return (
+        <div>
           {ev.subtitle && (
-            <p className="text-xs text-slate-400 truncate mt-0.5">{ev.subtitle}</p>
+            <p className="text-sm font-semibold text-slate-700">{ev.subtitle}</p>
           )}
         </div>
-        <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-blue-400 flex-shrink-0 mt-1 transition-colors" />
-      </button>
+      );
+    };
+
+    return (
+      <div className={`border-b border-gray-100 last:border-b-0 transition-colors ${isOpen ? 'bg-slate-50/60' : ''}`}>
+        {/* Header row — tap to expand */}
+        <button
+          type="button"
+          onClick={toggle}
+          className="w-full flex items-start gap-3 px-4 py-3.5 text-left active:bg-gray-100 transition-colors"
+        >
+          <div className={`mt-0.5 w-1 min-h-[36px] h-full rounded-full flex-shrink-0 ${cfg.bar}`} style={{ alignSelf: 'stretch' }} />
+          <div className="flex-1 min-w-0">
+            <span className={`inline-block text-[10px] font-bold uppercase tracking-wider mb-0.5 ${cfg.text}`}>
+              {cfg.label}
+            </span>
+            <p className="text-sm font-semibold text-slate-800 truncate leading-snug">
+              {ev.title}
+            </p>
+            {ev.subtitle && !isOpen && (
+              <p className="text-xs text-slate-400 truncate mt-0.5">{ev.subtitle}</p>
+            )}
+          </div>
+          {isOpen
+            ? <ChevronUp className="h-4 w-4 text-blue-400 flex-shrink-0 mt-1" />
+            : <ChevronDown className="h-4 w-4 text-gray-300 flex-shrink-0 mt-1" />
+          }
+        </button>
+
+        {/* Expanded detail panel */}
+        {isOpen && (
+          <div className="px-4 pb-4 pt-0">
+            <div className="ml-4 pl-4 border-l-2 border-gray-100">
+              {renderDetail()}
+              {ev.link && (
+                <button
+                  type="button"
+                  onClick={() => navigate(ev.link!)}
+                  className={`mt-3 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl transition-colors
+                    ${ev.type === 'contract' ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : ''}
+                    ${ev.type === 'journal'  ? 'bg-violet-50 text-violet-700 hover:bg-violet-100'   : ''}
+                    ${ev.type === 'reminder' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'       : ''}
+                    ${ev.type === 'sample'   ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'          : ''}
+                  `}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  {cfg.openLabel}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -181,7 +358,7 @@ const CalendarPage: React.FC = () => {
         <div className="mb-4">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-indigo-500 mb-0.5">Overview</p>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Calendar</h1>
-          <p className="text-xs text-slate-400 mt-0.5">Entries, reminders, deliveries &amp; due dates</p>
+          <p className="text-xs text-slate-400 mt-0.5">Tap a date to see events — tap an event to expand details</p>
         </div>
 
         {/* Legend bar */}
@@ -247,7 +424,7 @@ const CalendarPage: React.FC = () => {
               </p>
               {selectedEvents.length > 0 && (
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  {selectedEvents.length} event{selectedEvents.length !== 1 ? 's' : ''}
+                  {selectedEvents.length} event{selectedEvents.length !== 1 ? 's' : ''} — tap to expand
                 </p>
               )}
             </div>
