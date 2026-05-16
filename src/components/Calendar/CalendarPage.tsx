@@ -60,6 +60,7 @@ const CalendarPage: React.FC = () => {
   const [loading, setLoading]           = useState(true);
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [details, setDetails]           = useState<Record<string, EventDetail>>({});
+  const [contractQueryError, setContractQueryError] = useState<string | null>(null);
 
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(viewDate));
@@ -87,8 +88,18 @@ const CalendarPage: React.FC = () => {
     if (reminderRes.status === 'fulfilled' && reminderRes.value.data) {
       reminderRes.value.data.forEach(e => next.push({ id: `r-${e.id}`, type: 'reminder', title: e.title || 'Reminder', date: e.reminder_date as string, subtitle: e.reminder_time ? `at ${e.reminder_time}` : undefined, link: `/app/home?entry=${e.id}` }));
     }
-    if (contractRes.status === 'fulfilled' && contractRes.value.data) {
-      contractRes.value.data.forEach(c => next.push({ id: c.id, type: 'contract', title: c.contract_no, date: c.delivery_date as string, subtitle: c.buyer_name, link: `/app/contracts/${c.id}` }));
+    if (contractRes.status === 'fulfilled') {
+      if (contractRes.value.error) {
+        console.error('[Calendar] Contract query error:', contractRes.value.error);
+        setContractQueryError(contractRes.value.error.message || 'Unknown error');
+      } else if (contractRes.value.data) {
+        console.log('[Calendar] Contracts found:', contractRes.value.data.length, contractRes.value.data);
+        setContractQueryError(null);
+        contractRes.value.data.forEach(c => next.push({ id: c.id, type: 'contract', title: c.contract_no, date: c.delivery_date as string, subtitle: c.buyer_name, link: `/app/contracts/${c.id}` }));
+      }
+    } else {
+      console.error('[Calendar] Contract query rejected:', contractRes.reason);
+      setContractQueryError(String(contractRes.reason));
     }
     if (sampleRes.status === 'fulfilled' && sampleRes.value.data) {
       sampleRes.value.data.forEach(s => next.push({ id: s.id, type: 'sample', title: s.sample_number, date: s.due_date as string, subtitle: s.supplier_name, link: `/app/samples/${s.id}` }));
@@ -360,6 +371,18 @@ const CalendarPage: React.FC = () => {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Calendar</h1>
           <p className="text-xs text-slate-400 mt-0.5">Tap a date to see events — tap an event to expand details</p>
         </div>
+
+        {/* Contract query error banner */}
+        {contractQueryError && (
+          <div className="mb-3 flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl px-3 py-2.5">
+            <span className="text-red-500 text-xs font-bold flex-shrink-0 mt-0.5">⚠</span>
+            <div>
+              <p className="text-xs font-bold text-red-700">Contract deliveries couldn't load</p>
+              <p className="text-[11px] text-red-500 mt-0.5">{contractQueryError}</p>
+              <p className="text-[11px] text-red-400 mt-1">Run the SQL migration in Supabase to add the <code className="bg-red-100 px-1 rounded">delivery_date</code> column, then open the contract and set its Delivery Date.</p>
+            </div>
+          </div>
+        )}
 
         {/* Legend bar */}
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-4">
