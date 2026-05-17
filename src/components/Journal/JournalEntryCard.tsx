@@ -68,44 +68,38 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({
       onClick={handleInteraction}
       className="group relative rounded-2xl border border-slate-200 bg-white cursor-pointer select-none flex flex-col transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-blue-300 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_4px_14px_-6px_rgba(15,23,42,0.08)] hover:shadow-[0_8px_24px_-8px_rgba(37,99,235,0.18)]"
     >
-      <div className="relative flex flex-col px-5 py-5">
+      <div className="relative flex flex-col px-3 py-2.5">
         {/* Title row */}
-        <div className="flex items-baseline justify-between gap-3 mb-1">
-          <h4 className="text-base font-bold leading-tight tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
+        <div className="flex items-baseline justify-between gap-2 mb-0.5">
+          <h4 className="text-[12px] font-bold leading-tight tracking-tight line-clamp-1 flex-1 min-w-0 text-slate-900">
             {entry.title}
           </h4>
-          <span className="text-[11px] font-bold tabular-nums shrink-0 text-slate-400 group-hover:opacity-0 transition-opacity uppercase tracking-wider">
+          <span className="text-[10px] font-semibold tabular-nums shrink-0 text-slate-400 group-hover:opacity-0 transition-opacity uppercase tracking-wider">
             {format(new Date(entry.created_at), 'h:mm a')}
           </span>
-          
+
           {/* Actions - visible on hover */}
-          <div className="absolute right-4 top-4 flex items-center gap-1 p-1 rounded-xl shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
+          <div className="absolute right-3 top-2.5 flex items-center gap-0.5 p-0.5 rounded-lg shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit?.(entry);
-              }}
-              className="p-1.5 rounded-lg transition-colors text-slate-500 hover:text-blue-600 hover:bg-blue-50"
+              onClick={(e) => { e.stopPropagation(); onEdit?.(entry); }}
+              className="p-1 rounded-md transition-colors text-slate-500 hover:text-blue-600 hover:bg-blue-50"
               title="Edit"
             >
-              <Edit2 className="h-4 w-4" />
+              <Edit2 className="h-3 w-3" />
             </button>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete();
-              }}
-              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+              className="p-1 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
               title="Delete"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3 w-3" />
             </button>
           </div>
         </div>
 
-        {/* Content - Larger preview */}
+        {/* Content preview */}
         {entry.content && (
-          <p className="text-sm line-clamp-6 leading-relaxed mt-3 text-slate-600 whitespace-pre-wrap">
+          <p className="text-[11px] line-clamp-3 leading-relaxed mt-1.5 text-slate-500 whitespace-pre-wrap">
             {entry.content}
           </p>
         )}

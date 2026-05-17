@@ -283,14 +283,32 @@ const HomePage: React.FC = () => {
       <div className="hidden md:flex flex-col h-full page-fade-in">
 
         {/* ── Full-width branding header ── */}
-        <div className="shrink-0 bg-white border-b border-gray-100 px-6 pt-5 pb-4">
-          <p className="text-2xl font-bold leading-tight">
-            <span className="text-gray-900">JILD </span>
-            <span className="text-blue-600">IMPEX </span>
-            <span className="text-gray-900">Management</span>
-          </p>
-          <h1 className="text-xl font-bold text-gray-900 leading-tight mt-0.5">{getGreeting()} 👋</h1>
-          <p className="text-sm text-gray-400 mt-1 text-center">{formatToday()}</p>
+        <div className="shrink-0 bg-white border-b border-gray-100 px-6 pt-4 pb-3">
+          <div className="flex items-start gap-4">
+            {/* Left: branding + greeting + date */}
+            <div className="flex-1 min-w-0">
+              <p className="text-2xl font-bold leading-tight">
+                <span className="text-gray-900">JILD </span>
+                <span className="text-blue-600">IMPEX </span>
+                <span className="text-gray-900">Management</span>
+              </p>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight mt-0.5">{getGreeting()} 👋</h1>
+              <p className="text-[12px] text-gray-400 mt-1">{formatToday()}</p>
+            </div>
+            {/* Right: search */}
+            <div className="shrink-0 flex flex-col items-end justify-start pt-1">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  value={desktopSearch}
+                  onChange={e => setDesktopSearch(e.target.value)}
+                  placeholder="Search orders & journal…"
+                  className="h-8 pl-8 pr-3 w-60 text-[12px] bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* ── Split panels ── */}
@@ -309,31 +327,44 @@ const HomePage: React.FC = () => {
               </button>
             </div>
             {/* Scrollable journal content */}
-            <div className="flex-1 overflow-y-auto px-4 pt-3">
-              <JournalWidget entries={journalEntries} loading={journalLoading} onEntriesUpdated={fetchJournalEntries} hideHeader />
+            <div className="flex-1 overflow-y-auto px-3 pt-3">
+              {desktopSearch.trim() ? (
+                /* Search results view */
+                <div>
+                  {journalEntries.filter(e => {
+                    const s = desktopSearch.toLowerCase();
+                    return e.title.toLowerCase().includes(s) || (e.content && e.content.toLowerCase().includes(s));
+                  }).length === 0 ? (
+                    <p className="text-[12px] text-gray-400 text-center py-6">No journal entries match "{desktopSearch}"</p>
+                  ) : (
+                    <div className="space-y-2 pb-4">
+                      {journalEntries.filter(e => {
+                        const s = desktopSearch.toLowerCase();
+                        return e.title.toLowerCase().includes(s) || (e.content && e.content.toLowerCase().includes(s));
+                      }).map(entry => (
+                        <div key={entry.id} className="rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm cursor-pointer hover:border-blue-200 transition-colors"
+                             onClick={() => setSelectedEntryForPopup(entry)}>
+                          <p className="text-[12px] font-bold text-gray-800 line-clamp-1">{entry.title}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                          {entry.content && <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{entry.content}</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <JournalWidget entries={journalEntries} loading={journalLoading} onEntriesUpdated={fetchJournalEntries} hideHeader />
+              )}
             </div>
           </div>
 
           {/* RIGHT: Recent Activity */}
           <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50">
-            {/* Panel header: filter pills + search */}
-            <div className="px-5 pt-3 pb-2.5 border-b border-gray-100 bg-white shrink-0">
-              <div className="flex items-center gap-3 mb-2.5">
-                <div>
-                  <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Recent Activity</h2>
-                  <p className="text-[10px] text-gray-400">Contracts · Letters · Payments</p>
-                </div>
-                {/* Search input */}
-                <div className="ml-auto relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
-                  <input
-                    type="text"
-                    value={desktopSearch}
-                    onChange={e => setDesktopSearch(e.target.value)}
-                    placeholder="Search…"
-                    className="h-8 pl-8 pr-3 w-52 text-[12px] bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
-                  />
-                </div>
+            {/* Panel header: label + filter pills */}
+            <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 bg-white shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Recent Activity</h2>
+                <p className="text-[10px] text-gray-400">Contracts · Letters · Payments</p>
               </div>
               {/* Filter pills */}
               <div className="flex gap-1.5">

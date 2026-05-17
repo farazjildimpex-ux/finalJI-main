@@ -49,19 +49,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
   return (
     <div className={`bg-white h-full ${w} flex flex-col border-r border-gray-100 transition-all duration-200 overflow-hidden`}>
 
-      {/* Logo mark */}
-      <div className={`flex items-center border-b border-gray-100 shrink-0 h-14 ${collapsed ? 'justify-center px-0' : 'px-3 gap-2.5'}`}>
-        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shrink-0">
-          <span className="text-white text-[10px] font-black">JI</span>
-        </div>
-        {!collapsed && (
-          <div className="min-w-0">
-            <p className="text-[11px] font-black text-gray-900 leading-tight truncate">JILD IMPEX</p>
-            <p className="text-[9px] text-gray-400 leading-tight truncate">Management Portal</p>
-          </div>
-        )}
-      </div>
-
       {/* Nav items */}
       <nav className="flex-1 py-2 flex flex-col overflow-y-auto no-scrollbar">
         {navigationItems.map((item) => {

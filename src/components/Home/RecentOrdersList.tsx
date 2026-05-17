@@ -144,14 +144,9 @@ const RecentOrdersList: React.FC<RecentOrdersListProps> = ({ orders, loading, on
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       {getOrderIcon(order.type)}
-                      <div>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${ts.badge} mr-1`}>
-                          {TYPE_LABEL[order.type] || order.type}
-                        </span>
-                        <span className="text-[12px] font-semibold text-gray-800 truncate max-w-[100px] inline-block align-middle">
-                          {order.contractNumber}
-                        </span>
-                      </div>
+                      <span className="text-[12px] font-semibold text-gray-800 truncate max-w-[120px]">
+                        {order.contractNumber}
+                      </span>
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
