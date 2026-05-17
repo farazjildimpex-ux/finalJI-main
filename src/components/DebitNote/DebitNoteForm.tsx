@@ -290,7 +290,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
           // Fetch linked invoices for this contract
           const { data: invData } = await supabase
             .from('invoices')
-            .select('invoice_number, invoice_date, invoice_value')
+            .select('invoice_number, invoice_date, invoice_value, line_items')
             .contains('contract_numbers', [match.contract_no])
             .order('invoice_date', { ascending: false });
           setContractInvoices(invData || []);
@@ -382,7 +382,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     if (firstContractNo) {
       supabase
         .from('invoices')
-        .select('invoice_number, invoice_date, invoice_value')
+        .select('invoice_number, invoice_date, invoice_value, line_items')
         .contains('contract_numbers', [firstContractNo])
         .order('invoice_date', { ascending: false })
         .then(({ data }) => setContractInvoices(data || []));
@@ -744,35 +744,31 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       <FSectionCard title="Invoice Information" icon={Receipt} accent="amber">
         <FField label="Invoice No" htmlFor="invoice_no" span="full">
           {contractInvoices.length > 0 ? (
-            <div className="space-y-1.5">
-              <select
-                value={formData.invoice_no}
-                onChange={(e) => {
-                  const inv = contractInvoices.find((i: any) => i.invoice_number === e.target.value);
-                  setFormData(prev => ({
-                    ...prev,
-                    invoice_no: e.target.value,
-                    invoice_date: inv?.invoice_date ?? prev.invoice_date,
-                    invoice_value: inv?.invoice_value ?? prev.invoice_value,
-                  }));
-                }}
-                className={inputClassName}
-              >
-                <option value="">Select linked invoice…</option>
-                {contractInvoices.map((inv: any) => (
-                  <option key={inv.invoice_number} value={inv.invoice_number}>
-                    {inv.invoice_number}{inv.invoice_date ? ` — ${new Date(inv.invoice_date).toLocaleDateString('en-GB')}` : ''}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={formData.invoice_no}
-                onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
-                className={inputClassName}
-                placeholder="Or type manually…"
-              />
-            </div>
+            <select
+              value={formData.invoice_no}
+              onChange={(e) => {
+                const inv = contractInvoices.find((i: any) => i.invoice_number === e.target.value);
+                const lineItems: any[] = inv?.line_items || [];
+                const totalQty = lineItems.reduce((s: number, li: any) => s + (parseFloat(li.quantity) || 0), 0);
+                const totalPcs = lineItems.reduce((s: number, li: any) => s + (parseFloat(li.pieces) || 0), 0);
+                setFormData(prev => ({
+                  ...prev,
+                  invoice_no: e.target.value,
+                  invoice_date: inv?.invoice_date ?? prev.invoice_date,
+                  invoice_value: inv?.invoice_value ?? prev.invoice_value,
+                  quantity: totalQty ? String(totalQty) : prev.quantity,
+                  pieces: totalPcs ? String(totalPcs) : prev.pieces,
+                }));
+              }}
+              className={inputClassName}
+            >
+              <option value="">Select linked invoice…</option>
+              {contractInvoices.map((inv: any) => (
+                <option key={inv.invoice_number} value={inv.invoice_number}>
+                  {inv.invoice_number}{inv.invoice_date ? ` — ${new Date(inv.invoice_date).toLocaleDateString('en-GB')}` : ''}
+                </option>
+              ))}
+            </select>
           ) : (
             <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} placeholder={selectedContracts.length > 0 ? 'No linked invoices — enter manually' : 'Select a contract first'} />
           )}
