@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import SearchBar from './SearchBar';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -32,21 +33,32 @@ function formatToday() {
   return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
+const DESKTOP_FILTERS = [
+  { label: 'All',       value: 'all' },
+  { label: 'Contracts', value: 'contract' },
+  { label: 'Letters',   value: 'sample' },
+  { label: 'Payments',  value: 'debit_note' },
+];
+
 const HomePage: React.FC = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [desktopFilter, setDesktopFilter] = useState('all');
   const [orders, setOrders] = useState<Order[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [journalLoading, setJournalLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Journal interaction states
+  // Journal interaction states (used for search results + notification deep-link on mobile)
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [selectedEntryForPopup, setSelectedEntryForPopup] = useState<JournalEntry | null>(null);
   const [isJournalFormOpen, setIsJournalFormOpen] = useState(false);
+
+  // Desktop journal new-entry button state
+  const [isDesktopJournalFormOpen, setIsDesktopJournalFormOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!isSupabaseConfigured) {
@@ -120,11 +132,9 @@ const HomePage: React.FC = () => {
       const toMs = (d?: string | null) => (d ? new Date(d).getTime() : 0);
 
       const allOrders = [...contractOrders, ...sampleOrders, ...debitNoteOrders].sort((a, b) => {
-        // Primary: issue date descending (newest first); null dates sort to the bottom
         const dateA = toMs((a as any).date);
         const dateB = toMs((b as any).date);
         if (dateB !== dateA) return dateB - dateA;
-        // Tiebreaker: created_at descending so CJV 889 beats CJV 888 when same date
         return toMs((b as any).createdAt) - toMs((a as any).createdAt);
       });
 
@@ -178,10 +188,8 @@ const HomePage: React.FC = () => {
     const found = journalEntries.find((e) => e.id === entryId);
     if (found) {
       setSelectedEntryForPopup(found);
-      // Remove the param from the URL so a refresh doesn't re-open it
       setSearchParams({}, { replace: true });
     } else if (!journalLoading && journalEntries.length > 0) {
-      // Entry not in local list — fetch it directly then open
       supabase
         .from('journal_entries')
         .select('*')
@@ -195,12 +203,9 @@ const HomePage: React.FC = () => {
   }, [searchParams, journalEntries, journalLoading]);
 
   const filteredOrders = orders.filter((order) => {
-    // First check database filter
     if (activeFilter !== 'all' && activeFilter !== 'journal' && order.type !== activeFilter) {
       return false;
     }
-    
-    // Then check search term
     const searchLower = searchTerm.toLowerCase();
     return (
       order.contractNumber.toLowerCase().includes(searchLower) ||
@@ -211,12 +216,7 @@ const HomePage: React.FC = () => {
   });
 
   const filteredJournal = journalEntries.filter((entry) => {
-    // First check database filter
-    if (activeFilter !== 'all' && activeFilter !== 'journal') {
-      return false;
-    }
-
-    // Then check search term
+    if (activeFilter !== 'all' && activeFilter !== 'journal') return false;
     const searchLower = searchTerm.toLowerCase();
     return (
       entry.title.toLowerCase().includes(searchLower) || 
@@ -225,6 +225,17 @@ const HomePage: React.FC = () => {
   });
 
   const activeOrders = orders.filter((order) => order.status !== 'Completed');
+
+  // Desktop filter
+  const desktopOrders = desktopFilter === 'all'
+    ? orders
+    : orders.filter((o) => o.type === desktopFilter);
+
+  const handlePullRefresh = useCallback(async () => {
+    await Promise.all([fetchData(), fetchJournalEntries()]);
+  }, [fetchData, fetchJournalEntries]);
+
+  const firstName = useMemo(() => getFirstName(user), [user]);
 
   if (!isSupabaseConfigured) {
     return (
@@ -241,137 +252,265 @@ const HomePage: React.FC = () => {
   const showJournal = activeFilter === 'all' || activeFilter === 'journal';
   const showOrders = activeFilter === 'all' || activeFilter !== 'journal';
 
-  const handlePullRefresh = useCallback(async () => {
-    await Promise.all([fetchData(), fetchJournalEntries()]);
-  }, [fetchData, fetchJournalEntries]);
+  // Shared AI link logic used by desktop journal form
+  const handleDesktopJournalSave = async (savedEntry?: JournalEntry) => {
+    setIsDesktopJournalFormOpen(false);
+    fetchJournalEntries();
 
-  const firstName = useMemo(() => getFirstName(user), [user]);
+    if (savedEntry && !savedEntry.parent_id) {
+      const tenDaysAgo = new Date();
+      tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+      const pastEntries = journalEntries.filter(
+        e => e.id !== savedEntry.id && new Date(e.entry_date) >= tenDaysAgo
+      );
+      if (pastEntries.length > 0) {
+        dialogService.toast({ message: 'AI is looking for related entries...', durationMs: 2000 });
+        const suggestion = await suggestJournalLink(savedEntry, pastEntries);
+        if (suggestion.suggested_parent_id) {
+          const parentEntry = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
+          if (parentEntry) {
+            const link = await dialogService.confirm({
+              title: 'Link Journal Entry?',
+              message: `AI noticed this entry is related to: "${parentEntry.title}".\n\nReason: ${suggestion.reasoning}\n\nWould you like to link them together in a thread?`,
+              confirmLabel: 'Link Entries',
+            });
+            if (link) {
+              await supabase.from('journal_entries').update({ parent_id: parentEntry.id }).eq('id', savedEntry.id);
+              fetchJournalEntries();
+              dialogService.success('Entries linked successfully.');
+            }
+          }
+        }
+      }
+    }
+  };
 
   return (
-    <PullToRefresh onRefresh={handlePullRefresh}>
-    <div className="max-w-7xl mx-auto page-fade-in px-4">
+    <>
+      {/* ══════════════════════════════════════════
+          MOBILE LAYOUT — unchanged, hidden on desktop
+          ══════════════════════════════════════════ */}
+      <div className="md:hidden">
+        <PullToRefresh onRefresh={handlePullRefresh}>
+          <div className="max-w-7xl mx-auto page-fade-in px-4">
 
-      {/* ── Welcome header ── */}
-      <div className="pt-6 pb-5">
-        <p className="text-2xl font-bold leading-tight">
-          <span className="text-gray-900">JILD </span>
-          <span className="text-blue-600">IMPEX </span>
-          <span className="text-gray-900">Management</span>
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">
-          {getGreeting()} 👋
-        </h1>
-        <p className="text-sm text-gray-400 mt-0.5">{formatToday()}</p>
-      </div>
+            {/* Welcome header */}
+            <div className="pt-6 pb-5">
+              <p className="text-2xl font-bold leading-tight">
+                <span className="text-gray-900">JILD </span>
+                <span className="text-blue-600">IMPEX </span>
+                <span className="text-gray-900">Management</span>
+              </p>
+              <h1 className="text-2xl font-bold text-gray-900 leading-tight mt-0.5">
+                {getGreeting()} 👋
+              </h1>
+              <p className="text-sm text-gray-400 mt-0.5">{formatToday()}</p>
+            </div>
 
-      {/* ── Search & filters ── */}
-      <div className="mb-5">
-        <SearchBar
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-        />
-      </div>
+            {/* Search & filters */}
+            <div className="mb-5">
+              <SearchBar
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                activeFilter={activeFilter}
+                onFilterChange={setActiveFilter}
+              />
+            </div>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700">
-          <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-          {error}
-          <button onClick={fetchData} className="ml-auto font-bold underline">Retry</button>
-        </div>
-      )}
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700">
+                <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+                {error}
+                <button onClick={fetchData} className="ml-auto font-bold underline">Retry</button>
+              </div>
+            )}
 
-      {/* Journal Section */}
-      {showJournal && (
-        <div className="mb-6 md:mb-8">
-          {searchTerm || activeFilter === 'journal' ? (
-            <JournalSearchResults
-              entries={filteredJournal}
-              searchTerm={searchTerm}
-              onEntriesUpdated={fetchJournalEntries}
-              onOpen={(e) => setSelectedEntryForPopup(e)}
-              onEdit={(e) => {
-                setEditingEntry(e);
-                setIsJournalFormOpen(true);
-              }}
-            />
-          ) : (
-            <JournalWidget 
-              entries={journalEntries} 
-              loading={journalLoading} 
-              onEntriesUpdated={fetchJournalEntries} 
-            />
-          )}
-        </div>
-      )}
+            {/* Journal Section */}
+            {showJournal && (
+              <div className="mb-6">
+                {searchTerm || activeFilter === 'journal' ? (
+                  <JournalSearchResults
+                    entries={filteredJournal}
+                    searchTerm={searchTerm}
+                    onEntriesUpdated={fetchJournalEntries}
+                    onOpen={(e) => setSelectedEntryForPopup(e)}
+                    onEdit={(e) => {
+                      setEditingEntry(e);
+                      setIsJournalFormOpen(true);
+                    }}
+                  />
+                ) : (
+                  <JournalWidget 
+                    entries={journalEntries} 
+                    loading={journalLoading} 
+                    onEntriesUpdated={fetchJournalEntries} 
+                  />
+                )}
+              </div>
+            )}
 
-      {/* Orders Section */}
-      {showOrders && (
-        <div className="mb-6 md:mb-8">
-          <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider mb-4">
-            {searchTerm || activeFilter !== 'all' ? 'Search Results' : 'Recent Orders'}
-          </h2>
-          <RecentOrdersList
-            orders={searchTerm || activeFilter !== 'all' ? filteredOrders : activeOrders}
-            loading={loading}
-            onStatusChange={fetchData}
-          />
-        </div>
-      )}
+            {/* Orders Section */}
+            {showOrders && (
+              <div className="mb-6">
+                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wider mb-4">
+                  {searchTerm || activeFilter !== 'all' ? 'Search Results' : 'Recent Orders'}
+                </h2>
+                <RecentOrdersList
+                  orders={searchTerm || activeFilter !== 'all' ? filteredOrders : activeOrders}
+                  loading={loading}
+                  onStatusChange={fetchData}
+                />
+              </div>
+            )}
 
-      {/* Shared Modals for Journal */}
-      {isJournalFormOpen && (
-        <JournalEntryForm
-          initialDate={editingEntry ? new Date(editingEntry.entry_date) : new Date()}
-          initialEntry={editingEntry}
-          onClose={() => {
-            setIsJournalFormOpen(false);
-            setEditingEntry(null);
-          }}
-          onSave={async (savedEntry?: JournalEntry) => {
-            setIsJournalFormOpen(false);
-            setEditingEntry(null);
-            fetchJournalEntries();
-            
-            if (savedEntry && !savedEntry.parent_id && !editingEntry) {
-              const tenDaysAgo = new Date();
-              tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-              
-              const pastEntries = journalEntries.filter(
-                e => e.id !== savedEntry.id && new Date(e.entry_date) >= tenDaysAgo
-              );
-              
-              if (pastEntries.length > 0) {
-                console.log(`[AI Journal] Analyzing entry "${savedEntry.title}" against ${pastEntries.length} past entries.`);
-                dialogService.toast({ message: 'AI is looking for related entries...', durationMs: 2000 });
-                
-                const suggestion = await suggestJournalLink(savedEntry, pastEntries);
-                console.log('[AI Journal] Suggestion:', suggestion);
-                if (suggestion.suggested_parent_id) {
-                  const parentEntry = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
-                  if (parentEntry) {
-                    const link = await dialogService.confirm({
-                      title: 'Link Journal Entry?',
-                      message: `AI noticed this entry is related to: "${parentEntry.title}".\n\nReason: ${suggestion.reasoning}\n\nWould you like to link them together in a thread?`,
-                      confirmLabel: 'Link Entries',
-                    });
-                    if (link) {
-                      await supabase
-                        .from('journal_entries')
-                        .update({ parent_id: parentEntry.id })
-                        .eq('id', savedEntry.id);
-                      fetchJournalEntries();
-                      dialogService.success('Entries linked successfully.');
+            {/* Mobile modals */}
+            {isJournalFormOpen && (
+              <JournalEntryForm
+                initialDate={editingEntry ? new Date(editingEntry.entry_date) : new Date()}
+                initialEntry={editingEntry}
+                onClose={() => { setIsJournalFormOpen(false); setEditingEntry(null); }}
+                onSave={async (savedEntry?: JournalEntry) => {
+                  setIsJournalFormOpen(false);
+                  setEditingEntry(null);
+                  fetchJournalEntries();
+                  if (savedEntry && !savedEntry.parent_id && !editingEntry) {
+                    const tenDaysAgo = new Date();
+                    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+                    const pastEntries = journalEntries.filter(
+                      e => e.id !== savedEntry.id && new Date(e.entry_date) >= tenDaysAgo
+                    );
+                    if (pastEntries.length > 0) {
+                      dialogService.toast({ message: 'AI is looking for related entries...', durationMs: 2000 });
+                      const suggestion = await suggestJournalLink(savedEntry, pastEntries);
+                      if (suggestion.suggested_parent_id) {
+                        const parentEntry = pastEntries.find(e => e.id === suggestion.suggested_parent_id);
+                        if (parentEntry) {
+                          const link = await dialogService.confirm({
+                            title: 'Link Journal Entry?',
+                            message: `AI noticed this entry is related to: "${parentEntry.title}".\n\nReason: ${suggestion.reasoning}\n\nWould you like to link them together in a thread?`,
+                            confirmLabel: 'Link Entries',
+                          });
+                          if (link) {
+                            await supabase.from('journal_entries').update({ parent_id: parentEntry.id }).eq('id', savedEntry.id);
+                            fetchJournalEntries();
+                            dialogService.success('Entries linked successfully.');
+                          }
+                        }
+                      }
                     }
                   }
-                }
-              }
-            }
-          }}
+                }}
+              />
+            )}
+            {selectedEntryForPopup && (
+              <JournalEntryPopup
+                entry={selectedEntryForPopup}
+                allEntries={journalEntries}
+                onClose={() => setSelectedEntryForPopup(null)}
+                onUpdate={fetchJournalEntries}
+              />
+            )}
+          </div>
+        </PullToRefresh>
+      </div>
+
+      {/* ══════════════════════════════════════════
+          DESKTOP SPLIT PANEL — hidden on mobile
+          Left: Journal | Right: Recent Activity
+          ══════════════════════════════════════════ */}
+      <div className="hidden md:flex h-full page-fade-in">
+
+        {/* ── LEFT PANEL: Journal ── */}
+        <div className="w-[380px] shrink-0 border-r border-gray-100 flex flex-col bg-white overflow-hidden">
+          {/* Panel header */}
+          <div className="px-5 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+            <h2 className="text-[13px] font-bold text-gray-800 uppercase tracking-wide">Journal</h2>
+            <button
+              onClick={() => setIsDesktopJournalFormOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New Entry
+            </button>
+          </div>
+
+          {/* JournalWidget fills the rest — its own scroll */}
+          <div className="flex-1 overflow-y-auto px-4 pt-4">
+            <JournalWidget
+              entries={journalEntries}
+              loading={journalLoading}
+              onEntriesUpdated={fetchJournalEntries}
+              hideHeader
+            />
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL: Recent Activity ── */}
+        <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50">
+          {/* Panel header + filter pills */}
+          <div className="px-5 pt-4 pb-3 border-b border-gray-100 bg-white shrink-0">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-[13px] font-bold text-gray-800 uppercase tracking-wide">Recent Activity</h2>
+                <p className="text-[10px] text-gray-400 mt-0.5">Contracts · Letters · Payments</p>
+              </div>
+              {error && (
+                <button onClick={fetchData} className="text-[11px] text-red-500 font-semibold underline">
+                  Retry
+                </button>
+              )}
+            </div>
+            {/* Filter pills */}
+            <div className="flex gap-1.5 flex-wrap">
+              {DESKTOP_FILTERS.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setDesktopFilter(f.value)}
+                  className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all
+                    ${desktopFilter === f.value
+                      ? 'bg-blue-600 text-white border-blue-600'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                    }`}
+                >
+                  {f.label}
+                  {f.value !== 'all' && (
+                    <span className="ml-1 opacity-60">
+                      {orders.filter(o => o.type === f.value).length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Orders table — its own scroll */}
+          <div className="flex-1 overflow-y-auto p-5">
+            {error && (
+              <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700 text-sm">
+                <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
+                {error}
+              </div>
+            )}
+            <RecentOrdersList
+              orders={desktopOrders}
+              loading={loading}
+              onStatusChange={fetchData}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop journal form (triggered from panel header button) */}
+      {isDesktopJournalFormOpen && (
+        <JournalEntryForm
+          initialDate={new Date()}
+          initialEntry={null}
+          onClose={() => setIsDesktopJournalFormOpen(false)}
+          onSave={handleDesktopJournalSave}
         />
       )}
 
+      {/* Notification deep-link popup (both layouts) */}
       {selectedEntryForPopup && (
         <JournalEntryPopup
           entry={selectedEntryForPopup}
@@ -380,8 +519,7 @@ const HomePage: React.FC = () => {
           onUpdate={fetchJournalEntries}
         />
       )}
-    </div>
-    </PullToRefresh>
+    </>
   );
 };
 

@@ -14,11 +14,13 @@ interface JournalWidgetProps {
   entries: JournalEntry[];
   loading: boolean;
   onEntriesUpdated: () => void;
+  /** When true, hides the "Journal" heading + New Entry button (used in split-panel desktop layout where the panel header provides these) */
+  hideHeader?: boolean;
 }
 
 const SWIPE_THRESHOLD = 50;
 
-const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntriesUpdated }) => {
+const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntriesUpdated, hideHeader = false }) => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
@@ -53,20 +55,23 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
   };
 
   return (
-    <div className="mb-4 md:mb-6">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider">Journal</h2>
-        <button
-          onClick={() => {
-            setEditingEntry(null);
-            setIsFormOpen(true);
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>New Entry</span>
-        </button>
-      </div>
+    <div className="mb-4 md:mb-0">
+      {/* Heading row — hidden when panel provides its own header */}
+      {!hideHeader && (
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg md:text-xl font-bold text-gray-900 uppercase tracking-wider">Journal</h2>
+          <button
+            onClick={() => {
+              setEditingEntry(null);
+              setIsFormOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>New Entry</span>
+          </button>
+        </div>
+      )}
 
       <div className="mb-2 flex items-center gap-2">
         <button
@@ -113,7 +118,7 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 p-1">
+          <div className="grid grid-cols-1 gap-3 p-1">
             {selectedDayEntries.map((entry) => (
               <JournalEntryCard
                 key={entry.id}
