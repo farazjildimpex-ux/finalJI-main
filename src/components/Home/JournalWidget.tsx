@@ -73,10 +73,10 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
         </div>
       )}
 
-      <div className="mb-2 flex items-center gap-1 bg-gray-50 rounded-lg px-1.5 py-1">
+      <div className="mb-2 flex items-center gap-0.5">
         <button
           onClick={() => handleDateChange(addDays(selectedDate, -1))}
-          className="w-6 h-6 flex items-center justify-center rounded-md text-gray-500 hover:bg-white hover:text-gray-800 transition-colors"
+          className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 transition-colors"
         >
           <ChevronLeft className="h-3 w-3" />
         </button>
@@ -84,12 +84,12 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({ entries, loading, onEntri
           <DatePicker
             value={selectedDateKey}
             onChange={(val) => setSelectedDate(new Date(`${val}T00:00:00`))}
-            className="w-full max-w-[190px]"
+            className="w-full max-w-[180px] text-[11px]"
           />
         </div>
         <button
           onClick={() => handleDateChange(addDays(selectedDate, 1))}
-          className="w-6 h-6 flex items-center justify-center rounded-md text-gray-500 hover:bg-white hover:text-gray-800 transition-colors"
+          className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 transition-colors"
         >
           <ChevronRight className="h-3 w-3" />
         </button>
