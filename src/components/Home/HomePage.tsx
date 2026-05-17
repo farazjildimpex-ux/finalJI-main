@@ -34,10 +34,11 @@ function formatToday() {
 }
 
 const DESKTOP_FILTERS = [
-  { label: 'All',       value: 'all' },
-  { label: 'Contracts', value: 'contract' },
-  { label: 'Letters',   value: 'sample' },
-  { label: 'Payments',  value: 'debit_note' },
+  { label: 'All',       value: 'all',       activeClass: 'bg-gray-800 text-white border-gray-800',      inactiveClass: 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'   },
+  { label: 'Open',      value: 'open',      activeClass: 'bg-amber-500 text-white border-amber-500',    inactiveClass: 'bg-amber-50 text-amber-700 border-amber-200 hover:border-amber-400' },
+  { label: 'Contracts', value: 'contract',  activeClass: 'bg-indigo-600 text-white border-indigo-600',  inactiveClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:border-indigo-400' },
+  { label: 'Letters',   value: 'sample',    activeClass: 'bg-blue-600 text-white border-blue-600',      inactiveClass: 'bg-blue-50 text-blue-700 border-blue-200 hover:border-blue-400'   },
+  { label: 'Payments',  value: 'debit_note',activeClass: 'bg-emerald-600 text-white border-emerald-600',inactiveClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400' },
 ];
 
 const HomePage: React.FC = () => {
@@ -153,7 +154,12 @@ const HomePage: React.FC = () => {
 
   // Desktop filtered orders
   const desktopOrders = useMemo(() => {
-    let list = desktopFilter === 'all' ? orders : orders.filter(o => o.type === desktopFilter);
+    const OPEN_STATUSES = ['Issued', 'Inspected'];
+    let list = desktopFilter === 'all'
+      ? orders
+      : desktopFilter === 'open'
+        ? orders.filter(o => OPEN_STATUSES.includes(o.status || ''))
+        : orders.filter(o => o.type === desktopFilter);
     if (desktopSearch.trim()) {
       const s = desktopSearch.toLowerCase();
       list = list.filter(o =>
@@ -165,6 +171,8 @@ const HomePage: React.FC = () => {
   }, [orders, desktopFilter, desktopSearch]);
 
   const activeOrders = orders.filter((o) => o.status !== 'Completed');
+  const [desktopJournalPage, setDesktopJournalPage] = useState(1);
+  const JOURNAL_PAGE_SIZE = 12;
   const handlePullRefresh = useCallback(async () => { await Promise.all([fetchData(), fetchJournalEntries()]); }, [fetchData, fetchJournalEntries]);
   const firstName = useMemo(() => getFirstName(user), [user]);
 
@@ -327,32 +335,52 @@ const HomePage: React.FC = () => {
               </button>
             </div>
             {/* Scrollable journal content */}
-            <div className="flex-1 overflow-y-auto px-3 pt-3">
-              {desktopSearch.trim() ? (
-                /* Search results view */
-                <div>
-                  {journalEntries.filter(e => {
-                    const s = desktopSearch.toLowerCase();
-                    return e.title.toLowerCase().includes(s) || (e.content && e.content.toLowerCase().includes(s));
-                  }).length === 0 ? (
-                    <p className="text-[12px] text-gray-400 text-center py-6">No journal entries match "{desktopSearch}"</p>
-                  ) : (
-                    <div className="space-y-2 pb-4">
-                      {journalEntries.filter(e => {
-                        const s = desktopSearch.toLowerCase();
-                        return e.title.toLowerCase().includes(s) || (e.content && e.content.toLowerCase().includes(s));
-                      }).map(entry => (
-                        <div key={entry.id} className="rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm cursor-pointer hover:border-blue-200 transition-colors"
-                             onClick={() => setSelectedEntryForPopup(entry)}>
-                          <p className="text-[12px] font-bold text-gray-800 line-clamp-1">{entry.title}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                          {entry.content && <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{entry.content}</p>}
+            <div className="flex-1 overflow-y-auto px-3 pt-3 flex flex-col">
+              {desktopSearch.trim() ? (() => {
+                const s = desktopSearch.toLowerCase();
+                const matched = journalEntries.filter(e =>
+                  e.title.toLowerCase().includes(s) || (e.content && e.content.toLowerCase().includes(s))
+                );
+                const totalPages = Math.max(1, Math.ceil(matched.length / JOURNAL_PAGE_SIZE));
+                const page = Math.min(desktopJournalPage, totalPages);
+                const slice = matched.slice((page - 1) * JOURNAL_PAGE_SIZE, page * JOURNAL_PAGE_SIZE);
+                return (
+                  <div className="flex flex-col flex-1 min-h-0">
+                    {matched.length === 0 ? (
+                      <p className="text-[12px] text-gray-400 text-center py-6">No entries match "{desktopSearch}"</p>
+                    ) : (
+                      <>
+                        <div className="space-y-2 pb-3">
+                          {slice.map(entry => (
+                            <div key={entry.id}
+                              className="rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm cursor-pointer hover:border-blue-200 transition-colors"
+                              onClick={() => setSelectedEntryForPopup(entry)}>
+                              <p className="text-[13px] font-bold text-gray-800 line-clamp-1">{entry.title}</p>
+                              <p className="text-[10px] text-gray-400 mt-0.5">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                              {entry.content && <p className="text-[12px] text-gray-500 mt-1 line-clamp-2">{entry.content}</p>}
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-between pt-1 pb-3 border-t border-gray-100 mt-auto shrink-0">
+                            <p className="text-[11px] text-gray-400">{(page-1)*JOURNAL_PAGE_SIZE+1}–{Math.min(page*JOURNAL_PAGE_SIZE, matched.length)} of {matched.length}</p>
+                            <div className="flex gap-1">
+                              <button onClick={() => setDesktopJournalPage(p => Math.max(1, p-1))} disabled={page === 1}
+                                className="px-2.5 py-1 rounded-lg text-[11px] bg-gray-100 text-gray-600 disabled:opacity-30 hover:bg-gray-200">
+                                ‹ Prev
+                              </button>
+                              <button onClick={() => setDesktopJournalPage(p => Math.min(totalPages, p+1))} disabled={page === totalPages}
+                                className="px-2.5 py-1 rounded-lg text-[11px] bg-gray-100 text-gray-600 disabled:opacity-30 hover:bg-gray-200">
+                                Next ›
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+              })() : (
                 <JournalWidget entries={journalEntries} loading={journalLoading} onEntriesUpdated={fetchJournalEntries} hideHeader />
               )}
             </div>
@@ -366,23 +394,17 @@ const HomePage: React.FC = () => {
                 <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Recent Activity</h2>
               </div>
               {/* Filter pills */}
-              <div className="flex gap-1.5">
-                {DESKTOP_FILTERS.map((f) => {
-                  const count = f.value === 'all' ? orders.length : orders.filter(o => o.type === f.value).length;
-                  return (
-                    <button
-                      key={f.value}
-                      onClick={() => setDesktopFilter(f.value)}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold border transition-all
-                        ${desktopFilter === f.value
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'}`}
-                    >
-                      {f.label}
-                      <span className={`text-[10px] ${desktopFilter === f.value ? 'opacity-70' : 'opacity-50'}`}>{count}</span>
-                    </button>
-                  );
-                })}
+              <div className="flex gap-1.5 flex-wrap">
+                {DESKTOP_FILTERS.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => setDesktopFilter(f.value)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all
+                      ${desktopFilter === f.value ? f.activeClass : f.inactiveClass}`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
               </div>
             </div>
 
