@@ -403,7 +403,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-400 ring-1 ring-gray-200"><FileText className="h-5 w-5" /></div>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-base font-bold text-gray-900">{invoice.invoice_number}</span>
+              <span className="text-sm font-semibold text-gray-900">{invoice.invoice_number}</span>
               <span className="text-xs text-gray-500">{formatDate(invoice.invoice_date)}</span>
             </div>
             <div className="mt-0.5 flex items-center gap-4 text-xs text-gray-500">
@@ -489,7 +489,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
       <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-blue-600" />
-          <h3 className="text-base font-bold text-gray-900">Invoices & Shipping</h3>
+          <h3 className="text-sm font-bold text-gray-900">Invoices & Shipping</h3>
         </div>
         {!isEditing && (
           <button type="button" onClick={startCreate} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-md hover:bg-blue-700 transition-colors shadow-sm">

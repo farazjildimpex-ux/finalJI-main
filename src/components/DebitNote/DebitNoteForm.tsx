@@ -334,16 +334,24 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     setShowContractDropdowns(newDropdownStates);
 
     // Fetch invoices linked to the first selected contract
+    // Query both contract_no (text) and contract_numbers (array) fields to cover both storage formats
     const firstContractNo = newSelectedContracts[0]?.contract_no;
     if (firstContractNo) {
-      supabase
-        .from('invoices')
-        .select('invoice_no, invoice_date, invoice_value')
-        .eq('contract_no', firstContractNo)
-        .order('invoice_date', { ascending: false })
-        .then(({ data }) => {
-          setContractInvoices(data || []);
+      (async () => {
+        const [{ data: byText }, { data: byArray }] = await Promise.all([
+          supabase.from('invoices').select('invoice_no, invoice_date, invoice_value')
+            .eq('contract_no', firstContractNo).order('invoice_date', { ascending: false }),
+          supabase.from('invoices').select('invoice_no, invoice_date, invoice_value')
+            .contains('contract_numbers', [firstContractNo]).order('invoice_date', { ascending: false }),
+        ]);
+        const seen = new Set<string>();
+        const combined = [...(byText || []), ...(byArray || [])].filter(inv => {
+          if (seen.has(inv.invoice_no)) return false;
+          seen.add(inv.invoice_no);
+          return true;
         });
+        setContractInvoices(combined);
+      })();
     } else {
       setContractInvoices([]);
     }
