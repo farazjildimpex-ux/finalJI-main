@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { navigationItems } from '../../data/mockData';
-import { Building2, Key, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Building2, Key, LogOut } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
@@ -10,27 +10,10 @@ interface SidebarProps {
   onChangePassword: () => void;
 }
 
-const COLLAPSED_KEY = 'jild_sidebar_collapsed';
-
-function loadCollapsed(): boolean {
-  try { return localStorage.getItem(COLLAPSED_KEY) === 'true'; } catch { return false; }
-}
-function saveCollapsed(v: boolean) {
-  try { localStorage.setItem(COLLAPSED_KEY, String(v)); } catch {}
-}
-
 const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [loggingOut, setLoggingOut] = useState(false);
-  const [collapsed, setCollapsed] = useState(loadCollapsed);
-
-  const toggle = () => {
-    setCollapsed(v => {
-      saveCollapsed(!v);
-      return !v;
-    });
-  };
 
   const handleLogout = async () => {
     try {
@@ -44,13 +27,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
     }
   };
 
-  const w = collapsed ? 'w-12' : 'w-44';
-
   return (
-    <div className={`bg-white h-full ${w} flex flex-col border-r border-gray-100 transition-all duration-200 overflow-hidden`}>
+    <div className="bg-white h-full w-44 flex flex-col border-r border-gray-100 overflow-hidden">
 
       {/* Nav items */}
-      <nav className="flex-1 py-2 flex flex-col overflow-y-auto no-scrollbar">
+      <nav className="flex-1 pt-3 pb-2 flex flex-col overflow-y-auto no-scrollbar">
         {navigationItems.map((item) => {
           // @ts-ignore
           const Icon = LucideIcons[item.icon.charAt(0).toUpperCase() + item.icon.slice(1)];
@@ -65,26 +46,22 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
               )}
               <Link
                 to={item.path}
-                title={collapsed ? item.name : undefined}
-                className={`flex items-center gap-2.5 w-full py-2.5 transition-all duration-150
-                  ${collapsed ? 'justify-center px-0' : 'px-3'}
+                className={`flex items-center gap-2.5 w-full py-2.5 px-3 transition-all duration-150
                   ${isActive
                     ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
+                    : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
                   }`}
               >
                 {Icon && (
                   <Icon
-                    className="shrink-0"
+                    className={`shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-500'}`}
                     style={{ width: 15, height: 15 }}
                     strokeWidth={isActive ? 2.5 : 1.75}
                   />
                 )}
-                {!collapsed && (
-                  <span className={`text-[12px] font-semibold whitespace-nowrap truncate ${isActive ? 'text-blue-700' : ''}`}>
-                    {item.name}
-                  </span>
-                )}
+                <span className={`text-[12px] font-semibold whitespace-nowrap truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+                  {item.name}
+                </span>
               </Link>
             </div>
           );
@@ -92,10 +69,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
       </nav>
 
       {/* Bottom actions */}
-      <div className={`py-2 flex flex-col border-t border-gray-100 shrink-0 ${collapsed ? 'items-center' : ''}`}>
+      <div className="py-2 flex flex-col border-t border-gray-100 shrink-0">
         {[
-          { label: 'Manage Companies', icon: Building2, onClick: onManageCompanies, danger: false },
-          { label: 'Change Password',  icon: Key,       onClick: onChangePassword,  danger: false },
+          { label: 'Companies', icon: Building2, onClick: onManageCompanies, danger: false },
+          { label: 'Change Password', icon: Key, onClick: onChangePassword, danger: false },
           { label: loggingOut ? 'Logging out…' : 'Logout', icon: LogOut, onClick: handleLogout, danger: true },
         ].map((a) => {
           const Icon = a.icon;
@@ -103,38 +80,18 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
             <button
               key={a.label}
               onClick={a.onClick}
-              disabled={a.label.includes('Logging')}
-              title={collapsed ? a.label : undefined}
-              className={`flex items-center gap-2.5 py-2.5 w-full transition-all duration-150 disabled:opacity-40
-                ${collapsed ? 'justify-center px-0' : 'px-3'}
+              disabled={loggingOut && a.label.includes('Logging')}
+              className={`flex items-center gap-2.5 py-2.5 px-3 w-full transition-all duration-150 disabled:opacity-40
                 ${a.danger
-                  ? 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                  : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'
+                  ? 'text-gray-500 hover:text-red-500 hover:bg-red-50'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
             >
               <Icon style={{ width: 14, height: 14, flexShrink: 0 }} strokeWidth={1.75} />
-              {!collapsed && <span className="text-[12px] font-medium truncate">{a.label}</span>}
+              <span className="text-[12px] font-medium truncate">{a.label}</span>
             </button>
           );
         })}
-
-        {/* Collapse toggle */}
-        <button
-          onClick={toggle}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          className={`flex items-center gap-2 py-2 w-full text-gray-300 hover:text-gray-500 transition-colors
-            ${collapsed ? 'justify-center px-0' : 'px-3'}`}
-        >
-          {collapsed
-            ? <ChevronRight style={{ width: 13, height: 13 }} />
-            : (
-              <>
-                <ChevronLeft style={{ width: 13, height: 13 }} />
-                <span className="text-[11px] font-medium">Collapse</span>
-              </>
-            )
-          }
-        </button>
       </div>
     </div>
   );

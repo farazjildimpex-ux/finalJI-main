@@ -304,7 +304,7 @@ const HomePage: React.FC = () => {
                   value={desktopSearch}
                   onChange={e => setDesktopSearch(e.target.value)}
                   placeholder="Search orders & journal…"
-                  className="h-8 pl-8 pr-3 w-60 text-[12px] bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
+                  className="h-9 pl-8 pr-3 w-72 text-[13px] bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
                 />
               </div>
             </div>
@@ -362,9 +362,8 @@ const HomePage: React.FC = () => {
           <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50">
             {/* Panel header: label + filter pills */}
             <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 bg-white shrink-0">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center mb-2">
                 <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Recent Activity</h2>
-                <p className="text-[10px] text-gray-400">Contracts · Letters · Payments</p>
               </div>
               {/* Filter pills */}
               <div className="flex gap-1.5">

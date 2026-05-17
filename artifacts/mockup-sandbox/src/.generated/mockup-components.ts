@@ -2,6 +2,7 @@
 type ModuleMap = Record<string, () => Promise<Record<string, unknown>>>;
 export const modules: ModuleMap = {
   "./components/mockups/jild-ui/MobileNav.tsx": () => import("../components/mockups/jild-ui/MobileNav.tsx"),
+  "./components/mockups/jild-ui/MobileRevamp.tsx": () => import("../components/mockups/jild-ui/MobileRevamp.tsx"),
   "./components/mockups/jild-ui/UISummary.tsx": () => import("../components/mockups/jild-ui/UISummary.tsx"),
   "./components/mockups/jild-ui/WebLayout.tsx": () => import("../components/mockups/jild-ui/WebLayout.tsx")
 };
