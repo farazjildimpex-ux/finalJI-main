@@ -127,6 +127,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [generatingWord, setGeneratingWord] = useState(false);
+  const [contractInvoices, setContractInvoices] = useState<Array<{invoice_no: string; invoice_date?: string | null; invoice_value?: string}>>([]);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [signatureEnabled, setSignatureEnabled]       = useState(false);
   const [selectedSignature, setSelectedSignature]     = useState<PickedSignature | null>(null);
@@ -331,6 +332,21 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     const newDropdownStates = [...showContractDropdowns];
     newDropdownStates[index] = false;
     setShowContractDropdowns(newDropdownStates);
+
+    // Fetch invoices linked to the first selected contract
+    const firstContractNo = newSelectedContracts[0]?.contract_no;
+    if (firstContractNo) {
+      supabase
+        .from('invoices')
+        .select('invoice_no, invoice_date, invoice_value')
+        .eq('contract_no', firstContractNo)
+        .order('invoice_date', { ascending: false })
+        .then(({ data }) => {
+          setContractInvoices(data || []);
+        });
+    } else {
+      setContractInvoices([]);
+    }
   };
   
   const addContractField = () => {
@@ -409,8 +425,10 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         supplier_name: formData.supplier_name.trim(),
         supplier_address: formData.supplier_address.filter(addr => addr.trim() !== ''),
         contract_no: formData.contract_no.trim(),
+        contract_date: formData.contract_date || null,
         buyer_name: formData.buyer_name.trim(),
         invoice_no: formData.invoice_no.trim(),
+        invoice_date: formData.invoice_date || null,
         quantity: formData.quantity.trim(),
         pieces: formData.pieces.trim(),
         destination: formData.destination.trim(),
@@ -577,6 +595,20 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </div>
       )}
 
+      <FSectionCard title="Company" icon={Building2} accent="teal" right={
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500">Show in PDF</span>
+          {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
+        </div>
+      }>
+        <FField label="Company" htmlFor="company" span="full">
+          <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); setSelectedCompany(selected || null); }} className={inputClassName}>
+            <option value="">Select a company</option>
+            {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+        </FField>
+      </FSectionCard>
+
       <FSectionCard title="Basic Information" icon={ClipboardList} accent="emerald">
         <FField label="Debit Note No" htmlFor="debit_note_no" required>
           <input type="text" id="debit_note_no" name="debit_note_no" value={formData.debit_note_no} onChange={handleChange} className={inputClassName} required />
@@ -591,20 +623,6 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </FField>
         <FField label="Currency" htmlFor="currency">
           <input type="text" id="currency" name="currency" value={formData.currency} readOnly className={inputReadOnlyClass} />
-        </FField>
-      </FSectionCard>
-
-      <FSectionCard title="Company" icon={Building2} accent="teal" right={
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-gray-500">Show in PDF</span>
-          {renderToggle(showCompanyInPdf, () => setShowCompanyInPdf(!showCompanyInPdf))}
-        </div>
-      }>
-        <FField label="Company" htmlFor="company" span="full">
-          <select id="company" name="company" value={formData.company} onChange={(e) => { const selected = companies.find(c => c.name === e.target.value); handleChange(e); setCompanyLetterheadUrl(selected?.letterhead_url || null); setSelectedCompany(selected || null); }} className={inputClassName}>
-            <option value="">Select a company</option>
-            {companies.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
         </FField>
       </FSectionCard>
 
@@ -682,8 +700,40 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       </FSectionCard>
 
       <FSectionCard title="Invoice Information" icon={Receipt} accent="amber">
-        <FField label="Invoice No" htmlFor="invoice_no">
-          <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} />
+        <FField label="Invoice No" htmlFor="invoice_no" span="full">
+          {contractInvoices.length > 0 ? (
+            <div className="space-y-1.5">
+              <select
+                value={formData.invoice_no}
+                onChange={(e) => {
+                  const inv = contractInvoices.find(i => i.invoice_no === e.target.value);
+                  setFormData(prev => ({
+                    ...prev,
+                    invoice_no: e.target.value,
+                    invoice_date: inv?.invoice_date ?? prev.invoice_date,
+                    invoice_value: inv?.invoice_value ?? prev.invoice_value,
+                  }));
+                }}
+                className={inputClassName}
+              >
+                <option value="">Select linked invoice…</option>
+                {contractInvoices.map(inv => (
+                  <option key={inv.invoice_no} value={inv.invoice_no}>
+                    {inv.invoice_no}{inv.invoice_date ? ` — ${new Date(inv.invoice_date).toLocaleDateString('en-GB')}` : ''}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={formData.invoice_no}
+                onChange={(e) => setFormData(prev => ({ ...prev, invoice_no: e.target.value }))}
+                className={inputClassName}
+                placeholder="Or type manually…"
+              />
+            </div>
+          ) : (
+            <input type="text" id="invoice_no" name="invoice_no" value={formData.invoice_no} onChange={handleChange} className={inputClassName} placeholder={selectedContracts.length > 0 ? 'No linked invoices — enter manually' : 'Select a contract first'} />
+          )}
         </FField>
         <FField label="Invoice Date">
           <DatePicker value={formData.invoice_date || ''} onChange={(val) => setFormData({ ...formData, invoice_date: val })} />
@@ -693,6 +743,27 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         </FField>
         <FField label="Pieces" htmlFor="pieces">
           <input type="text" id="pieces" name="pieces" value={formData.pieces} onChange={handleChange} className={inputClassName} />
+        </FField>
+      </FSectionCard>
+
+      <FSectionCard title="Commission Calculation" icon={Calculator} accent="indigo">
+        <FField label="Local Commission (%)" htmlFor="local_commission">
+          <input type="text" id="local_commission" value={formData.local_commission} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Invoice Value" htmlFor="invoice_value">
+          <input type="number" id="invoice_value" name="invoice_value" value={formData.invoice_value} onChange={handleChange} className={inputClassName} placeholder="0.00" />
+        </FField>
+        <FField label="Exchange Rate" htmlFor="exchange_rate">
+          <input type="number" step="0.01" id="exchange_rate" name="exchange_rate" value={formData.exchange_rate} onChange={handleChange} className={inputClassName} />
+        </FField>
+        <FField label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
+          <input type="number" id="commissioning" value={formData.commissioning.toFixed(2)} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
+          <input type="text" id="commission_in_rupees" value={formData.commission_in_rupees.toFixed(2)} readOnly className={inputReadOnlyClass} />
+        </FField>
+        <FField label="Commission in Words" htmlFor="commission_in_words" span="full" hint="Auto-generated">
+          <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputReadOnlyClass} resize-y`} rows={2} />
         </FField>
       </FSectionCard>
 
@@ -732,27 +803,6 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
         onClose={() => setShowSignaturePicker(false)}
         onSelect={(sig) => { setSelectedSignature(sig); setSignatureEnabled(true); setShowSignaturePicker(false); }}
       />
-
-      <FSectionCard title="Commission Calculation" icon={Calculator} accent="indigo">
-        <FField label="Local Commission (%)" htmlFor="local_commission">
-          <input type="text" id="local_commission" value={formData.local_commission} readOnly className={inputReadOnlyClass} />
-        </FField>
-        <FField label="Invoice Value" htmlFor="invoice_value">
-          <input type="number" id="invoice_value" name="invoice_value" value={formData.invoice_value} onChange={handleChange} className={inputClassName} placeholder="0.00" />
-        </FField>
-        <FField label="Exchange Rate" htmlFor="exchange_rate">
-          <input type="number" step="0.01" id="exchange_rate" name="exchange_rate" value={formData.exchange_rate} onChange={handleChange} className={inputClassName} />
-        </FField>
-        <FField label="Commissioning" htmlFor="commissioning" hint="Calculated automatically">
-          <input type="number" id="commissioning" value={formData.commissioning.toFixed(2)} readOnly className={inputReadOnlyClass} />
-        </FField>
-        <FField label="Commission in Rupees" htmlFor="commission_in_rupees" hint="Calculated automatically">
-          <input type="text" id="commission_in_rupees" value={formData.commission_in_rupees.toFixed(2)} readOnly className={inputReadOnlyClass} />
-        </FField>
-        <FField label="Commission in Words" htmlFor="commission_in_words" span="full" hint="Auto-generated">
-          <textarea id="commission_in_words" value={formData.commission_in_words} readOnly className={`${inputReadOnlyClass} resize-y`} rows={2} />
-        </FField>
-      </FSectionCard>
 
       <div className="rounded-2xl border border-gray-200 bg-white shadow-sm px-5 py-4 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
         <button type="submit" disabled={loading} className="inline-flex justify-center items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 shadow-sm">

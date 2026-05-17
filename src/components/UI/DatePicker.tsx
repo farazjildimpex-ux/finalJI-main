@@ -139,7 +139,7 @@ const DatePicker: React.FC<DatePickerProps> = ({ value, onChange, label, classNa
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="w-full flex items-center justify-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 shadow-sm hover:border-blue-400 transition-all group"
+        className="w-full flex items-center justify-start gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm text-slate-900 shadow-sm hover:border-blue-400 transition-all group"
       >
         <CalendarIcon className="h-4 w-4 text-blue-500 group-hover:scale-110 transition-transform" />
         <span className="font-bold">{selectedDate ? format(selectedDate, 'dd/MM/yyyy') : 'Select Date'}</span>
