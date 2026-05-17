@@ -13,7 +13,7 @@
   }
   @media (min-width: 768px) {
     html {
-      font-size: 90%; /* 14.4px rem — scales all rem-based spacing/type down uniformly */
+      font-size: 100%; /* 1rem = 16px — crisp integer pixels on desktop */
     }
   }
 

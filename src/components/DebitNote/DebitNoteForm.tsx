@@ -252,6 +252,50 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
       const { data, error } = await supabase.from('contracts').select('*').order('contract_no');
       if (error) throw error;
       setContracts(data || []);
+
+      // Auto-select pre-filled contract when navigating from contracts page
+      const prefilled = location.state?.prefilledContractNo;
+      if (prefilled && !initialData) {
+        const match = (data || []).find((c: Contract) => c.contract_no === prefilled);
+        if (match) {
+          const sel: ContractSelection = {
+            id: match.id,
+            contract_no: match.contract_no,
+            contract_date: match.contract_date,
+            buyer_name: match.buyer_name,
+            supplier_name: match.supplier_name,
+            destination: match.destination,
+            local_commission: match.local_commission,
+            currency: match.currency,
+            company_name: match.company_name,
+          };
+          setContractSearches([match.contract_no]);
+          setSelectedContracts([sel]);
+          setSupplierSearch(match.supplier_name || '');
+          setFormData(prev => ({
+            ...prev,
+            contract_no: match.contract_no,
+            contract_date: match.contract_date || '',
+            destination: Array.isArray(match.destination)
+              ? match.destination.join(', ')
+              : match.destination || '',
+            buyer_name: match.buyer_name || '',
+            local_commission: match.local_commission || '',
+            currency: match.currency || 'USD',
+            company: match.company_name || prev.company,
+            supplier_name: match.supplier_name || '',
+            supplier_address: match.supplier_address || [''],
+          }));
+
+          // Fetch linked invoices for this contract
+          const { data: invData } = await supabase
+            .from('invoices')
+            .select('invoice_number, invoice_date, invoice_value')
+            .contains('contract_numbers', [match.contract_no])
+            .order('invoice_date', { ascending: false });
+          setContractInvoices(invData || []);
+        }
+      }
     } catch (error) {
       console.error('Error fetching contracts:', error);
     }
@@ -333,25 +377,15 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     newDropdownStates[index] = false;
     setShowContractDropdowns(newDropdownStates);
 
-    // Fetch invoices linked to the first selected contract
-    // Query both contract_no (text) and contract_numbers (array) fields to cover both storage formats
+    // Fetch invoices linked to the first selected contract via contract_numbers array
     const firstContractNo = newSelectedContracts[0]?.contract_no;
     if (firstContractNo) {
-      (async () => {
-        const [{ data: byText }, { data: byArray }] = await Promise.all([
-          supabase.from('invoices').select('invoice_no, invoice_date, invoice_value')
-            .eq('contract_no', firstContractNo).order('invoice_date', { ascending: false }),
-          supabase.from('invoices').select('invoice_no, invoice_date, invoice_value')
-            .contains('contract_numbers', [firstContractNo]).order('invoice_date', { ascending: false }),
-        ]);
-        const seen = new Set<string>();
-        const combined = [...(byText || []), ...(byArray || [])].filter(inv => {
-          if (seen.has(inv.invoice_no)) return false;
-          seen.add(inv.invoice_no);
-          return true;
-        });
-        setContractInvoices(combined);
-      })();
+      supabase
+        .from('invoices')
+        .select('invoice_number, invoice_date, invoice_value')
+        .contains('contract_numbers', [firstContractNo])
+        .order('invoice_date', { ascending: false })
+        .then(({ data }) => setContractInvoices(data || []));
     } else {
       setContractInvoices([]);
     }
@@ -714,7 +748,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
               <select
                 value={formData.invoice_no}
                 onChange={(e) => {
-                  const inv = contractInvoices.find(i => i.invoice_no === e.target.value);
+                  const inv = contractInvoices.find((i: any) => i.invoice_number === e.target.value);
                   setFormData(prev => ({
                     ...prev,
                     invoice_no: e.target.value,
@@ -725,9 +759,9 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
                 className={inputClassName}
               >
                 <option value="">Select linked invoice…</option>
-                {contractInvoices.map(inv => (
-                  <option key={inv.invoice_no} value={inv.invoice_no}>
-                    {inv.invoice_no}{inv.invoice_date ? ` — ${new Date(inv.invoice_date).toLocaleDateString('en-GB')}` : ''}
+                {contractInvoices.map((inv: any) => (
+                  <option key={inv.invoice_number} value={inv.invoice_number}>
+                    {inv.invoice_number}{inv.invoice_date ? ` — ${new Date(inv.invoice_date).toLocaleDateString('en-GB')}` : ''}
                   </option>
                 ))}
               </select>
