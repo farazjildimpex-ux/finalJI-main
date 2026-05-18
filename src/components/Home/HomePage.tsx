@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Plus, Search, ArrowRight, ChevronRight, FileText, Bookmark, Receipt } from 'lucide-react';
 import SearchBar from './SearchBar';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -43,6 +43,7 @@ const DESKTOP_FILTERS = [
 
 const HomePage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Mobile state
@@ -239,23 +240,126 @@ const HomePage: React.FC = () => {
             )}
 
             {showJournal && (
-              <div className="mb-6">
+              <div className="mb-5">
                 {searchTerm || activeFilter === 'journal' ? (
                   <JournalSearchResults entries={filteredJournal} searchTerm={searchTerm} onEntriesUpdated={fetchJournalEntries}
                     onOpen={(e) => setSelectedEntryForPopup(e)}
                     onEdit={(e) => { setEditingEntry(e); setIsJournalFormOpen(true); }} />
                 ) : (
-                  <JournalWidget entries={journalEntries} loading={journalLoading} onEntriesUpdated={fetchJournalEntries} />
+                  /* ── Timeline journal card ── */
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 pt-4 pb-3">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-[17px] font-bold text-gray-900">Journal</h2>
+                      <button onClick={() => { setEditingEntry(null); setIsJournalFormOpen(true); }}
+                        className="flex items-center gap-1 text-blue-600 text-[13px] font-semibold">
+                        <Plus className="h-3.5 w-3.5" /> New Entry
+                      </button>
+                    </div>
+                    {journalLoading ? (
+                      <div className="py-6 flex justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+                      </div>
+                    ) : journalEntries.length === 0 ? (
+                      <div className="py-4 text-center">
+                        <p className="text-[13px] text-gray-400 mb-2">No journal entries yet</p>
+                        <button onClick={() => setIsJournalFormOpen(true)} className="text-[12px] font-semibold text-blue-600">Create your first entry →</button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <div className="absolute left-[5px] top-[6px] bottom-8 w-[1.5px]" style={{ backgroundColor: '#e5e7eb' }} />
+                        <div className="space-y-4 pb-1">
+                          {journalEntries.slice(0, 5).map((entry, idx) => {
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            const yestDate = new Date(); yestDate.setDate(yestDate.getDate() - 1);
+                            const yestStr = yestDate.toISOString().split('T')[0];
+                            const isToday = entry.entry_date === todayStr;
+                            const isYest = entry.entry_date === yestStr;
+                            const timeLabel = isToday
+                              ? new Date(entry.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                              : isYest ? 'Yesterday'
+                              : new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                            return (
+                              <div key={entry.id} className="flex gap-3.5 cursor-pointer" onClick={() => setSelectedEntryForPopup(entry)}>
+                                <div className={`w-[11px] h-[11px] rounded-full mt-[4px] shrink-0 z-10 ${idx === 0 ? 'bg-indigo-600' : 'bg-gray-300'}`} />
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-[11.5px] font-semibold mb-0.5 ${idx === 0 ? 'text-indigo-600' : 'text-gray-400'}`}>{timeLabel}</p>
+                                  <p className="text-[14px] font-bold text-gray-900 leading-snug">{entry.title}</p>
+                                  {entry.content && <p className="text-[12.5px] text-gray-500 mt-0.5 line-clamp-2 leading-relaxed">{entry.content}</p>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <button onClick={() => setActiveFilter('journal')}
+                      className="mt-3 flex items-center gap-1 text-[13px] font-semibold text-blue-600">
+                      View full journal <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 )}
               </div>
             )}
 
             {showOrders && (
               <div className="mb-6">
-                <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wider mb-4">
-                  {searchTerm || activeFilter !== 'all' ? 'Search Results' : 'Recent Orders'}
-                </h2>
-                <RecentOrdersList orders={searchTerm || activeFilter !== 'all' ? filteredOrders : activeOrders} loading={loading} onStatusChange={fetchData} />
+                {searchTerm || activeFilter !== 'all' ? (
+                  <>
+                    <h2 className="text-[17px] font-bold text-gray-900 mb-3">Search Results</h2>
+                    <RecentOrdersList orders={filteredOrders} loading={loading} onStatusChange={fetchData} />
+                  </>
+                ) : (
+                  /* ── Clean recent orders list ── */
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-[17px] font-bold text-gray-900">Recent Orders</h2>
+                      <button onClick={() => navigate('/app/contracts')}
+                        className="flex items-center gap-1 text-[13px] font-semibold text-blue-600">
+                        View all <ArrowRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    {loading ? (
+                      <div className="bg-white rounded-2xl border border-gray-100 p-6 flex justify-center">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {activeOrders.slice(0, 8).map(order => {
+                          const iconBg: Record<string,string> = { contract:'bg-green-100', sample:'bg-purple-100', debit_note:'bg-orange-100' };
+                          const iconFg: Record<string,string> = { contract:'text-green-600', sample:'text-purple-600', debit_note:'text-orange-600' };
+                          const typeLabel: Record<string,string> = { contract:'Contract', sample:'Sample', debit_note:'Payment' };
+                          const badgeCls: Record<string,string> = { contract:'bg-green-50 text-green-700 border border-green-200', sample:'bg-purple-50 text-purple-700 border border-purple-200', debit_note:'bg-orange-50 text-orange-700 border border-orange-200' };
+                          const IconComp = order.type === 'contract' ? FileText : order.type === 'sample' ? Bookmark : Receipt;
+                          return (
+                            <div key={`${order.type}-${order.id}`}
+                              onClick={() => {
+                                if (order.type === 'contract') navigate(`/app/contracts/${order.id}`, { state: { contract: order.contractData } });
+                                else if (order.type === 'sample') navigate(`/app/samples/${order.id}`, { state: { sample: order.sampleData } });
+                                else navigate(`/app/debit-notes/${order.id}`, { state: { debitNote: order.debitNoteData } });
+                              }}
+                              className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center gap-3 px-3.5 py-3 cursor-pointer active:bg-gray-50 transition-colors"
+                            >
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${iconBg[order.type] || 'bg-gray-100'}`}>
+                                <IconComp className={`h-5 w-5 ${iconFg[order.type] || 'text-gray-500'}`} strokeWidth={1.75} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[14px] font-bold text-gray-900 leading-tight">{order.contractNumber}</p>
+                                <p className="text-[12px] text-gray-500 truncate">{order.supplierName}</p>
+                                {order.article && <p className="text-[11px] text-gray-400 truncate">{order.article}</p>}
+                              </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeCls[order.type] || 'bg-gray-100 text-gray-600'}`}>
+                                  {typeLabel[order.type] || order.type}
+                                </span>
+                                <ChevronRight className="h-4 w-4 text-gray-300" />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
 

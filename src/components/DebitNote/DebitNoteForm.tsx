@@ -461,6 +461,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
     try {
       // Prepare data for insertion/update - only include fields that exist in the database
       const dataToSave = {
+        user_id: user.id,
         debit_note_no: formData.debit_note_no.trim(),
         debit_note_date: formData.debit_note_date,
         status: formData.status,
