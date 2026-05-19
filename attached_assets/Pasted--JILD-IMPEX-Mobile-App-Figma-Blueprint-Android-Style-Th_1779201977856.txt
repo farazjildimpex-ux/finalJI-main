@@ -1,0 +1,619 @@
+# JILD IMPEX Mobile App
+
+## Figma Blueprint (Android Style)
+
+This document is structured so you can:
+
+* recreate the design precisely in Figma
+* hand it to Replit/Cursor/Lovable
+* maintain pixel consistency across screens
+
+Design direction:
+
+* Premium Android app
+* Minimal but operational
+* Journal-first workflow
+* Light theme
+* Dense enough for ERP usage
+* Modern business utility aesthetic
+
+Inspired by:
+
+* Linear
+* Revolut Android
+* Notion Android
+* Google Material 3
+* Stripe dashboard
+
+---
+
+# 1. FRAME SETUP
+
+## Device Frame
+
+Use:
+
+* Android Large
+* 412 × 915
+
+or
+
+* Pixel 8 Pro
+* 448 × 998
+
+Prototype ratio:
+
+* 9:19.5
+
+Background:
+#F8FAFC
+
+---
+
+# 2. DESIGN TOKENS
+
+## Colors
+
+### Primary Blue
+
+#2563FF
+
+### Dark Text
+
+#0F172A
+
+### Secondary Text
+
+#667085
+
+### Background
+
+#F8FAFC
+
+### Card Background
+
+#FFFFFF
+
+### Soft Border
+
+#E9EEF5
+
+### Open Status
+
+#FFF3E8
+Text: #D97706
+
+### Completed Status
+
+#EAFBF0
+Text: #16A34A
+
+### Issued Status
+
+#EEF4FF
+Text: #2563FF
+
+---
+
+# 3. TYPOGRAPHY
+
+Use:
+
+## Font Family
+
+Inter
+
+---
+
+## Type Scale
+
+### Header Logo
+
+Size: 34
+Weight: 800
+Line Height: 38
+Letter Spacing: -2%
+
+JILD = #0F172A
+IMPEX = #2563FF
+
+---
+
+### Greeting
+
+Size: 22
+Weight: 700
+Color: #0F172A
+
+---
+
+### Date
+
+Size: 14
+Weight: 500
+Color: #667085
+
+---
+
+### Section Titles
+
+Size: 15
+Weight: 700
+Uppercase
+Letter Spacing: 2%
+
+---
+
+### Card Titles
+
+Size: 20
+Weight: 700
+
+---
+
+### Body Text
+
+Size: 15
+Weight: 500
+
+---
+
+### Metadata Text
+
+Size: 13
+Weight: 500
+Color: #667085
+
+---
+
+# 4. SPACING SYSTEM
+
+Use ONLY:
+
+* 4
+* 8
+* 12
+* 16
+* 20
+* 24
+* 32
+
+Never use random spacing.
+
+---
+
+# 5. HEADER LAYOUT
+
+## Structure
+
+Top padding:
+32px
+
+Horizontal padding:
+24px
+
+Layout:
+
+[ JILD IMPEX ]          [ Search ]
+Good evening 👋
+Tuesday, 19 May 2026
+
+---
+
+## IMPORTANT
+
+The spacing between:
+
+* JILD IMPEX
+* Good evening
+
+must be SMALL.
+
+Only:
+12px gap.
+
+The logo should feel connected to the greeting.
+
+---
+
+## Search Button
+
+Size:
+52 × 52
+
+Radius:
+18px
+
+Background:
+#FFFFFF
+
+Border:
+1px solid #E9EEF5
+
+Shadow:
+0 2px 8px rgba(15,23,42,0.04)
+
+---
+
+# 6. JOURNAL CARD
+
+## Card Container
+
+Width:
+Fill
+
+Padding:
+24px
+
+Radius:
+28px
+
+Background:
+linear-gradient(
+180deg,
+#FFFFFF 0%,
+#F7FAFF 100%
+)
+
+Border:
+1px solid #EDF2F7
+
+Shadow:
+0 8px 24px rgba(15,23,42,0.04)
+
+---
+
+## Card Header Row
+
+[ icon ] TODAY'S JOURNAL                [ + Add Entry ]
+
+### Icon Circle
+
+48 × 48
+Blue background
+White icon
+
+### Add Entry Button
+
+Height: 42
+Padding Horizontal: 18
+Radius: 14
+Border only button
+
+---
+
+# 7. JOURNAL ENTRY DESIGN
+
+IMPORTANT:
+Do NOT show:
+
+* “1 Entry”
+* “3 Entries”
+* counters
+
+Instead:
+Directly show entries.
+
+---
+
+## Journal Entry Card
+
+Each entry:
+
+┌──────────────────────┐
+| 03:45 PM •           |
+| Purchased terracotta |
+| material from JILD   |
+|                      |
+| • Terracotta items   |
+| • Quality verified   |
+| • Stored in WH       |
+|                    > |
+└──────────────────────┘
+
+---
+
+## Entry Rules
+
+### Time
+
+VERY subtle.
+
+Size:
+12px
+
+Color:
+#667085
+
+Do NOT allocate a separate left column.
+
+Time should sit inline above title.
+
+Example:
+03:45 PM •
+
+---
+
+## Entry Title
+
+Size:
+17px
+Weight:
+700
+
+Max lines:
+2
+
+---
+
+## Preview Content
+
+Show:
+3 preview bullet lines.
+
+Each line:
+
+* 14px
+* medium weight
+* gray text
+
+---
+
+## Entry Card Styling
+
+Padding:
+20px
+
+Gap:
+12px
+
+Radius:
+20px
+
+Background:
+#FFFFFF
+
+Border:
+1px solid #EEF2F6
+
+---
+
+# 8. SEARCH BAR
+
+The search bar should search:
+
+* journal entries
+* recent activity
+* suppliers
+* orders
+* contracts
+
+Therefore:
+REMOVE separate search icon in journal.
+
+Only keep:
+Top-right global search button.
+
+When clicked:
+expand into full-width search overlay.
+
+---
+
+## Expanded Search UI
+
+┌────────────────────┐
+| 🔍 Search anything |
+└────────────────────┘
+
+Recent:
+
+* JP 002
+* CORZO
+* Bamboo
+* Payment
+
+Results grouped by:
+
+* Journal
+* Activity
+* Suppliers
+
+---
+
+# 9. RECENT ACTIVITY SECTION
+
+## Header
+
+Only:
+Recent Activity
+
+NO:
+View All
+
+---
+
+## Filter Pills
+
+Height:
+40px
+
+Radius:
+999px
+
+Spacing:
+12px
+
+Inactive:
+white background
+thin border
+
+Active:
+dark background
+white text
+
+---
+
+# 10. ACTIVITY ROW DESIGN
+
+## Layout
+
+[ Logo ]
+Article Name
+Supplier Name
+Reference
+Status Pill
+Chevron
+
+---
+
+## IMPORTANT
+
+Replace colored dots with:
+JILD IMPEX logo square.
+
+Size:
+44 × 44
+
+Radius:
+10px
+
+Border:
+1px solid #DCE6F5
+
+---
+
+## Row Height
+
+88px
+
+---
+
+## Status Pill
+
+Height:
+30px
+
+Radius:
+999px
+
+Horizontal Padding:
+14px
+
+Font:
+13px semibold
+
+---
+
+# 11. BOTTOM NAVIGATION
+
+Height:
+82px
+
+Background:
+white
+
+Top Border:
+1px solid #EEF2F6
+
+Shadow:
+0 -2px 12px rgba(15,23,42,0.03)
+
+---
+
+## Nav Items
+
+Home
+Contacts
+Lead IQ
+Contracts
+More
+
+---
+
+## Active Item
+
+Blue icon
+Blue text
+
+Inactive:
+Gray
+
+---
+
+# 12. BORDER RADIUS SYSTEM
+
+Cards:
+28px
+
+Inner cards:
+20px
+
+Buttons:
+16px
+
+Search:
+18px
+
+Pills:
+999px
+
+---
+
+# 13. SHADOW SYSTEM
+
+Use subtle shadows ONLY.
+
+Primary:
+0 8px 24px rgba(15,23,42,0.04)
+
+Secondary:
+0 2px 8px rgba(15,23,42,0.03)
+
+Avoid heavy floating shadows.
+
+---
+
+# 14. FIGMA STRUCTURE
+
+Recommended page structure:
+
+Pages:
+
+* Foundations
+* Components
+* Screens
+
+Components:
+
+* Buttons
+* Pills
+* Journal Entry
+* Activity Row
+* Navigation
+* Search
+
+---
+
+# 15. REPLIT HANDOFF PROMPT
+
+Use this EXACTLY with the screenshot.
+
+“Recreate this Android-style mobile ERP dashboard exactly.
+
+Use:
+
+* React
+* Tailwind
+* Inter font
+* premium Android styling
+* Material 3 inspired spacing
+
+Do NOT redesign.
+Do NOT use generic dashboard templates.
+Match spacing, typography, hierarchy, shadows, and border radius precisely.
+
+The app is journal-first.
+Journal entries are the primary focus.
+
+Use reusable components.
+Use mobile-first layout only.”

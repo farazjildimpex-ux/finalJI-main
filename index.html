@@ -24,7 +24,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
     <title>JILD IMPEX - Office Management</title>
+    <style>
+      body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
@@ -36,10 +44,6 @@
           navigator.serviceWorker.register('/sw.js', { scope: '/' })
             .then((registration) => {
               console.log('SW registered');
-
-              // When a new SW is found, ask it to activate immediately so the
-              // installed PWA picks up new builds without requiring the user
-              // to fully close and reopen the app.
               registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
                 if (!newWorker) return;
@@ -49,8 +53,6 @@
                   }
                 });
               });
-
-              // Check for updates each time the PWA regains focus / starts.
               if (document.visibilityState === 'visible') registration.update();
               document.addEventListener('visibilitychange', () => {
                 if (document.visibilityState === 'visible') registration.update();
@@ -58,8 +60,6 @@
             })
             .catch((err) => console.warn('SW registration failed:', err));
 
-          // Reload the page exactly once when the new SW takes control,
-          // so the freshly-deployed bundle hashes are loaded from the network.
           let reloaded = false;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (reloaded) return;

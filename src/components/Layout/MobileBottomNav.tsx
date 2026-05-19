@@ -4,23 +4,23 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home, FileText, Users, MoreHorizontal,
-  Zap, Bookmark, CalendarDays, Settings, CreditCard, X, ChevronRight, BookOpen,
+  Zap, Bookmark, CalendarDays, Settings, CreditCard, X, BookOpen,
 } from 'lucide-react';
 
 const PRIMARY_TABS = [
-  { name: 'Home',      path: '/app/home',     icon: Home     },
-  { name: 'Contacts',  path: '/app/contacts', icon: Users    },
-  { name: 'Lead IQ',   path: '/app/sales',    icon: Zap      },
-  { name: 'Contracts', path: '/app/contracts',icon: FileText },
-  { name: 'More',      path: null,            icon: MoreHorizontal },
+  { name: 'Home',      path: '/app/home',      icon: Home      },
+  { name: 'Contacts',  path: '/app/contacts',  icon: Users     },
+  { name: 'Lead IQ',   path: '/app/sales',     icon: Zap       },
+  { name: 'Contracts', path: '/app/contracts', icon: FileText  },
+  { name: 'More',      path: null,             icon: MoreHorizontal },
 ] as const;
 
 const MORE_ITEMS = [
-  { name: 'Journal',  path: '/app/home',        icon: BookOpen,    color: 'text-indigo-600',  bg: 'bg-indigo-50'   },
-  { name: 'Payments', path: '/app/debit-notes', icon: CreditCard,  color: 'text-emerald-600', bg: 'bg-emerald-50'  },
-  { name: 'Letters',  path: '/app/samples',     icon: Bookmark,    color: 'text-blue-600',    bg: 'bg-blue-50'     },
-  { name: 'Calendar', path: '/app/calendar',    icon: CalendarDays,color: 'text-amber-600',   bg: 'bg-amber-50'    },
-  { name: 'Settings', path: '/app/settings',    icon: Settings,    color: 'text-gray-600',    bg: 'bg-gray-100'    },
+  { name: 'Journal',  path: '/app/home',        icon: BookOpen,    color: 'text-indigo-600', bg: 'bg-indigo-50'  },
+  { name: 'Payments', path: '/app/debit-notes', icon: CreditCard,  color: 'text-emerald-600',bg: 'bg-emerald-50' },
+  { name: 'Letters',  path: '/app/samples',     icon: Bookmark,    color: 'text-blue-600',   bg: 'bg-blue-50'    },
+  { name: 'Calendar', path: '/app/calendar',    icon: CalendarDays,color: 'text-amber-600',  bg: 'bg-amber-50'   },
+  { name: 'Settings', path: '/app/settings',    icon: Settings,    color: 'text-gray-600',   bg: 'bg-gray-100'   },
 ];
 
 const MobileBottomNav: React.FC = () => {
@@ -36,12 +36,16 @@ const MobileBottomNav: React.FC = () => {
     <>
       {/* ── BOTTOM NAV BAR ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-100"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white"
+        style={{
+          borderTop: '1px solid #EEF2F6',
+          boxShadow: '0 -2px 12px rgba(15,23,42,0.03)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
       >
-        <div className="flex items-stretch" style={{ height: 60 }}>
+        <div className="flex items-stretch" style={{ height: 64 }}>
           {PRIMARY_TABS.map((tab) => {
-            const Icon = tab.name === 'More' ? MoreHorizontal : tab.icon;
+            const Icon = tab.icon;
             const isMore = tab.name === 'More';
             const isActive = isMore
               ? isMoreActive
@@ -51,17 +55,19 @@ const MobileBottomNav: React.FC = () => {
                     : location.pathname.startsWith(tab.path as string)
                 );
 
-            const label = tab.name;
-
             const inner = (
-              <div className="flex flex-col items-center justify-center gap-[3px] w-full h-full">
+              <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
                 <Icon
-                  style={{ width: 22, height: 22 }}
+                  style={{ width: 22, height: 22, color: isActive ? '#2563FF' : '#9CA3AF' }}
                   strokeWidth={isActive ? 2.5 : 1.75}
-                  className={isActive ? 'text-blue-600' : 'text-gray-400'}
                 />
-                <span className={`text-[10px] font-semibold ${isActive ? 'text-blue-600' : 'text-gray-400'}`}>
-                  {label}
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: isActive ? '#2563FF' : '#9CA3AF',
+                  fontFamily: 'Inter, sans-serif',
+                }}>
+                  {tab.name}
                 </span>
               </div>
             );
@@ -82,24 +88,32 @@ const MobileBottomNav: React.FC = () => {
       {/* ── MORE DRAWER ── */}
       {showMore && (
         <>
-          <div className="md:hidden fixed inset-0 z-40 bg-black/25 backdrop-blur-[2px]" onClick={() => setShowMore(false)} />
           <div
-            className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl"
-            style={{ paddingBottom: 'calc(60px + env(safe-area-inset-bottom, 0px))' }}
+            className="md:hidden fixed inset-0 z-40 bg-black/20"
+            onClick={() => setShowMore(false)}
+          />
+          <div
+            className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white"
+            style={{
+              borderRadius: '28px 28px 0 0',
+              boxShadow: '0 -8px 32px rgba(15,23,42,0.10)',
+              paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+            }}
           >
-            {/* Handle */}
             <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 bg-gray-200 rounded-full" />
+              <div className="w-10 h-1 rounded-full" style={{ background: '#E9EEF5' }} />
             </div>
-
-            <div className="flex items-center justify-between px-5 pt-2 pb-4">
-              <p className="text-[16px] font-bold text-gray-900">More</p>
-              <button onClick={() => setShowMore(false)} className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
-                <X className="w-3.5 h-3.5 text-gray-500" />
+            <div className="flex items-center justify-between px-6 pt-2 pb-4">
+              <p style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>More</p>
+              <button
+                onClick={() => setShowMore(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: '#F1F5F9' }}
+              >
+                <X style={{ width: 15, height: 15, color: '#667085' }} />
               </button>
             </div>
-
-            <div className="px-4 pb-4 grid grid-cols-2 gap-2.5">
+            <div className="px-4 pb-4 grid grid-cols-2 gap-3">
               {MORE_ITEMS.map((item) => {
                 const Icon = item.icon;
                 const isActive = item.path !== '/app/home' && location.pathname.startsWith(item.path);
@@ -108,14 +122,33 @@ const MobileBottomNav: React.FC = () => {
                     key={item.name}
                     to={item.path}
                     onClick={() => setShowMore(false)}
-                    className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border transition-colors ${
-                      isActive ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50 active:bg-gray-100'
-                    }`}
+                    className="flex items-center gap-3 px-4 py-3.5 active:opacity-80"
+                    style={{
+                      borderRadius: 20,
+                      border: isActive ? '1px solid #BFDBFE' : '1px solid #E9EEF5',
+                      background: isActive ? '#EEF4FF' : '#F8FAFC',
+                    }}
                   >
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isActive ? 'bg-blue-100' : item.bg}`}>
-                      <Icon className={isActive ? 'text-blue-600' : item.color} style={{ width: 17, height: 17 }} strokeWidth={1.75} />
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 36, height: 36, borderRadius: 12,
+                        background: isActive ? '#DBEAFE' : 'white',
+                        border: '1px solid #E9EEF5',
+                      }}
+                    >
+                      <Icon
+                        style={{ width: 16, height: 16, color: isActive ? '#2563FF' : '#667085' }}
+                        strokeWidth={1.75}
+                      />
                     </div>
-                    <span className={`text-[13px] font-semibold ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>{item.name}</span>
+                    <span style={{
+                      fontSize: 13, fontWeight: 600,
+                      color: isActive ? '#2563FF' : '#0F172A',
+                      fontFamily: 'Inter, sans-serif',
+                    }}>
+                      {item.name}
+                    </span>
                   </Link>
                 );
               })}
