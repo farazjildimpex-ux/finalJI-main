@@ -53,17 +53,23 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({ entry, onEntryUpdat
           <h4 className="text-[14px] font-bold leading-snug flex-1 min-w-0 text-slate-900 line-clamp-1">
             {entry.title}
           </h4>
-          <span className="text-[11px] font-medium tabular-nums shrink-0 text-slate-400 group-hover:opacity-0 transition-opacity mt-0.5">
+          <span className="text-[11px] font-medium tabular-nums shrink-0 text-slate-400 mt-0.5">
             {format(new Date(entry.created_at), 'h:mm a')}
           </span>
-          {/* Hover actions */}
-          <div className="absolute right-3 top-3 flex items-center gap-0.5 p-0.5 rounded-lg shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
-            <button onClick={(e) => { e.stopPropagation(); onEdit?.(entry); }}
-              className="p-1.5 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors" title="Edit">
+          {/* Desktop-only hover actions */}
+          <div className="hidden md:flex absolute right-3 top-3 items-center gap-0.5 p-0.5 rounded-lg shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-150 shrink-0 bg-white/95 ring-1 ring-slate-200">
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit?.(entry); }}
+              className="p-1.5 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              title="Edit"
+            >
               <Edit2 className="h-3.5 w-3.5" />
             </button>
-            <button onClick={(e) => { e.stopPropagation(); handleDelete(); }}
-              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors" title="Delete">
+            <button
+              onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+              className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+              title="Delete"
+            >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -73,6 +79,32 @@ const JournalEntryCard: React.FC<JournalEntryCardProps> = ({ entry, onEntryUpdat
           <p className="text-[13px] line-clamp-4 leading-relaxed text-slate-600 whitespace-pre-wrap">
             {entry.content}
           </p>
+        )}
+      </div>
+
+      {/* Mobile-only action row — always visible */}
+      <div className="md:hidden flex items-center gap-4 px-4 py-2.5 border-t border-gray-100">
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit?.(entry); }}
+          className="flex items-center gap-1.5 text-[12px] font-semibold text-blue-600 active:opacity-70"
+        >
+          <Edit2 className="h-3.5 w-3.5" />
+          Edit
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+          className="flex items-center gap-1.5 text-[12px] font-semibold text-rose-500 active:opacity-70"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+          Delete
+        </button>
+        {onOpen && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onOpen(entry); }}
+            className="ml-auto flex items-center gap-1 text-[12px] font-semibold text-gray-400 active:opacity-70"
+          >
+            View thread
+          </button>
         )}
       </div>
     </div>
