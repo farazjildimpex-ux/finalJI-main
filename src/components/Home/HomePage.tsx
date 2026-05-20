@@ -52,7 +52,8 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 const OPEN_STATUSES = ['Issued', 'Inspected'];
-const JOURNAL_PAGE_SIZE = 12;
+const ACTIVITY_PAGE_SIZE = 10;
+const JOURNAL_PAGE_SIZE  = 12;
 
 /* ── component ───────────────────────────────────────────────── */
 const HomePage: React.FC = () => {
@@ -60,12 +61,14 @@ const HomePage: React.FC = () => {
   const navigate  = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [showSearch,   setShowSearch]   = useState(false);
-  const [searchTerm,   setSearchTerm]   = useState('');
-  const [searchTab,    setSearchTab]    = useState<'records' | 'journal'>('records');
-  const [mobileFilter, setMobileFilter] = useState('open');   // default Open
-  const [desktopFilter,setDesktopFilter]= useState('all');
-  const [desktopSearch,setDesktopSearch]= useState('');
+  const [showSearch,    setShowSearch]    = useState(false);
+  const [searchTerm,    setSearchTerm]    = useState('');
+  // Journal tab is the default (left tab)
+  const [searchTab,     setSearchTab]     = useState<'journal' | 'records'>('journal');
+  const [mobileFilter,  setMobileFilter]  = useState('open');
+  const [activityPage,  setActivityPage]  = useState(1);
+  const [desktopFilter, setDesktopFilter] = useState('all');
+  const [desktopSearch, setDesktopSearch] = useState('');
   const [desktopJournalPage, setDesktopJournalPage] = useState(1);
 
   const [orders,          setOrders]         = useState<Order[]>([]);
@@ -74,10 +77,10 @@ const HomePage: React.FC = () => {
   const [journalLoading,  setJournalLoading] = useState(true);
   const [error,           setError]          = useState<string | null>(null);
 
-  const [editingEntry,           setEditingEntry]           = useState<JournalEntry | null>(null);
-  const [selectedEntryForPopup,  setSelectedEntryForPopup]  = useState<JournalEntry | null>(null);
-  const [isMobileFormOpen,       setIsMobileFormOpen]       = useState(false);
-  const [isDesktopFormOpen,      setIsDesktopFormOpen]      = useState(false);
+  const [editingEntry,          setEditingEntry]          = useState<JournalEntry | null>(null);
+  const [selectedEntryForPopup, setSelectedEntryForPopup] = useState<JournalEntry | null>(null);
+  const [isMobileFormOpen,      setIsMobileFormOpen]      = useState(false);
+  const [isDesktopFormOpen,     setIsDesktopFormOpen]     = useState(false);
 
   /* ── fetch ───────────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
@@ -85,16 +88,16 @@ const HomePage: React.FC = () => {
     try {
       setLoading(true); setError(null);
       const [cR, sR, dR] = await Promise.all([
-        supabase.from('contracts').select('*').order('contract_date',    { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
-        supabase.from('samples').select('*').order('date',               { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
-        supabase.from('debit_notes').select('*').order('debit_note_date',{ ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
+        supabase.from('contracts').select('*').order('contract_date',     { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
+        supabase.from('samples').select('*').order('date',                { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
+        supabase.from('debit_notes').select('*').order('debit_note_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
       ]);
       if (cR.error) throw cR.error;
       if (sR.error) throw sR.error;
       if (dR.error) throw dR.error;
-      const c: Order[] = (cR.data||[]).map(c=>({ id:c.id,  contractNumber:c.contract_no,   supplierName:c.supplier_name, article:c.article||'',         color:c.color?.join(', ')||'', date:c.contract_date,    createdAt:c.created_at, status:c.status, type:'contract',   contractData:c }));
-      const s: Order[] = (sR.data||[]).map(s=>({ id:s.id!, contractNumber:s.sample_number, supplierName:s.supplier_name, article:s.description||'',     color:s.company_name||'',      date:s.date,             createdAt:s.created_at, status:s.status, type:'sample',    sampleData:s }));
-      const d: Order[] = (dR.data||[]).map(d=>({ id:d.id!, contractNumber:d.debit_note_no, supplierName:d.supplier_name, article:d.contract_no||'',     color:d.invoice_no||'',        date:d.debit_note_date,  createdAt:d.created_at, status:d.status, type:'debit_note', debitNoteData:d }));
+      const c: Order[] = (cR.data||[]).map(c=>({ id:c.id,  contractNumber:c.contract_no,   supplierName:c.supplier_name, article:c.article||'',     color:c.color?.join(', ')||'', date:c.contract_date,   createdAt:c.created_at, status:c.status, type:'contract',   contractData:c }));
+      const s: Order[] = (sR.data||[]).map(s=>({ id:s.id!, contractNumber:s.sample_number, supplierName:s.supplier_name, article:s.description||'', color:s.company_name||'',      date:s.date,            createdAt:s.created_at, status:s.status, type:'sample',    sampleData:s }));
+      const d: Order[] = (dR.data||[]).map(d=>({ id:d.id!, contractNumber:d.debit_note_no, supplierName:d.supplier_name, article:d.contract_no||'', color:d.invoice_no||'',        date:d.debit_note_date, createdAt:d.created_at, status:d.status, type:'debit_note', debitNoteData:d }));
       const ms = (v?:string|null) => v ? new Date(v).getTime() : 0;
       setOrders([...c,...s,...d].sort((a,b)=>{ const dd=ms((b as any).date)-ms((a as any).date); return dd!==0?dd:ms((b as any).createdAt)-ms((a as any).createdAt); }));
     } catch(e){ console.error(e); setError('Failed to load data.'); }
@@ -115,6 +118,9 @@ const HomePage: React.FC = () => {
   useEffect(()=>{ fetchData(); }, [fetchData]);
   useEffect(()=>{ if(user) fetchJournalEntries(); }, [user, fetchJournalEntries]);
 
+  // Reset page when filter changes
+  useEffect(()=>{ setActivityPage(1); }, [mobileFilter]);
+
   useEffect(()=>{
     const id = searchParams.get('entry');
     if (!id||journalLoading) return;
@@ -134,6 +140,9 @@ const HomePage: React.FC = () => {
     if (mobileFilter!=='all')  return orders.filter(o=>o.type===mobileFilter);
     return orders;
   }, [orders, mobileFilter]);
+
+  const activityTotal = Math.ceil(activityList.length / ACTIVITY_PAGE_SIZE);
+  const activitySlice = activityList.slice((activityPage-1)*ACTIVITY_PAGE_SIZE, activityPage*ACTIVITY_PAGE_SIZE);
 
   const desktopOrders = useMemo(()=>{
     let list = desktopFilter==='all'  ? orders
@@ -162,8 +171,8 @@ const HomePage: React.FC = () => {
   const handlePullRefresh = useCallback(async()=>{ await Promise.all([fetchData(), fetchJournalEntries()]); }, [fetchData, fetchJournalEntries]);
 
   const goToOrder = useCallback((order: Order)=>{
-    if (order.type==='contract')    navigate(`/app/contracts/${order.id}`,  {state:{contract:order.contractData}});
-    else if (order.type==='sample') navigate(`/app/samples/${order.id}`,    {state:{sample:order.sampleData}});
+    if (order.type==='contract')    navigate(`/app/contracts/${order.id}`,   {state:{contract:order.contractData}});
+    else if (order.type==='sample') navigate(`/app/samples/${order.id}`,     {state:{sample:order.sampleData}});
     else                            navigate(`/app/debit-notes/${order.id}`, {state:{debitNote:order.debitNoteData}});
   }, [navigate]);
 
@@ -190,7 +199,7 @@ const HomePage: React.FC = () => {
   const openSearch = () => {
     setShowSearch(true);
     setSearchTerm('');
-    setSearchTab('records');
+    setSearchTab('journal');
   };
 
   if (!isSupabaseConfigured) {
@@ -213,27 +222,25 @@ const HomePage: React.FC = () => {
         className="md:hidden min-h-screen"
         style={{
           background: 'linear-gradient(170deg, #EEF2FF 0%, #F3F6FE 18%, #F8FAFC 55%, #FFFFFF 100%)',
-          paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+          paddingBottom: 'calc(52px + env(safe-area-inset-bottom, 0px))',
         }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
 
           {/* ── Header ──────────────────────────────────────── */}
-          <div className="bg-white/80 backdrop-blur-sm border-b border-white/60 px-5 pt-5 pb-4 shadow-sm">
+          <div className="bg-white/80 backdrop-blur-sm border-b border-white/60 px-5 pt-4 pb-3 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
-                {/* JILD IMPEX — large, bold */}
-                <p className="leading-none mb-1.5">
-                  <span className="text-[30px] font-extrabold text-gray-900 tracking-tight">JILD </span>
-                  <span className="text-[30px] font-extrabold text-blue-600 tracking-tight">IMPEX</span>
+                <p className="leading-none mb-1">
+                  <span className="text-[24px] font-extrabold text-gray-900 tracking-tight">JILD </span>
+                  <span className="text-[24px] font-extrabold text-blue-600 tracking-tight">IMPEX</span>
                 </p>
-                {/* Greeting + date — tight under logo */}
-                <p className="text-[16px] font-semibold text-gray-700 leading-tight">{getGreeting()} 👋</p>
+                <p className="text-[14px] font-semibold text-gray-700 leading-tight">{getGreeting()} 👋</p>
                 <p className="text-[11px] text-gray-400 mt-0.5 font-medium">{formatFullDate()}</p>
               </div>
               <button
                 onClick={openSearch}
-                className="w-10 h-10 shrink-0 rounded-xl bg-gray-100 border border-gray-200/80 flex items-center justify-center active:bg-gray-200 transition-colors mt-1"
+                className="w-9 h-9 shrink-0 rounded-xl bg-gray-100 border border-gray-200/80 flex items-center justify-center active:bg-gray-200 transition-colors mt-0.5"
               >
                 <Search className="w-4 h-4 text-gray-500" />
               </button>
@@ -241,20 +248,18 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* ── Journal — single unified card ───────────────── */}
-          <div className="mx-4 mt-5">
+          <div className="mx-4 mt-3">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {/* Panel header */}
-              <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 flex items-center justify-between">
+              <div className="px-4 pt-2.5 pb-2 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Journal</h2>
                 <button
                   onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-lg active:bg-blue-700 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white text-[11px] font-bold rounded-lg active:bg-blue-700 transition-colors"
                 >
                   <Plus className="h-3 w-3" /> New Entry
                 </button>
               </div>
-              {/* JournalWidget — noCard removes inner border so it merges seamlessly */}
-              <div className="px-3 pb-3 pt-1">
+              <div className="px-3 pb-2.5 pt-1">
                 <JournalWidget
                   entries={journalEntries}
                   loading={journalLoading}
@@ -267,12 +272,10 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* ── Recent Activity ──────────────────────────────── */}
-          <div className="mx-4 mt-4">
+          <div className="mx-4 mt-3 mb-3">
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              {/* Panel header */}
-              <div className="px-4 pt-3 pb-2.5 border-b border-gray-100">
-                <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2.5">Recent Activity</h2>
-                {/* Filter pills */}
+              <div className="px-4 pt-2.5 pb-2 border-b border-gray-100">
+                <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Recent Activity</h2>
                 <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
                   {FILTERS.map(f => (
                     <button
@@ -295,46 +298,69 @@ const HomePage: React.FC = () => {
               )}
 
               {loading ? (
-                <div className="flex justify-center py-10">
+                <div className="flex justify-center py-8">
                   <div className="animate-spin h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600" />
                 </div>
               ) : activityList.length === 0 ? (
-                <div className="py-10 text-center">
-                  <p className="text-[13px] text-gray-400">No records found</p>
+                <div className="py-8 text-center">
+                  <p className="text-[12px] text-gray-400">No records found</p>
                 </div>
               ) : (
-                <div>
-                  {activityList.slice(0, 20).map((order, idx) => {
-                    const tc  = TYPE_ICON[order.type] || { Icon: FileText, bg:'bg-gray-50', iconCls:'text-gray-500' };
+                <>
+                  {activitySlice.map((order, idx) => {
+                    const tc   = TYPE_ICON[order.type] || { Icon: FileText, bg:'bg-gray-50', iconCls:'text-gray-500' };
                     const Icon = tc.Icon;
                     const sk   = (order.status||'issued').toLowerCase();
                     const badge = STATUS_BADGE[sk] || 'text-gray-600 bg-gray-50 border border-gray-200';
-                    // Line 1: article · color  |  line 2: supplier
                     const line1 = [order.article, order.color].filter(Boolean).join(' · ') || order.contractNumber;
                     return (
                       <button
                         key={`${order.type}-${order.id}`}
                         onClick={() => goToOrder(order)}
-                        className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 transition-colors ${idx > 0 ? 'border-t border-gray-50' : ''}`}
+                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-left active:bg-gray-50 transition-colors ${idx > 0 ? 'border-t border-gray-50' : ''}`}
                       >
-                        {/* Type icon in small circle */}
-                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${tc.bg}`}>
-                          <Icon className={`h-4 w-4 ${tc.iconCls}`} strokeWidth={1.75} />
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${tc.bg}`}>
+                          <Icon className={`h-3.5 w-3.5 ${tc.iconCls}`} strokeWidth={1.75} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold text-gray-900 truncate leading-snug">{line1}</p>
-                          <p className="text-[11px] text-gray-400 truncate mt-0.5">{order.supplierName}</p>
+                          <p className="text-[12px] font-bold text-gray-900 truncate leading-snug">{line1}</p>
+                          <p className="text-[10px] text-gray-400 truncate mt-0.5">{order.supplierName}</p>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${badge}`}>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge}`}>
                             {order.status || 'Issued'}
                           </span>
-                          <ChevronRight className="h-3.5 w-3.5 text-gray-300" />
+                          <ChevronRight className="h-3 w-3 text-gray-300" />
                         </div>
                       </button>
                     );
                   })}
-                </div>
+
+                  {/* Pagination */}
+                  {activityTotal > 1 && (
+                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-50">
+                      <p className="text-[10px] text-gray-400">
+                        {(activityPage-1)*ACTIVITY_PAGE_SIZE+1}–{Math.min(activityPage*ACTIVITY_PAGE_SIZE, activityList.length)} of {activityList.length}
+                      </p>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setActivityPage(p => Math.max(1, p-1))}
+                          disabled={activityPage === 1}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-100 text-gray-600 disabled:opacity-30 active:bg-gray-200 transition-colors"
+                        >
+                          ‹ Prev
+                        </button>
+                        <button
+                          onClick={() => setActivityPage(p => Math.min(activityTotal, p+1))}
+                          disabled={activityPage === activityTotal}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-100 text-gray-600 disabled:opacity-30 active:bg-gray-200 transition-colors"
+                        >
+                          Next ›
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -342,7 +368,7 @@ const HomePage: React.FC = () => {
         </PullToRefresh>
       </div>
 
-      {/* ── Search overlay — polished with tabs + animations ── */}
+      {/* ── Search overlay ── */}
       {showSearch && (
         <div
           className="md:hidden fixed inset-0 z-[200] flex flex-col"
@@ -353,8 +379,8 @@ const HomePage: React.FC = () => {
           }}
         >
           {/* Input bar */}
-          <div className="bg-white/90 backdrop-blur-md border-b border-gray-100/80 px-4 pt-4 pb-3 shadow-sm">
-            <div className="flex items-center gap-2">
+          <div className="bg-white/90 backdrop-blur-md border-b border-gray-100/80 px-4 pt-4 pb-0 shadow-sm">
+            <div className="flex items-center gap-2 mb-0">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 <input
@@ -362,8 +388,8 @@ const HomePage: React.FC = () => {
                   type="text"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  placeholder="Search contracts, journal, suppliers…"
-                  className="w-full h-11 pl-9 pr-10 bg-gray-100 rounded-xl text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+                  placeholder="Search journals, contracts, suppliers…"
+                  className="w-full h-10 pl-9 pr-10 bg-gray-100 rounded-xl text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
                 />
                 {searchTerm && (
                   <button
@@ -382,55 +408,79 @@ const HomePage: React.FC = () => {
               </button>
             </div>
 
-            {/* Tabs — only when there are results */}
-            {searchTerm.trim() && (searchOrderResults.length > 0 || searchJournalResults.length > 0) && (
-              <div className="flex gap-0 mt-3 border-b border-gray-100" style={{animation:'fadeIn 0.15s ease-out'}}>
-                <button
-                  onClick={() => setSearchTab('records')}
-                  className={`pb-2 px-4 text-[13px] font-semibold border-b-2 transition-all ${searchTab==='records' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
-                >
-                  Contracts · Letters · Payments
-                  {searchOrderResults.length > 0 && (
-                    <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">{searchOrderResults.length}</span>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSearchTab('journal')}
-                  className={`pb-2 px-4 text-[13px] font-semibold border-b-2 transition-all ${searchTab==='journal' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
-                >
-                  Journal
-                  {searchJournalResults.length > 0 && (
-                    <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">{searchJournalResults.length}</span>
-                  )}
-                </button>
-              </div>
-            )}
+            {/* Tabs — Journal (left, default) | Records (right) */}
+            <div className="flex gap-0 mt-3 border-b border-gray-100">
+              <button
+                onClick={() => setSearchTab('journal')}
+                className={`pb-2 px-4 text-[13px] font-semibold border-b-2 transition-all ${searchTab==='journal' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
+              >
+                Journal
+              </button>
+              <button
+                onClick={() => setSearchTab('records')}
+                className={`pb-2 px-4 text-[13px] font-semibold border-b-2 transition-all ${searchTab==='records' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
+              >
+                Contracts · Payments · Letters
+              </button>
+            </div>
           </div>
 
           {/* Results */}
           <div className="flex-1 overflow-y-auto">
             {!searchTerm.trim() ? (
-              /* Empty state */
-              <div className="flex flex-col items-center justify-center py-24 px-8 text-center" style={{animation:'fadeIn 0.2s ease-out'}}>
-                <div className="w-16 h-16 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center mb-5">
-                  <Search className="h-7 w-7 text-gray-300" />
+              <div className="flex flex-col items-center justify-center py-20 px-8 text-center" style={{animation:'fadeIn 0.2s ease-out'}}>
+                <div className="w-14 h-14 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center mb-4">
+                  <Search className="h-6 w-6 text-gray-300" />
                 </div>
-                <p className="text-[16px] font-bold text-gray-700 mb-2">Search everything</p>
-                <p className="text-[13px] text-gray-400 leading-relaxed">Contracts, letters, payments,<br />journal entries, suppliers</p>
+                <p className="text-[15px] font-bold text-gray-700 mb-1.5">Search everything</p>
+                <p className="text-[12px] text-gray-400 leading-relaxed">Contracts, letters, payments,<br />journal entries, suppliers</p>
               </div>
             ) : searchOrderResults.length === 0 && searchJournalResults.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-center" style={{animation:'fadeIn 0.15s ease-out'}}>
-                <p className="text-[16px] font-bold text-gray-700 mb-2">No results</p>
-                <p className="text-[13px] text-gray-400">Try a different search term</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center" style={{animation:'fadeIn 0.15s ease-out'}}>
+                <p className="text-[15px] font-bold text-gray-700 mb-1.5">No results</p>
+                <p className="text-[12px] text-gray-400">Try a different search term</p>
               </div>
             ) : (
               <div className="p-4" key={searchTab} style={{animation:'fadeIn 0.15s ease-out'}}>
 
+                {/* JOURNAL TAB */}
+                {searchTab === 'journal' && (
+                  searchJournalResults.length === 0 ? (
+                    <div className="text-center py-14">
+                      <p className="text-[13px] text-gray-400">No matching journal entries</p>
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                      {searchJournalResults.map((entry, idx) => (
+                        <button
+                          key={`sj-${entry.id}`}
+                          onClick={() => { setSelectedEntryForPopup(entry); setShowSearch(false); setSearchTerm(''); }}
+                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 ${idx>0?'border-t border-gray-50':''}`}
+                        >
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-indigo-50">
+                            <FileText className="h-4 w-4 text-indigo-500" strokeWidth={1.75} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-bold text-gray-900 truncate">{entry.title}</p>
+                            <p className="text-[10px] text-gray-400">
+                              {new Date(entry.entry_date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}
+                            </p>
+                            {entry.content && (
+                              <p className="text-[10px] text-gray-400 truncate mt-0.5">{entry.content}</p>
+                            )}
+                          </div>
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )
+                )}
+
                 {/* RECORDS TAB */}
                 {searchTab === 'records' && (
                   searchOrderResults.length === 0 ? (
-                    <div className="text-center py-16">
-                      <p className="text-[14px] text-gray-400">No matching contracts, letters or payments</p>
+                    <div className="text-center py-14">
+                      <p className="text-[13px] text-gray-400">No matching contracts, letters or payments</p>
                     </div>
                   ) : (
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -450,47 +500,14 @@ const HomePage: React.FC = () => {
                               <Icon className={`h-4 w-4 ${tc.iconCls}`} strokeWidth={1.75} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-bold text-gray-900 truncate">{line1}</p>
-                              <p className="text-[11px] text-gray-400 truncate">{order.supplierName}</p>
+                              <p className="text-[12px] font-bold text-gray-900 truncate">{line1}</p>
+                              <p className="text-[10px] text-gray-400 truncate">{order.supplierName}</p>
                             </div>
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${badge}`}>{order.status||'Issued'}</span>
                             <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
                           </button>
                         );
                       })}
-                    </div>
-                  )
-                )}
-
-                {/* JOURNAL TAB */}
-                {searchTab === 'journal' && (
-                  searchJournalResults.length === 0 ? (
-                    <div className="text-center py-16">
-                      <p className="text-[14px] text-gray-400">No matching journal entries</p>
-                    </div>
-                  ) : (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                      {searchJournalResults.map((entry, idx) => (
-                        <button
-                          key={`sj-${entry.id}`}
-                          onClick={() => { setSelectedEntryForPopup(entry); setShowSearch(false); setSearchTerm(''); }}
-                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 ${idx>0?'border-t border-gray-50':''}`}
-                        >
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-indigo-50">
-                            <FileText className="h-4 w-4 text-indigo-500" strokeWidth={1.75} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-bold text-gray-900 truncate">{entry.title}</p>
-                            <p className="text-[11px] text-gray-400">
-                              {new Date(entry.entry_date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}
-                            </p>
-                            {entry.content && (
-                              <p className="text-[11px] text-gray-400 truncate mt-0.5">{entry.content}</p>
-                            )}
-                          </div>
-                          <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
-                        </button>
-                      ))}
                     </div>
                   )
                 )}

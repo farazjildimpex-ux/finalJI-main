@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import type { JournalEntry } from '../../types';
 import JournalEntryForm from '../Journal/JournalEntryForm';
@@ -69,13 +69,14 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
         </div>
       )}
 
-      {/* Date navigation */}
-      <div className={`flex items-center gap-0.5 ${noCard ? 'mb-2' : 'mb-2'}`}>
+      {/* Date navigation — minimal chevrons, swipe is the primary gesture */}
+      <div className="flex items-center gap-1 mb-2">
         <button
           onClick={() => handleDateChange(addDays(selectedDate, -1))}
-          className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 transition-colors"
+          className="w-7 h-7 flex items-center justify-center select-none transition-colors text-gray-300 hover:text-gray-400 active:text-gray-500 text-[18px] leading-none font-light"
+          aria-label="Previous day"
         >
-          <ChevronLeft className="h-3 w-3" />
+          ‹
         </button>
         <div className="flex-1 flex justify-center">
           <DatePicker
@@ -86,9 +87,10 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
         </div>
         <button
           onClick={() => handleDateChange(addDays(selectedDate, 1))}
-          className="w-5 h-5 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 transition-colors"
+          className="w-7 h-7 flex items-center justify-center select-none transition-colors text-gray-300 hover:text-gray-400 active:text-gray-500 text-[18px] leading-none font-light"
+          aria-label="Next day"
         >
-          <ChevronRight className="h-3 w-3" />
+          ›
         </button>
       </div>
 

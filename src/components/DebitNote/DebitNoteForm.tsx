@@ -732,7 +732,7 @@ const DebitNoteForm: React.FC<DebitNoteFormProps> = ({ initialData }) => {
           </div>
         </FField>
         <FField label="Contract Date" htmlFor="contract_date">
-          <input type="text" id="contract_date" value={formData.contract_date ? formData.contract_date.slice(0, 10).split('-').reverse().join('/') : ''} readOnly className={inputReadOnlyClass} placeholder="Auto-filled" />
+          <input type="date" id="contract_date" name="contract_date" value={formData.contract_date?.slice(0, 10) || ''} onChange={handleChange} className={inputClassName} />
         </FField>
         <FField label="Buyer Name" htmlFor="buyer_name">
           <input type="text" id="buyer_name" value={formData.buyer_name} readOnly className={inputReadOnlyClass} />

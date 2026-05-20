@@ -43,7 +43,7 @@ const MobileBottomNav: React.FC = () => {
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}
       >
-        <div className="flex items-stretch" style={{ height: 64 }}>
+        <div className="flex items-stretch" style={{ height: 52 }}>
           {PRIMARY_TABS.map((tab) => {
             const Icon = tab.icon;
             const isMore = tab.name === 'More';
@@ -56,9 +56,9 @@ const MobileBottomNav: React.FC = () => {
                 );
 
             const inner = (
-              <div className="flex flex-col items-center justify-center gap-1 w-full h-full">
+              <div className="flex flex-col items-center justify-center gap-0.5 w-full h-full">
                 <Icon
-                  style={{ width: 22, height: 22, color: isActive ? '#2563FF' : '#9CA3AF' }}
+                  style={{ width: 20, height: 20, color: isActive ? '#2563FF' : '#9CA3AF' }}
                   strokeWidth={isActive ? 2.5 : 1.75}
                 />
                 <span style={{
