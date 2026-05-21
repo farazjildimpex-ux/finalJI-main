@@ -1,8 +1,8 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Search, X, ChevronRight, AlertCircle,
-  FileText, Bookmark, Receipt,
+  FileText, Bookmark, Receipt, Edit2, Trash2, GitBranch,
 } from 'lucide-react';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -25,6 +25,29 @@ function getGreeting() {
 function formatFullDate() {
   return new Date().toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+function toDateKey(date: Date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+function addCalendarDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+function startOfWeekMonday(date: Date) {
+  const next = new Date(date);
+  const day = next.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  next.setDate(next.getDate() + diff);
+  return next;
+}
+function formatMobileDay(date: Date) {
+  return date.toLocaleDateString('en-GB', {
+    weekday: 'short', day: 'numeric', month: 'short',
   });
 }
 
@@ -81,6 +104,12 @@ const HomePage: React.FC = () => {
   const [selectedEntryForPopup, setSelectedEntryForPopup] = useState<JournalEntry | null>(null);
   const [isMobileFormOpen,      setIsMobileFormOpen]      = useState(false);
   const [isDesktopFormOpen,     setIsDesktopFormOpen]     = useState(false);
+  const [mobileJournalDate,     setMobileJournalDate]     = useState(new Date());
+  const [mobileWeekStart,       setMobileWeekStart]       = useState(() => startOfWeekMonday(new Date()));
+  const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
+  const weekTouchStartX = useRef<number | null>(null);
+  const mobileEntryTapRef = useRef<{ id: string; time: number } | null>(null);
+  const mobileEntryLongPressRef = useRef<number | null>(null);
 
   /* ── fetch ───────────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
@@ -167,6 +196,87 @@ const HomePage: React.FC = () => {
     return journalEntries.filter(e=>e.title.toLowerCase().includes(s)||(e.content&&e.content.toLowerCase().includes(s))).slice(0,12);
   }, [journalEntries, searchTerm]);
 
+  const mobileJournalDateKey = useMemo(() => toDateKey(mobileJournalDate), [mobileJournalDate]);
+
+  const mobileJournalEntries = useMemo(
+    () => journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey),
+    [journalEntries, mobileJournalDateKey],
+  );
+
+  const mobileQueuePreview = activityList.slice((activityPage - 1) * ACTIVITY_PAGE_SIZE, activityPage * ACTIVITY_PAGE_SIZE);
+
+  const weeklySearchActivity = useMemo(() => {
+    const now = new Date();
+    const thisStart = startOfWeekMonday(now).getTime();
+    const lastStart = addCalendarDays(new Date(thisStart), -7).getTime();
+    const nextStart = addCalendarDays(new Date(thisStart), 7).getTime();
+    const toTime = (value?: string | null) => value ? new Date(value).getTime() : 0;
+    return [
+      { label: 'This week', items: orders.filter(o => {
+        const t = toTime(o.date || o.createdAt);
+        return t >= thisStart && t < nextStart;
+      }).slice(0, 6) },
+      { label: 'Last week', items: orders.filter(o => {
+        const t = toTime(o.date || o.createdAt);
+        return t >= lastStart && t < thisStart;
+      }).slice(0, 6) },
+    ];
+  }, [orders]);
+
+  const handleWeekTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (weekTouchStartX.current == null) return;
+    const delta = e.changedTouches[0].clientX - weekTouchStartX.current;
+    if (Math.abs(delta) > 48) {
+      setMobileWeekStart(d => addCalendarDays(d, delta < 0 ? 7 : -7));
+    }
+    weekTouchStartX.current = null;
+  };
+
+  const handleMobileDeleteEntry = async (entry: JournalEntry) => {
+    const ok = await dialogService.confirm({
+      title: 'Delete entry?',
+      message: 'Are you sure you want to delete this journal entry? This action cannot be undone.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
+    const { error } = await supabase.from('journal_entries').delete().eq('id', entry.id);
+    if (error) {
+      dialogService.alert({ title: 'Failed to delete entry', message: error.message, tone: 'danger' });
+      return;
+    }
+    setMobileOpenEntryId(null);
+    fetchJournalEntries();
+    dialogService.success('Entry deleted.');
+  };
+
+  const handleMobileEntryPress = (entry: JournalEntry) => {
+    if (mobileEntryLongPressRef.current) window.clearTimeout(mobileEntryLongPressRef.current);
+    mobileEntryLongPressRef.current = window.setTimeout(() => {
+      setSelectedEntryForPopup(entry);
+      setMobileOpenEntryId(null);
+      mobileEntryLongPressRef.current = null;
+    }, 520);
+  };
+
+  const clearMobileEntryPress = () => {
+    if (mobileEntryLongPressRef.current) window.clearTimeout(mobileEntryLongPressRef.current);
+    mobileEntryLongPressRef.current = null;
+  };
+
+  const handleMobileEntryTap = (entry: JournalEntry) => {
+    const now = Date.now();
+    const last = mobileEntryTapRef.current;
+    if (last?.id === entry.id && now - last.time < 320) {
+      setSelectedEntryForPopup(entry);
+      setMobileOpenEntryId(null);
+      mobileEntryTapRef.current = null;
+      return;
+    }
+    mobileEntryTapRef.current = { id: entry.id, time: now };
+    setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
+  };
+
   /* ── handlers ────────────────────────────────────────────── */
   const handlePullRefresh = useCallback(async()=>{ await Promise.all([fetchData(), fetchJournalEntries()]); }, [fetchData, fetchJournalEntries]);
 
@@ -219,47 +329,269 @@ const HomePage: React.FC = () => {
     <>
       {/* ━━━━━━━━━━━━━━━━━━  MOBILE  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div
-        className="md:hidden min-h-screen"
+        className="md:hidden min-h-screen bg-gray-50 text-gray-900"
+        style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
+      >
+        <PullToRefresh onRefresh={handlePullRefresh}>
+          <div className="px-4 pt-4 pb-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium text-gray-400">{formatFullDate()}</p>
+                <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-normal">{getGreeting()}</h1>
+              </div>
+              <button
+                onClick={openSearch}
+                className="h-10 w-10 rounded-xl bg-white border border-gray-200 text-gray-600 flex items-center justify-center active:bg-gray-100 transition-colors shadow-sm"
+                aria-label="Search"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            </div>
+
+            <section className="mt-4 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-gray-100">
+                <div className="min-w-0">
+                  <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
+                  <p className="mt-0.5 text-[11px] font-medium text-gray-400">
+                    {formatMobileDay(mobileWeekStart)} - {formatMobileDay(addCalendarDays(mobileWeekStart, 6))}
+                  </p>
+                </div>
+                <button
+                  onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
+                  className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5 active:bg-blue-700 transition-colors"
+                >
+                  <Plus className="h-3 w-3" /> New
+                </button>
+              </div>
+
+              <div
+                className="px-4 py-3 border-b border-gray-50"
+                onTouchStart={(e) => { weekTouchStartX.current = e.changedTouches[0].clientX; }}
+                onTouchEnd={handleWeekTouchEnd}
+              >
+                <div className="grid grid-cols-7 gap-1">
+                  {Array.from({ length: 7 }, (_, offset) => {
+                    const date = addCalendarDays(mobileWeekStart, offset);
+                    const isSelected = toDateKey(date) === mobileJournalDateKey;
+                    return (
+                      <button
+                        key={offset}
+                        onClick={() => setMobileJournalDate(date)}
+                        className={`h-11 rounded-lg text-center transition-colors ${
+                          isSelected
+                            ? 'text-blue-600'
+                            : 'text-gray-500 active:bg-gray-50'
+                        }`}
+                      >
+                        <span className="block text-[10px] font-semibold uppercase leading-none">
+                          {date.toLocaleDateString('en-GB', { weekday: 'short' })}
+                        </span>
+                        <span className="block mt-1 text-[13px] font-bold leading-none">
+                          {date.getDate()}
+                        </span>
+                        {isSelected && <span className="mx-auto mt-1 block h-0.5 w-5 rounded-full bg-blue-600" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="px-4 pb-3 space-y-2">
+                {journalLoading ? (
+                  <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
+                    <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
+                  </div>
+                ) : mobileJournalEntries.length === 0 ? (
+                  <button onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }} className="w-full rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-4 text-left active:bg-gray-100">
+                    <p className="text-[13px] font-semibold text-gray-700">No journal entries</p>
+                    <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
+                  </button>
+                ) : (
+                  mobileJournalEntries.slice(0, 3).map(entry => (
+                    <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+                      <button
+                        onMouseDown={() => handleMobileEntryPress(entry)}
+                        onMouseUp={clearMobileEntryPress}
+                        onMouseLeave={clearMobileEntryPress}
+                        onTouchStart={() => handleMobileEntryPress(entry)}
+                        onTouchEnd={clearMobileEntryPress}
+                        onTouchCancel={clearMobileEntryPress}
+                        onClick={() => handleMobileEntryTap(entry)}
+                        className="w-full px-3.5 py-3 text-left active:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                            {entry.content && <p className="mt-1 text-[11px] leading-5 text-gray-500 line-clamp-2">{entry.content}</p>}
+                          </div>
+                          <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
+                        </div>
+                      </button>
+                      <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
+                        <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
+                          <button
+                            onClick={() => { setEditingEntry(entry); setIsMobileFormOpen(true); }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100"
+                          >
+                            <Edit2 className="h-3 w-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => setSelectedEntryForPopup(entry)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200"
+                          >
+                            <GitBranch className="h-3 w-3" /> Thread
+                          </button>
+                          <button
+                            onClick={() => handleMobileDeleteEntry(entry)}
+                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100"
+                          >
+                            <Trash2 className="h-3 w-3" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="mt-4">
+              <div className="rounded-2xl bg-white overflow-hidden shadow-sm border border-gray-100">
+                <div className="px-4 py-3.5 flex items-center justify-between border-b border-slate-100">
+                  <div>
+                    <h2 className="text-[15px] font-bold text-gray-900">Recents</h2>
+                    <p className="mt-0.5 text-[11px] text-gray-400">{activityList.length} items shown</p>
+                  </div>
+                  <button onClick={openSearch} className="text-[12px] font-bold text-blue-600">Search</button>
+                </div>
+
+                <div className="px-3 py-2.5 border-b border-gray-100 overflow-x-auto no-scrollbar">
+                  <div className="flex gap-1.5 min-w-max">
+                    {FILTERS.map(f => (
+                      <button
+                        key={f.value}
+                        onClick={() => setMobileFilter(f.value)}
+                        className={`h-7 px-3 rounded-full text-[11px] font-semibold border transition-colors ${mobileFilter === f.value ? f.on : f.off}`}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {error && (
+                  <div className="m-3 p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-red-700 text-[12px]">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span className="flex-1">{error}</span>
+                    <button onClick={fetchData} className="font-black underline">Retry</button>
+                  </div>
+                )}
+
+                {loading ? (
+                  <div className="py-10 flex justify-center">
+                    <div className="h-5 w-5 rounded-full border-2 border-slate-200 border-b-slate-950 animate-spin" />
+                  </div>
+                ) : mobileQueuePreview.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <p className="text-[13px] font-bold text-slate-400">No records found</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {mobileQueuePreview.map(order => {
+                      const tc = TYPE_ICON[order.type] || { Icon: FileText, bg: 'bg-slate-50', iconCls: 'text-slate-500' };
+                      const Icon = tc.Icon;
+                      const badge = STATUS_BADGE[(order.status || 'issued').toLowerCase()] || 'text-slate-600 bg-slate-50 border border-slate-200';
+                      return (
+                        <button key={`${order.type}-${order.id}`} onClick={() => goToOrder(order)} className="w-full px-4 py-3.5 text-left flex items-center gap-3 active:bg-slate-50">
+                          <div className={`h-10 w-10 rounded-2xl ${tc.bg} flex items-center justify-center shrink-0`}>
+                            <Icon className={`h-4 w-4 ${tc.iconCls}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-semibold text-gray-900 truncate">{order.contractNumber}</p>
+                            <p className="mt-0.5 text-[11px] text-gray-500 truncate">{order.supplierName}</p>
+                            {[order.article, order.color].filter(Boolean).length > 0 && (
+                              <p className="mt-0.5 text-[10px] text-gray-400 truncate">
+                                {[order.article, order.color].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-semibold shrink-0 ${badge}`}>{order.status || 'Issued'}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {activityTotal > 1 && (
+                  <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-medium text-gray-400">
+                      {(activityPage - 1) * ACTIVITY_PAGE_SIZE + 1}-{Math.min(activityPage * ACTIVITY_PAGE_SIZE, activityList.length)} of {activityList.length}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      {Array.from({ length: Math.min(activityTotal, 5) }, (_, idx) => idx + 1).map(page => (
+                        <button
+                          key={page}
+                          onClick={() => setActivityPage(page)}
+                          className={`h-7 w-7 rounded-lg text-[11px] font-bold ${
+                            activityPage === page ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+          </div>
+        </PullToRefresh>
+      </div>
+
+      <div
+        className="hidden"
         style={{
-          background: 'linear-gradient(170deg, #EEF2FF 0%, #F3F6FE 18%, #F8FAFC 55%, #FFFFFF 100%)',
+          background: 'linear-gradient(180deg, #F7F9FC 0%, #FFFFFF 48%, #F8FAFC 100%)',
           paddingBottom: 'calc(52px + env(safe-area-inset-bottom, 0px))',
         }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
 
           {/* ── Header ──────────────────────────────────────── */}
-          <div className="bg-white/80 backdrop-blur-sm border-b border-white/60 px-5 pt-4 pb-3 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
+          <div className="sticky top-0 z-20 bg-[#F8FAFC]/95 backdrop-blur-xl px-4 pt-3 pb-3">
+            <div className="flex items-center justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <p className="leading-none mb-1">
-                  <span className="text-[24px] font-extrabold text-gray-900 tracking-tight">JILD </span>
-                  <span className="text-[24px] font-extrabold text-blue-600 tracking-tight">IMPEX</span>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400 leading-none">
+                  {formatFullDate()}
                 </p>
-                <p className="text-[14px] font-semibold text-gray-700 leading-tight">{getGreeting()} 👋</p>
-                <p className="text-[11px] text-gray-400 mt-0.5 font-medium">{formatFullDate()}</p>
+                <p className="mt-1 text-[22px] font-black text-slate-950 leading-tight">{getGreeting()}</p>
               </div>
               <button
                 onClick={openSearch}
-                className="w-9 h-9 shrink-0 rounded-xl bg-gray-100 border border-gray-200/80 flex items-center justify-center active:bg-gray-200 transition-colors mt-0.5"
+                className="h-11 w-11 shrink-0 rounded-2xl bg-white border border-slate-200 text-slate-700 flex items-center justify-center active:scale-95 transition-transform shadow-sm"
+                aria-label="Search"
               >
-                <Search className="w-4 h-4 text-gray-500" />
+                <Search className="w-4 h-4" />
               </button>
             </div>
           </div>
 
           {/* ── Journal — single unified card ───────────────── */}
-          <div className="mx-4 mt-3">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-4 pt-2.5 pb-2 border-b border-gray-100 flex items-center justify-between">
-                <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Journal</h2>
+          <div className="mx-4 mt-2">
+            <div className="bg-white rounded-[26px] border border-slate-100 shadow-[0_14px_40px_rgba(15,23,42,0.07)] overflow-hidden">
+              <div className="px-4 pt-4 pb-3 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[18px] font-black text-slate-950 leading-tight">Journal</h2>
+                  <p className="text-[12px] text-slate-400 mt-0.5">Notes for the selected day</p>
+                </div>
                 <button
                   onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 text-white text-[11px] font-bold rounded-lg active:bg-blue-700 transition-colors"
+                  className="h-10 px-3.5 rounded-2xl bg-slate-950 text-white text-[12px] font-bold flex items-center gap-1.5 active:scale-95 transition-transform"
                 >
-                  <Plus className="h-3 w-3" /> New Entry
+                  <Plus className="h-3.5 w-3.5" /> New
                 </button>
               </div>
-              <div className="px-3 pb-2.5 pt-1">
+              <div className="px-3 pb-3 pt-0">
                 <JournalWidget
                   entries={journalEntries}
                   loading={journalLoading}
@@ -272,16 +604,17 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* ── Recent Activity ──────────────────────────────── */}
-          <div className="mx-4 mt-3 mb-3">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-4 pt-2.5 pb-2 border-b border-gray-100">
-                <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Recent Activity</h2>
-                <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+          <div className="mx-4 mt-5 mb-3">
+            <div className="space-y-3">
+              <div>
+                <h2 className="text-[18px] font-black text-slate-950 leading-tight">Work Queue</h2>
+                <p className="text-[12px] text-slate-400 mt-0.5 mb-3">{activityList.length} matching records</p>
+                <div className="-mx-4 px-4 flex gap-2 overflow-x-auto no-scrollbar">
                   {FILTERS.map(f => (
                     <button
                       key={f.value}
                       onClick={() => setMobileFilter(f.value)}
-                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all shrink-0 ${mobileFilter===f.value ? f.on : f.off}`}
+                      className={`h-9 px-4 rounded-2xl text-[12px] font-bold border transition-all shrink-0 ${mobileFilter===f.value ? 'bg-slate-950 text-white border-slate-950 shadow-sm' : 'bg-white text-slate-500 border-slate-200'}`}
                     >
                       {f.label}
                     </button>
@@ -290,7 +623,7 @@ const HomePage: React.FC = () => {
               </div>
 
               {error && (
-                <div className="mx-3 mt-3 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-[12px]">
+                <div className="p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-red-700 text-[12px]">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span className="flex-1">{error}</span>
                   <button onClick={fetchData} className="font-bold underline">Retry</button>
@@ -298,16 +631,16 @@ const HomePage: React.FC = () => {
               )}
 
               {loading ? (
-                <div className="flex justify-center py-8">
+                <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm flex justify-center py-9">
                   <div className="animate-spin h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600" />
                 </div>
               ) : activityList.length === 0 ? (
-                <div className="py-8 text-center">
-                  <p className="text-[12px] text-gray-400">No records found</p>
+                <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm py-9 text-center">
+                  <p className="text-[13px] font-semibold text-gray-500">No records found</p>
                 </div>
               ) : (
                 <>
-                  {activitySlice.map((order, idx) => {
+                  {activitySlice.map((order) => {
                     const tc   = TYPE_ICON[order.type] || { Icon: FileText, bg:'bg-gray-50', iconCls:'text-gray-500' };
                     const Icon = tc.Icon;
                     const sk   = (order.status||'issued').toLowerCase();
@@ -317,43 +650,44 @@ const HomePage: React.FC = () => {
                       <button
                         key={`${order.type}-${order.id}`}
                         onClick={() => goToOrder(order)}
-                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-left active:bg-gray-50 transition-colors ${idx > 0 ? 'border-t border-gray-50' : ''}`}
+                        className="w-full bg-white rounded-[20px] border border-slate-100 shadow-sm px-3.5 py-3.5 text-left active:scale-[0.99] transition-transform flex items-center gap-3"
                       >
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${tc.bg}`}>
-                          <Icon className={`h-3.5 w-3.5 ${tc.iconCls}`} strokeWidth={1.75} />
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${tc.bg}`}>
+                          <Icon className={`h-4 w-4 ${tc.iconCls}`} strokeWidth={1.75} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[12px] font-bold text-gray-900 truncate leading-snug">{line1}</p>
-                          <p className="text-[10px] text-gray-400 truncate mt-0.5">{order.supplierName}</p>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <p className="text-[13px] font-black text-slate-950 truncate leading-snug">{line1}</p>
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${badge}`}>
+                              {order.status || 'Issued'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 truncate mt-1">{order.supplierName}</p>
+                          <p className="text-[10px] text-slate-400 truncate mt-0.5">{order.contractNumber}</p>
                         </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${badge}`}>
-                            {order.status || 'Issued'}
-                          </span>
-                          <ChevronRight className="h-3 w-3 text-gray-300" />
-                        </div>
+                        <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
                       </button>
                     );
                   })}
 
                   {/* Pagination */}
                   {activityTotal > 1 && (
-                    <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-50">
-                      <p className="text-[10px] text-gray-400">
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="text-[11px] text-gray-400">
                         {(activityPage-1)*ACTIVITY_PAGE_SIZE+1}–{Math.min(activityPage*ACTIVITY_PAGE_SIZE, activityList.length)} of {activityList.length}
                       </p>
-                      <div className="flex gap-1.5">
+                      <div className="flex gap-2">
                         <button
                           onClick={() => setActivityPage(p => Math.max(1, p-1))}
                           disabled={activityPage === 1}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-100 text-gray-600 disabled:opacity-30 active:bg-gray-200 transition-colors"
+                          className="h-8 px-3 rounded-full text-[11px] font-bold bg-white border border-gray-200 text-gray-600 disabled:opacity-30 active:bg-gray-50 transition-colors"
                         >
                           ‹ Prev
                         </button>
                         <button
                           onClick={() => setActivityPage(p => Math.min(activityTotal, p+1))}
                           disabled={activityPage === activityTotal}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-gray-100 text-gray-600 disabled:opacity-30 active:bg-gray-200 transition-colors"
+                          className="h-8 px-3 rounded-full text-[11px] font-bold bg-white border border-gray-200 text-gray-600 disabled:opacity-30 active:bg-gray-50 transition-colors"
                         >
                           Next ›
                         </button>
@@ -371,15 +705,14 @@ const HomePage: React.FC = () => {
       {/* ── Search overlay ── */}
       {showSearch && (
         <div
-          className="md:hidden fixed inset-0 z-[200] flex flex-col"
+          className="md:hidden fixed inset-0 z-[200] flex flex-col bg-gray-50"
           style={{
-            background: 'linear-gradient(170deg, #EEF2FF 0%, #F3F6FE 20%, #F8FAFC 100%)',
             paddingBottom: 'env(safe-area-inset-bottom,0px)',
             animation: 'fadeIn 0.18s ease-out',
           }}
         >
           {/* Input bar */}
-          <div className="bg-white/90 backdrop-blur-md border-b border-gray-100/80 px-4 pt-4 pb-0 shadow-sm">
+          <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-3 shadow-sm">
             <div className="flex items-center gap-2 mb-0">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -389,12 +722,12 @@ const HomePage: React.FC = () => {
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   placeholder="Search journals, contracts, suppliers…"
-                  className="w-full h-10 pl-9 pr-10 bg-gray-100 rounded-xl text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+                  className="w-full h-11 pl-9 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
                 />
                 {searchTerm && (
                   <button
                     onClick={() => setSearchTerm('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-400 flex items-center justify-center active:bg-gray-500"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center active:bg-gray-400"
                   >
                     <X className="h-3 w-3 text-white" />
                   </button>
@@ -402,25 +735,25 @@ const HomePage: React.FC = () => {
               </div>
               <button
                 onClick={() => { setShowSearch(false); setSearchTerm(''); }}
-                className="shrink-0 text-[13px] font-semibold text-blue-600 px-1 active:opacity-70"
+                className="shrink-0 h-11 px-2 text-[13px] font-semibold text-gray-500 active:text-gray-700"
               >
                 Cancel
               </button>
             </div>
 
             {/* Tabs — Journal (left, default) | Records (right) */}
-            <div className="flex gap-0 mt-3 border-b border-gray-100">
+            <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
               <button
                 onClick={() => setSearchTab('journal')}
-                className={`pb-2 px-4 text-[13px] font-semibold border-b-2 transition-all ${searchTab==='journal' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
+                className={`h-8 rounded-lg text-[12px] font-semibold transition-colors ${searchTab==='journal' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
               >
                 Journal
               </button>
               <button
                 onClick={() => setSearchTab('records')}
-                className={`pb-2 px-4 text-[13px] font-semibold border-b-2 transition-all ${searchTab==='records' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-400'}`}
+                className={`h-8 rounded-lg text-[12px] font-semibold transition-colors ${searchTab==='records' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
               >
-                Contracts · Payments · Letters
+                Recents
               </button>
             </div>
           </div>
@@ -428,12 +761,46 @@ const HomePage: React.FC = () => {
           {/* Results */}
           <div className="flex-1 overflow-y-auto">
             {!searchTerm.trim() ? (
-              <div className="flex flex-col items-center justify-center py-20 px-8 text-center" style={{animation:'fadeIn 0.2s ease-out'}}>
-                <div className="w-14 h-14 rounded-2xl bg-white border border-gray-100 shadow-sm flex items-center justify-center mb-4">
-                  <Search className="h-6 w-6 text-gray-300" />
+              <div className="p-4" style={{animation:'fadeIn 0.2s ease-out'}}>
+                <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100">
+                    <p className="text-[13px] font-bold text-gray-900">Activity by week</p>
+                    <p className="text-[11px] text-gray-400 mt-0.5">Recent contracts, letters and payments</p>
+                  </div>
+                  {weeklySearchActivity.map((group) => (
+                    <div key={group.label} className="border-b border-gray-100 last:border-b-0">
+                      <div className="px-4 py-2 bg-gray-50">
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">{group.label}</p>
+                      </div>
+                      {group.items.length === 0 ? (
+                        <div className="px-4 py-4">
+                          <p className="text-[12px] text-gray-400">No activity</p>
+                        </div>
+                      ) : (
+                        group.items.map((order) => {
+                          const tc = TYPE_ICON[order.type] || { Icon: FileText, bg:'bg-gray-50', iconCls:'text-gray-500' };
+                          const Icon = tc.Icon;
+                          return (
+                            <button
+                              key={`weekly-${group.label}-${order.type}-${order.id}`}
+                              onClick={() => { goToOrder(order); setShowSearch(false); }}
+                              className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50 border-t border-gray-50 first:border-t-0"
+                            >
+                              <div className={`h-8 w-8 rounded-lg ${tc.bg} flex items-center justify-center shrink-0`}>
+                                <Icon className={`h-4 w-4 ${tc.iconCls}`} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[12px] font-semibold text-gray-900 truncate">{order.contractNumber}</p>
+                                <p className="text-[10px] text-gray-400 truncate">{order.supplierName}</p>
+                              </div>
+                              <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <p className="text-[15px] font-bold text-gray-700 mb-1.5">Search everything</p>
-                <p className="text-[12px] text-gray-400 leading-relaxed">Contracts, letters, payments,<br />journal entries, suppliers</p>
               </div>
             ) : searchOrderResults.length === 0 && searchJournalResults.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center" style={{animation:'fadeIn 0.15s ease-out'}}>
@@ -556,15 +923,8 @@ const HomePage: React.FC = () => {
 
         <div className="flex-1 flex overflow-hidden min-h-0">
           {/* LEFT: Journal */}
-          <div className="w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-white overflow-hidden">
-            <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 flex items-center justify-between shrink-0">
-              <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest">Journal</h2>
-              <button onClick={()=>setIsDesktopFormOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white text-[11px] font-bold rounded-lg hover:bg-blue-700 transition-colors">
-                <Plus className="h-3 w-3" /> New Entry
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-3 pt-3 flex flex-col">
+          <div className="w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-gray-50 overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col momentum-scroll">
               {desktopSearch.trim() ? (() => {
                 const s = desktopSearch.toLowerCase();
                 const matched = journalEntries.filter(e=>e.title.toLowerCase().includes(s)||(e.content&&e.content.toLowerCase().includes(s)));
@@ -602,7 +962,109 @@ const HomePage: React.FC = () => {
                   </div>
                 );
               })() : (
-                <JournalWidget entries={journalEntries} loading={journalLoading} onEntriesUpdated={fetchJournalEntries} hideHeader />
+                <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+                  <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-gray-100">
+                    <div className="min-w-0">
+                      <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
+                      <p className="mt-0.5 text-[11px] font-medium text-gray-400">
+                        {formatMobileDay(mobileWeekStart)} - {formatMobileDay(addCalendarDays(mobileWeekStart, 6))}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => { setEditingEntry(null); setIsDesktopFormOpen(true); }}
+                      className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5 hover:bg-blue-700 transition-colors"
+                    >
+                      <Plus className="h-3 w-3" /> New
+                    </button>
+                  </div>
+
+                  <div
+                    className="px-4 py-3 border-b border-gray-50"
+                    onTouchStart={(e) => { weekTouchStartX.current = e.changedTouches[0].clientX; }}
+                    onTouchEnd={handleWeekTouchEnd}
+                  >
+                    <div className="grid grid-cols-7 gap-1">
+                      {Array.from({ length: 7 }, (_, offset) => {
+                        const date = addCalendarDays(mobileWeekStart, offset);
+                        const isSelected = toDateKey(date) === mobileJournalDateKey;
+                        return (
+                          <button
+                            key={offset}
+                            onClick={() => setMobileJournalDate(date)}
+                            className={`h-11 rounded-lg text-center transition-colors ${
+                              isSelected
+                                ? 'text-blue-600'
+                                : 'text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="block text-[10px] font-semibold uppercase leading-none">
+                              {date.toLocaleDateString('en-GB', { weekday: 'short' })}
+                            </span>
+                            <span className="block mt-1 text-[13px] font-bold leading-none">
+                              {date.getDate()}
+                            </span>
+                            {isSelected && <span className="mx-auto mt-1 block h-0.5 w-5 rounded-full bg-blue-600" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="px-4 pb-3 pt-3 space-y-2">
+                    {journalLoading ? (
+                      <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
+                        <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
+                      </div>
+                    ) : mobileJournalEntries.length === 0 ? (
+                      <button onClick={() => { setEditingEntry(null); setIsDesktopFormOpen(true); }} className="w-full rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-4 text-left hover:bg-gray-100">
+                        <p className="text-[13px] font-semibold text-gray-700">No journal entries</p>
+                        <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
+                      </button>
+                    ) : (
+                      mobileJournalEntries.slice(0, 8).map(entry => (
+                        <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+                          <button
+                            onMouseDown={() => handleMobileEntryPress(entry)}
+                            onMouseUp={clearMobileEntryPress}
+                            onMouseLeave={clearMobileEntryPress}
+                            onClick={() => handleMobileEntryTap(entry)}
+                            className="w-full px-3.5 py-3 text-left hover:bg-gray-100 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                                {entry.content && <p className="mt-1 text-[11px] leading-5 text-gray-500 line-clamp-2">{entry.content}</p>}
+                              </div>
+                              <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
+                            </div>
+                          </button>
+                          <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
+                              <button
+                                onClick={() => { setEditingEntry(entry); setIsDesktopFormOpen(true); }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100"
+                              >
+                                <Edit2 className="h-3 w-3" /> Edit
+                              </button>
+                              <button
+                                onClick={() => setSelectedEntryForPopup(entry)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200"
+                              >
+                                <GitBranch className="h-3 w-3" /> Thread
+                              </button>
+                              <button
+                                onClick={() => handleMobileDeleteEntry(entry)}
+                                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100"
+                              >
+                                <Trash2 className="h-3 w-3" /> Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
               )}
             </div>
           </div>

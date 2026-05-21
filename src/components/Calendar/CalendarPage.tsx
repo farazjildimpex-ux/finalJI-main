@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Calendar, ExternalLi
 import { supabase } from '../../lib/supabaseClient';
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  addMonths, subMonths, eachDayOfInterval, isSameMonth, isToday, parseISO,
+  addMonths, addDays, subMonths, eachDayOfInterval, isSameMonth, isToday, parseISO,
 } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
@@ -120,6 +120,7 @@ const CalendarPage: React.FC = () => {
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [details, setDetails]           = useState<Record<string, EventDetail>>({});
   const [contractQueryError, setContractQueryError] = useState<string | null>(null);
+  const [mobileCalendarMode, setMobileCalendarMode] = useState<'week' | 'month'>('week');
 
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(viewDate));
@@ -417,9 +418,95 @@ const CalendarPage: React.FC = () => {
   };
 
   const selectedParsed = parseISO(selectedDate);
+  const selectedWeekStart = startOfWeek(selectedParsed);
 
   return (
-    <div className="min-h-full bg-gray-50/40">
+    <>
+    <div className="md:hidden min-h-full bg-gray-50 px-4 pt-4 pb-24 page-fade-in">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-medium text-gray-400">Calendar</p>
+          <h1 className="mt-1 text-[22px] font-bold text-gray-900">{format(selectedParsed, 'd MMM yyyy')}</h1>
+        </div>
+        <button onClick={goToday} className="h-9 px-3 rounded-lg bg-white border border-gray-200 text-[12px] font-bold text-blue-600 shadow-sm">
+          Today
+        </button>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100">
+          <button onClick={() => { const next = addMonths(selectedParsed, -1); setViewDate(next); setSelectedDate(format(next, 'yyyy-MM-dd')); }} className="h-8 w-8 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 flex items-center justify-center">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => setMobileCalendarMode(mode => mode === 'week' ? 'month' : 'week')}
+            className="h-8 px-3 rounded-lg bg-blue-50 text-[12px] font-bold text-blue-600"
+          >
+            {mobileCalendarMode === 'week' ? 'Month view' : 'Week view'}
+          </button>
+          <button onClick={() => { const next = addMonths(selectedParsed, 1); setViewDate(next); setSelectedDate(format(next, 'yyyy-MM-dd')); }} className="h-8 w-8 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 flex items-center justify-center">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="px-4 pt-3">
+          <p className="text-[14px] font-bold text-gray-900 text-center">{format(selectedParsed, 'MMMM yyyy')}</p>
+        </div>
+        <div className="px-3 py-3">
+          {mobileCalendarMode === 'month' && (
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {WEEKDAYS_SHORT.map(day => (
+                <div key={day} className="h-6 flex items-center justify-center text-[10px] font-bold text-gray-400 uppercase">
+                  {day}
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-7 gap-1">
+            {(mobileCalendarMode === 'month' ? calendarDays : Array.from({ length: 7 }, (_, idx) => addDays(selectedWeekStart, idx))).map((day) => {
+              const ds = format(day, 'yyyy-MM-dd');
+              const count = (byDate.get(ds) || []).length;
+              const active = ds === selectedDate;
+              return (
+                <button
+                  key={ds}
+                  onClick={() => handleDateSelect(ds)}
+                  className={`${mobileCalendarMode === 'month' ? 'h-10' : 'h-14'} rounded-xl text-center transition-colors ${active ? 'text-blue-600 bg-blue-50' : 'text-gray-500 active:bg-gray-50'} ${!isSameMonth(day, selectedParsed) ? 'opacity-35' : ''}`}
+                >
+                  {mobileCalendarMode === 'week' && <span className="block text-[10px] font-semibold uppercase">{format(day, 'EEE')}</span>}
+                  <span className="block mt-1 text-[15px] font-bold">{format(day, 'd')}</span>
+                  {count > 0 && <span className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full ${active ? 'bg-blue-600' : 'bg-gray-300'}`} />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-gray-100">
+          <p className="text-[15px] font-bold text-gray-900">{format(selectedParsed, 'EEEE')}</p>
+          <p className="mt-0.5 text-[11px] text-gray-400">
+            {selectedEvents.length} event{selectedEvents.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {loading ? (
+          <div className="py-10 flex justify-center">
+            <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
+          </div>
+        ) : selectedEvents.length === 0 ? (
+          <div className="px-4 py-10 text-center">
+            <Calendar className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+            <p className="text-[13px] font-semibold text-gray-400">Nothing scheduled</p>
+          </div>
+        ) : (
+          <div>
+            {selectedEvents.map(ev => <EventRow key={ev.id} ev={ev} />)}
+          </div>
+        )}
+      </div>
+    </div>
+
+    <div className="hidden md:block min-h-full bg-gray-50/40">
       <div className="px-3 sm:px-6 py-5 max-w-6xl mx-auto page-fade-in">
 
         {/* Header */}
@@ -532,6 +619,7 @@ const CalendarPage: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

@@ -7,6 +7,8 @@
 @layer base {
   html {
     -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+    overscroll-behavior-y: contain;
     /* 90% base (= 14.4px rem) keeps mobile looking native on high-DPR screens.
        On desktop (1×DPR) fractional rem causes subpixel blur — restore to 100%. */
     font-size: 90%;
@@ -26,6 +28,8 @@
     -moz-osx-font-smoothing: grayscale;
     /* Enable momentum scrolling on iOS */
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
     /* Prevent text selection on UI elements for a more native feel */
     user-select: none;
   }
@@ -71,6 +75,14 @@
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+  }
+
+  .momentum-scroll,
+  .overflow-auto,
+  .overflow-y-auto,
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .journal-press-effect {

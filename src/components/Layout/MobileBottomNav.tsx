@@ -3,23 +3,22 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Home, FileText, Users, MoreHorizontal,
-  Zap, Bookmark, CalendarDays, Settings, CreditCard, X, BookOpen,
+  Home, Users, MoreHorizontal,
+  Zap, Bookmark, CalendarDays, Settings, CreditCard, X, FileText,
 } from 'lucide-react';
 
 const PRIMARY_TABS = [
   { name: 'Home',      path: '/app/home',      icon: Home      },
   { name: 'Contacts',  path: '/app/contacts',  icon: Users     },
   { name: 'Lead IQ',   path: '/app/sales',     icon: Zap       },
-  { name: 'Contracts', path: '/app/contracts', icon: FileText  },
+  { name: 'Calendar',  path: '/app/calendar',   icon: CalendarDays },
   { name: 'More',      path: null,             icon: MoreHorizontal },
 ] as const;
 
 const MORE_ITEMS = [
-  { name: 'Journal',  path: '/app/home',        icon: BookOpen,    color: 'text-indigo-600', bg: 'bg-indigo-50'  },
+  { name: 'Contracts', path: '/app/contracts',    icon: FileText,    color: 'text-indigo-600', bg: 'bg-indigo-50' },
   { name: 'Payments', path: '/app/debit-notes', icon: CreditCard,  color: 'text-emerald-600',bg: 'bg-emerald-50' },
   { name: 'Letters',  path: '/app/samples',     icon: Bookmark,    color: 'text-blue-600',   bg: 'bg-blue-50'    },
-  { name: 'Calendar', path: '/app/calendar',    icon: CalendarDays,color: 'text-amber-600',  bg: 'bg-amber-50'   },
   { name: 'Settings', path: '/app/settings',    icon: Settings,    color: 'text-gray-600',   bg: 'bg-gray-100'   },
 ];
 

@@ -103,23 +103,23 @@ const JournalEntryForm: React.FC<{
     }
   };
 
-  const inputClass = "w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all";
-  const labelClass = "flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1";
+  const inputClass = "w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-blue-500 transition-colors";
+  const labelClass = "flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5";
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 bg-slate-900/45 backdrop-blur-sm flex items-stretch md:items-center justify-center z-[200] md:p-4 animate-in fade-in duration-200">
+      <div className="bg-[#F8FAFC] md:bg-white shadow-2xl w-full h-full md:h-auto md:max-w-lg flex flex-col md:max-h-[90vh] overflow-hidden md:rounded-[32px] animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-8 py-6 border-b border-slate-50">
+        <div className="flex items-center justify-between px-5 md:px-8 py-4 md:py-6 border-b border-slate-100 bg-white">
           <div>
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Journal</p>
+            <h2 className="mt-1 text-lg md:text-xl font-bold md:font-black text-slate-900 tracking-tight">
               {initialEntry ? 'Edit Entry' : parentId ? 'Add to Thread' : 'New Entry'}
             </h2>
-            <p className="text-xs font-medium text-slate-400 mt-0.5">Journal & Reminders</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-2xl transition-colors"
+            className="p-2.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
           >
             <X className="h-5 w-5" />
           </button>
@@ -127,44 +127,43 @@ const JournalEntryForm: React.FC<{
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-8 py-6 space-y-6 custom-scrollbar">
-            {/* Date Picker */}
-            <div>
-              <label className={labelClass}><Calendar className="h-3 w-3" /> Entry Date</label>
-              <DatePicker
-                value={entryDate}
-                onChange={(val) => setEntryDate(val)}
-              />
-            </div>
+          <div className="flex-1 overflow-y-auto px-5 md:px-8 py-5 md:py-6 space-y-4 custom-scrollbar">
+            <div className="rounded-2xl bg-white border border-slate-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100">
+                <label className={labelClass}><Calendar className="h-3 w-3" /> Entry Date</label>
+                <DatePicker
+                  value={entryDate}
+                  onChange={(val) => setEntryDate(val)}
+                />
+              </div>
 
-            {/* Title */}
-            <div>
-              <label className={labelClass}><Tag className="h-3 w-3" /> Title</label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="What's on your mind?"
-                className={inputClass}
-                required
-                autoFocus
-              />
-            </div>
+              <div className="px-4 py-3 border-b border-slate-100">
+                <label className={labelClass}><Tag className="h-3 w-3" /> Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Entry title"
+                  className="w-full bg-transparent text-[18px] font-bold text-slate-900 placeholder-slate-300 focus:outline-none"
+                  required
+                  autoFocus
+                />
+              </div>
 
-            {/* Content */}
-            <div>
-              <label className={labelClass}><AlignLeft className="h-3 w-3" /> Notes</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Add more details..."
-                rows={4}
-                className={`${inputClass} resize-none`}
-              />
+              <div className="px-4 py-3">
+                <label className={labelClass}><AlignLeft className="h-3 w-3" /> Notes</label>
+                <textarea
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  placeholder="Write the details here..."
+                  rows={7}
+                  className="w-full resize-none bg-transparent text-sm leading-6 text-slate-700 placeholder-slate-300 focus:outline-none"
+                />
+              </div>
             </div>
 
             {/* Reminder Section */}
-            <div className="bg-slate-50 rounded-3xl p-5 border border-slate-100">
+            <div className="bg-white md:bg-slate-50 rounded-2xl md:rounded-3xl p-4 md:p-5 border border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-xl ${reminderEnabled ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'}`}>
@@ -250,18 +249,18 @@ const JournalEntryForm: React.FC<{
           </div>
 
           {/* Fixed Footer */}
-          <div className="px-8 py-6 border-t border-slate-50 bg-white flex gap-3">
+          <div className="px-5 md:px-8 py-4 md:py-6 border-t border-slate-100 bg-white flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-6 py-3 text-sm font-bold text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+              className="flex-1 px-6 py-3 text-sm font-bold text-slate-500 bg-slate-100 rounded-xl md:rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={saving || !title.trim()}
-              className="flex-[2] px-6 py-3 text-sm font-bold text-white bg-blue-600 rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all active:scale-95"
+              className="flex-[2] px-6 py-3 text-sm font-bold text-white bg-blue-600 rounded-xl md:rounded-2xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all active:scale-95"
             >
               {saving ? 'Saving...' : initialEntry ? 'Update Entry' : 'Save Entry'}
             </button>

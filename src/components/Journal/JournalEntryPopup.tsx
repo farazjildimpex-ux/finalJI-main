@@ -170,56 +170,59 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
     <>
       {/* Backdrop — single click closes, double tap also closes */}
       <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-6"
+        className="fixed inset-0 bg-slate-950/35 backdrop-blur-sm z-[100] flex items-stretch md:items-center justify-center md:p-6"
         onClick={onClose}
         onDoubleClick={onClose}
       >
         <div
-          className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ maxHeight: 'min(92vh, 780px)' }}
+          className="bg-[#F8FAFC] w-full h-full md:h-auto md:max-w-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+          style={{ maxHeight: '100vh' }}
           onClick={(e) => e.stopPropagation()}
           onDoubleClick={(e) => e.stopPropagation()}
         >
-          {/* Header bar */}
-          <div className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0">
-            <div className="flex items-center gap-2">
-              {/* Thread indicator dots */}
-              {conversationThread.length > 1 && (
-                <div className="flex items-center gap-0.5">
-                  {conversationThread.slice(0, Math.min(conversationThread.length, 5)).map((_, i) => (
-                    <div
-                      key={i}
-                      className={`rounded-full transition-all ${
-                        conversationThread[i]?.id === entry.id
-                          ? 'w-4 h-1.5 bg-blue-500'
-                          : 'w-1.5 h-1.5 bg-slate-200'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-              <span className="text-[11px] font-semibold text-slate-400 tracking-wide">
-                {conversationThread.length > 1
-                  ? `${conversationThread.length} entries`
-                  : 'Journal'}
-              </span>
+          <div className="px-5 pt-4 pb-3 shrink-0 border-b border-slate-200/70 bg-white">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Journal Thread</p>
+                <h2 className="mt-1 text-[17px] font-bold text-slate-950 truncate">{currentEntry.title}</h2>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  {conversationThread.length} {conversationThread.length === 1 ? 'entry' : 'entries'} linked
+                </p>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-9 h-9 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setShowReplyForm(true)}
+                className="h-9 rounded-xl bg-blue-600 text-white text-[12px] font-semibold flex items-center justify-center gap-2 active:bg-blue-700"
+              >
+                <MessageSquarePlus className="h-3.5 w-3.5" />
+                Add entry
+              </button>
+              <button
+                onClick={() => setShowLinkPicker(true)}
+                className="h-9 rounded-xl bg-white text-slate-700 border border-slate-200 text-[12px] font-semibold flex items-center justify-center gap-2 active:bg-slate-50"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                Link existing
+              </button>
+            </div>
           </div>
 
           {/* Scroll area — double tap to close */}
           <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto px-4 sm:px-5 pb-3 space-y-3"
+            className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
             onClick={handleDoubleTap}
             onTouchEnd={handleDoubleTap}
           >
-            {conversationThread.map((item) => {
+            {conversationThread.map((item, index) => {
               const isSelected = item.id === entry.id;
               const hasReminder = item.reminder_enabled && item.reminder_date;
 
@@ -227,33 +230,43 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                 <div
                   key={item.id}
                   ref={isSelected ? activeEntryRef : null}
-                  className="relative"
+                  className="relative pl-9"
                   onClick={(e) => e.stopPropagation()}
                 >
+                  <div className={`absolute left-0 top-1.5 h-7 w-7 rounded-full border flex items-center justify-center text-[11px] font-bold ${
+                    isSelected
+                      ? 'bg-blue-600 border-blue-600 text-white'
+                      : 'bg-white border-slate-200 text-slate-400'
+                  }`}>
+                    {index + 1}
+                  </div>
+                  {index < conversationThread.length - 1 && (
+                    <div className="absolute left-[13px] top-9 bottom-[-18px] w-px bg-slate-200" />
+                  )}
                   <div
-                    className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
+                    className={`rounded-[22px] border transition-all duration-200 overflow-hidden ${
                       isSelected
-                        ? 'border-blue-200 bg-blue-50/30 shadow-md shadow-blue-100/60'
+                        ? 'border-slate-300 bg-white shadow-sm'
                         : 'border-slate-100 bg-white shadow-sm'
                     }`}
                   >
-                    {/* Accent bar for selected */}
-                    {isSelected && (
-                      <div className="h-1 bg-gradient-to-r from-blue-400 to-indigo-400 w-full" />
-                    )}
 
-                    <div className="p-5 sm:p-6">
-                      {/* Title row with actions */}
+                    <div className="p-4 sm:p-6">
                       <div className="flex items-start justify-between gap-3 mb-3">
-                        <h3 className={`text-xl font-bold leading-snug flex-1 ${
-                          isSelected ? 'text-blue-900' : 'text-slate-900'
-                        }`}>
-                          {item.title}
-                        </h3>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-medium text-slate-400 mb-1">
+                            {format(new Date(item.entry_date), 'MMM d, yyyy')} at {format(new Date(item.created_at), 'h:mm a')}
+                          </p>
+                          <h3 className={`text-[15px] sm:text-lg font-bold leading-snug ${
+                            isSelected ? 'text-slate-950' : 'text-slate-900'
+                          }`}>
+                            {item.title}
+                          </h3>
+                        </div>
                         <div className="flex items-center gap-1 shrink-0 -mt-0.5">
                           <button
                             onClick={() => setEditingEntry(item)}
-                            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-blue-500 hover:bg-blue-50 transition-all"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
                             title="Edit"
                           >
                             <Pencil className="h-4 w-4" />
@@ -261,7 +274,7 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                           {item.parent_id && (
                             <button
                               onClick={() => handleUnlinkEntry(item.id)}
-                              className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-red-400 hover:bg-red-50 transition-all"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-50 transition-all"
                               title="Remove from thread"
                             >
                               <Link2Off className="h-4 w-4" />
@@ -272,7 +285,7 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
 
                       {/* Content — this is the star */}
                       {item.content && (
-                        <p className="text-[16px] leading-[1.75] text-slate-700 whitespace-pre-wrap mb-4 tracking-[0.01em]">
+                        <p className="text-[14px] leading-6 text-slate-700 whitespace-pre-wrap mb-4">
                           {item.content}
                         </p>
                       )}
@@ -301,50 +314,20 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                   </div>
 
                   {/* Thread connector line between entries */}
-                  {conversationThread.indexOf(item) < conversationThread.length - 1 && (
-                    <div className="flex justify-center py-1">
-                      <div className="w-0.5 h-3 bg-slate-200 rounded-full" />
-                    </div>
-                  )}
                 </div>
               );
             })}
 
             {/* Double-tap hint — fades out */}
-            <p className="text-center text-[10px] text-slate-300 pb-1 select-none">
-              double-tap background to close
-            </p>
+            <div className="h-1" />
           </div>
 
-          {/* Action bar */}
-          <div className="shrink-0 px-4 sm:px-5 py-3.5 border-t border-slate-100 bg-slate-50/80 flex items-center gap-2">
-            {/* Add to thread */}
-            <button
-              onClick={() => setShowReplyForm(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-xs font-bold rounded-2xl hover:bg-blue-700 active:scale-95 transition-all shadow-md shadow-blue-200/60"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-              <span>Add</span>
-            </button>
-
-            {/* Link entry */}
-            <button
-              onClick={() => setShowLinkPicker(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-white text-slate-600 text-xs font-bold rounded-2xl border border-slate-200 hover:bg-slate-50 hover:border-slate-300 active:scale-95 transition-all"
-            >
-              <LinkIcon className="h-4 w-4" />
-              <span>Link</span>
-            </button>
-
-            <div className="flex-1" />
-
-            {/* Close */}
+          <div className="shrink-0 px-4 sm:px-5 py-3 border-t border-slate-100 bg-white">
             <button
               onClick={onClose}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-white text-slate-500 text-xs font-bold rounded-2xl border border-slate-200 hover:bg-slate-50 active:scale-95 transition-all"
+              className="h-10 w-full rounded-xl bg-blue-600 text-white text-xs font-semibold active:bg-blue-700"
             >
-              <X className="h-3.5 w-3.5" />
-              <span>Close</span>
+              Done
             </button>
           </div>
         </div>

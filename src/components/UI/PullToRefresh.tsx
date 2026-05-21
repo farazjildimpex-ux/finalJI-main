@@ -35,14 +35,13 @@ interface PullToRefreshProps {
  *   4. Only single-finger touches count.
  *   5. Release must be past `threshold` (110px by default).
  *
- * While refreshing it shows the JILD "JI" splash so the action feels like a
- * fresh launch.
+ * While refreshing it shows one compact, consistent indicator.
  */
 const PullToRefresh: React.FC<PullToRefreshProps> = ({
   onRefresh,
-  threshold = 110,
-  maxPull = 160,
-  activationDistance = 30,
+  threshold = 150,
+  maxPull = 190,
+  activationDistance = 55,
   children,
 }) => {
   const [pull, setPull] = useState(0);
@@ -102,8 +101,8 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
         return;
       }
 
-      // Must start at the very top to even consider arming.
-      if (!atTop()) {
+      // Must start at the very top and near the top edge to even consider arming.
+      if (!atTop() || e.touches[0].clientY > 96) {
         armed.current = false;
         startY.current = null;
         return;
@@ -177,8 +176,7 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
       try {
         await onRefresh();
       } finally {
-        // Keep the splash visible briefly so the animation feels intentional.
-        setTimeout(() => setRefreshing(false), 650);
+        setTimeout(() => setRefreshing(false), 350);
       }
     };
 
@@ -245,56 +243,18 @@ const PullToRefresh: React.FC<PullToRefreshProps> = ({
         </div>
       )}
 
-      {/* Full-screen splash while the refresh is running. */}
-      {refreshing && <RefreshSplash />}
+      {refreshing && (
+        <div className="fixed left-0 right-0 top-3 z-[9999] flex items-center justify-center pointer-events-none">
+          <div className="rounded-full bg-white px-4 py-2 shadow-lg ring-1 ring-slate-200 flex items-center gap-2">
+            <div className="h-4 w-4 rounded-full border-2 border-slate-200 border-b-blue-600 animate-spin" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Refreshing</span>
+          </div>
+        </div>
+      )}
 
       {children}
     </>
   );
 };
-
-/**
- * The refresh splash mirrors the app's launch loading screen so a pull-to-
- * refresh feels like reopening JILD IMPEX from scratch.
- */
-const RefreshSplash: React.FC = () => (
-  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-50">
-    <style>{`
-      @keyframes ptrJ {
-        0%   { opacity: 0; transform: translateY(28px) scale(0.7) rotate(-6deg); }
-        60%  { transform: translateY(-4px) scale(1.06) rotate(1deg); }
-        100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
-      }
-      @keyframes ptrI {
-        0%   { opacity: 0; transform: translateY(28px) scale(0.7) rotate(6deg); }
-        60%  { transform: translateY(-4px) scale(1.06) rotate(-1deg); }
-        100% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
-      }
-      @keyframes ptrUnderline {
-        from { transform: scaleX(0); opacity: 0; }
-        to   { transform: scaleX(1); opacity: 1; }
-      }
-      @keyframes ptrPulse {
-        0%, 100% { opacity: 0.9; }
-        50%      { opacity: 0.55; }
-      }
-      .ptr-letter-j { animation: ptrJ 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s both; }
-      .ptr-letter-i { animation: ptrI 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both; }
-      .ptr-underline {
-        animation:
-          ptrUnderline 0.4s ease-out 0.55s both,
-          ptrPulse 1.2s ease-in-out 0.95s infinite;
-        transform-origin: left;
-      }
-    `}</style>
-    <div className="flex flex-col items-center">
-      <div className="flex items-end gap-0.5 mb-3 select-none">
-        <span className="ptr-letter-j text-8xl font-black leading-none text-[#0f172a]">J</span>
-        <span className="ptr-letter-i text-8xl font-black leading-none text-[#2563eb]">I</span>
-      </div>
-      <div className="ptr-underline w-16 h-1 rounded-full bg-gradient-to-r from-[#0f172a] to-[#2563eb]" />
-    </div>
-  </div>
-);
 
 export default PullToRefresh;
