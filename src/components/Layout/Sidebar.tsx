@@ -46,6 +46,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
               )}
               <Link
                 to={item.path}
+                onClick={() => {
+                  if (item.path === '/app/home') {
+                    window.dispatchEvent(new Event('home-journal-reset'));
+                  }
+                }}
                 className={`flex items-center gap-2.5 w-full py-2.5 px-3 transition-all duration-150
                   ${isActive
                     ? 'text-blue-600 bg-blue-50'

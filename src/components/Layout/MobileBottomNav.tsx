@@ -26,6 +26,13 @@ const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
 
+  const handlePrimaryNav = (tabName: string) => {
+    setShowMore(false);
+    if (tabName === 'Home') {
+      window.dispatchEvent(new Event('home-journal-reset'));
+    }
+  };
+
   const isMoreActive = showMore || MORE_ITEMS.some(i => {
     if (i.path === '/app/home') return false;
     return location.pathname.startsWith(i.path);
@@ -35,14 +42,15 @@ const MobileBottomNav: React.FC = () => {
     <>
       {/* ── BOTTOM NAV BAR ── */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white"
+        className="md:hidden fixed left-4 right-4 z-50 bg-white/95 backdrop-blur-xl"
         style={{
-          borderTop: '1px solid #EEF2F6',
-          boxShadow: '0 -2px 12px rgba(15,23,42,0.03)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
+          border: '1px solid rgba(226,232,240,0.95)',
+          borderRadius: 24,
+          boxShadow: '0 12px 34px rgba(15,23,42,0.16)',
         }}
       >
-        <div className="flex items-stretch" style={{ height: 52 }}>
+        <div className="flex items-stretch px-1.5" style={{ height: 58 }}>
           {PRIMARY_TABS.map((tab) => {
             const Icon = tab.icon;
             const isMore = tab.name === 'More';
@@ -76,7 +84,7 @@ const MobileBottomNav: React.FC = () => {
                 {inner}
               </button>
             ) : (
-              <Link key={tab.name} to={tab.path as string} onClick={() => setShowMore(false)} className="flex-1">
+              <Link key={tab.name} to={tab.path as string} onClick={() => handlePrimaryNav(tab.name)} className="flex-1">
                 {inner}
               </Link>
             );
@@ -96,7 +104,7 @@ const MobileBottomNav: React.FC = () => {
             style={{
               borderRadius: '28px 28px 0 0',
               boxShadow: '0 -8px 32px rgba(15,23,42,0.10)',
-              paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))',
+              paddingBottom: 'calc(86px + env(safe-area-inset-bottom, 0px))',
             }}
           >
             <div className="flex justify-center pt-3 pb-1">

@@ -108,8 +108,6 @@ const HomePage: React.FC = () => {
   const [mobileWeekStart,       setMobileWeekStart]       = useState(() => startOfWeekMonday(new Date()));
   const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
   const weekTouchStartX = useRef<number | null>(null);
-  const mobileEntryTapRef = useRef<{ id: string; time: number } | null>(null);
-  const mobileEntryLongPressRef = useRef<number | null>(null);
 
   /* ── fetch ───────────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
@@ -146,6 +144,18 @@ const HomePage: React.FC = () => {
 
   useEffect(()=>{ fetchData(); }, [fetchData]);
   useEffect(()=>{ if(user) fetchJournalEntries(); }, [user, fetchJournalEntries]);
+
+  const resetJournalToToday = useCallback(() => {
+    const today = new Date();
+    setMobileJournalDate(today);
+    setMobileWeekStart(startOfWeekMonday(today));
+    setMobileOpenEntryId(null);
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('home-journal-reset', resetJournalToToday);
+    return () => window.removeEventListener('home-journal-reset', resetJournalToToday);
+  }, [resetJournalToToday]);
 
   // Reset page when filter changes
   useEffect(()=>{ setActivityPage(1); }, [mobileFilter]);
@@ -250,30 +260,7 @@ const HomePage: React.FC = () => {
     dialogService.success('Entry deleted.');
   };
 
-  const handleMobileEntryPress = (entry: JournalEntry) => {
-    if (mobileEntryLongPressRef.current) window.clearTimeout(mobileEntryLongPressRef.current);
-    mobileEntryLongPressRef.current = window.setTimeout(() => {
-      setSelectedEntryForPopup(entry);
-      setMobileOpenEntryId(null);
-      mobileEntryLongPressRef.current = null;
-    }, 520);
-  };
-
-  const clearMobileEntryPress = () => {
-    if (mobileEntryLongPressRef.current) window.clearTimeout(mobileEntryLongPressRef.current);
-    mobileEntryLongPressRef.current = null;
-  };
-
   const handleMobileEntryTap = (entry: JournalEntry) => {
-    const now = Date.now();
-    const last = mobileEntryTapRef.current;
-    if (last?.id === entry.id && now - last.time < 320) {
-      setSelectedEntryForPopup(entry);
-      setMobileOpenEntryId(null);
-      mobileEntryTapRef.current = null;
-      return;
-    }
-    mobileEntryTapRef.current = { id: entry.id, time: now };
     setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
   };
 
@@ -330,10 +317,10 @@ const HomePage: React.FC = () => {
       {/* ━━━━━━━━━━━━━━━━━━  MOBILE  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div
         className="md:hidden min-h-screen bg-gray-50 text-gray-900"
-        style={{ paddingBottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ paddingBottom: 'calc(82px + env(safe-area-inset-bottom, 0px))' }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
-          <div className="px-4 pt-4 pb-5">
+          <div className="px-4 pt-4 pb-2">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-gray-400">{formatFullDate()}</p>
@@ -407,27 +394,23 @@ const HomePage: React.FC = () => {
                     <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
                   </button>
                 ) : (
-                  mobileJournalEntries.slice(0, 3).map(entry => (
+                  mobileJournalEntries.map(entry => {
+                    const isOpen = mobileOpenEntryId === entry.id;
+                    return (
                     <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
                       <button
-                        onMouseDown={() => handleMobileEntryPress(entry)}
-                        onMouseUp={clearMobileEntryPress}
-                        onMouseLeave={clearMobileEntryPress}
-                        onTouchStart={() => handleMobileEntryPress(entry)}
-                        onTouchEnd={clearMobileEntryPress}
-                        onTouchCancel={clearMobileEntryPress}
                         onClick={() => handleMobileEntryTap(entry)}
                         className="w-full px-3.5 py-3 text-left active:bg-gray-100 transition-colors"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
                             <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
-                            {entry.content && <p className="mt-1 text-[11px] leading-5 text-gray-500 line-clamp-2">{entry.content}</p>}
+                            {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>{entry.content}</p>}
                           </div>
-                          <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
+                          <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                         </div>
                       </button>
-                      <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
+                      <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
                           <button
                             onClick={() => { setEditingEntry(entry); setIsMobileFormOpen(true); }}
@@ -450,7 +433,8 @@ const HomePage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </section>
@@ -895,7 +879,7 @@ const HomePage: React.FC = () => {
       )}
 
       {/* ━━━━━━━━━━━━━━━━━━  DESKTOP  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="hidden md:flex flex-col h-full page-fade-in">
+      <div className="hidden md:flex flex-col h-full min-h-0 overflow-hidden page-fade-in">
 
         <div className="shrink-0 bg-white border-b border-gray-100 px-6 pt-4 pb-3">
           <div className="flex items-start gap-4">
@@ -921,10 +905,15 @@ const HomePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex overflow-hidden min-h-0">
+        <div className="flex-1 flex min-h-0 overflow-hidden">
           {/* LEFT: Journal */}
-          <div className="w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-gray-50 overflow-hidden">
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col momentum-scroll">
+          <div className="w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-gray-50 min-h-0 overflow-hidden">
+            <div
+              className="flex-1 overflow-y-auto p-3 flex flex-col momentum-scroll"
+              onWheel={(e) => {
+                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollTop += e.deltaY;
+              }}
+            >
               {desktopSearch.trim() ? (() => {
                 const s = desktopSearch.toLowerCase();
                 const matched = journalEntries.filter(e=>e.title.toLowerCase().includes(s)||(e.content&&e.content.toLowerCase().includes(s)));
@@ -944,7 +933,7 @@ const HomePage: React.FC = () => {
                               onClick={()=>setSelectedEntryForPopup(entry)}>
                               <p className="text-[13px] font-bold text-gray-800 line-clamp-1">{entry.title}</p>
                               <p className="text-[10px] text-gray-400 mt-0.5">{new Date(entry.entry_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>
-                              {entry.content&&<p className="text-[12px] text-gray-500 mt-1 line-clamp-2">{entry.content}</p>}
+                              {entry.content&&<p className="text-[12px] text-gray-500 mt-1 line-clamp-3">{entry.content}</p>}
                             </div>
                           ))}
                         </div>
@@ -1021,24 +1010,23 @@ const HomePage: React.FC = () => {
                         <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
                       </button>
                     ) : (
-                      mobileJournalEntries.slice(0, 8).map(entry => (
+                      mobileJournalEntries.map(entry => {
+                        const isOpen = mobileOpenEntryId === entry.id;
+                        return (
                         <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
                           <button
-                            onMouseDown={() => handleMobileEntryPress(entry)}
-                            onMouseUp={clearMobileEntryPress}
-                            onMouseLeave={clearMobileEntryPress}
                             onClick={() => handleMobileEntryTap(entry)}
                             className="w-full px-3.5 py-3 text-left hover:bg-gray-100 transition-colors"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
-                                {entry.content && <p className="mt-1 text-[11px] leading-5 text-gray-500 line-clamp-2">{entry.content}</p>}
+                                {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>{entry.content}</p>}
                               </div>
-                              <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
+                              <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                             </div>
                           </button>
-                          <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
+                          <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
                               <button
                                 onClick={() => { setEditingEntry(entry); setIsDesktopFormOpen(true); }}
@@ -1061,7 +1049,8 @@ const HomePage: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </section>
@@ -1070,7 +1059,7 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* RIGHT: Recent Activity */}
-          <div className="flex-1 flex flex-col overflow-hidden bg-gray-50/50">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-50/50">
             <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 bg-white shrink-0">
               <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Recent Activity</h2>
               <div className="flex gap-1.5 flex-wrap">
@@ -1082,7 +1071,12 @@ const HomePage: React.FC = () => {
                 ))}
               </div>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div
+              className="flex-1 min-h-0 overflow-y-auto p-4 momentum-scroll overscroll-contain"
+              onWheel={(e) => {
+                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollTop += e.deltaY;
+              }}
+            >
               {error&&(
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700 text-sm">
                   <AlertCircle className="h-5 w-5 mr-3 shrink-0"/>{error}
