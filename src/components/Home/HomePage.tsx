@@ -317,7 +317,7 @@ const HomePage: React.FC = () => {
       {/* ━━━━━━━━━━━━━━━━━━  MOBILE  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div
         className="md:hidden min-h-screen bg-gray-50 text-gray-900"
-        style={{ paddingBottom: 'calc(82px + env(safe-area-inset-bottom, 0px))' }}
+        style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
           <div className="px-4 pt-4 pb-2">
@@ -413,19 +413,19 @@ const HomePage: React.FC = () => {
                       <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
                           <button
-                            onClick={() => { setEditingEntry(entry); setIsMobileFormOpen(true); }}
+                            onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsMobileFormOpen(true); }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100"
                           >
                             <Edit2 className="h-3 w-3" /> Edit
                           </button>
                           <button
-                            onClick={() => setSelectedEntryForPopup(entry)}
+                            onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200"
                           >
                             <GitBranch className="h-3 w-3" /> Thread
                           </button>
                           <button
-                            onClick={() => handleMobileDeleteEntry(entry)}
+                            onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
                             className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100"
                           >
                             <Trash2 className="h-3 w-3" /> Delete
@@ -911,7 +911,10 @@ const HomePage: React.FC = () => {
             <div
               className="flex-1 overflow-y-auto p-3 flex flex-col momentum-scroll"
               onWheel={(e) => {
-                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollTop += e.deltaY;
+                if (e.deltaY !== 0) {
+                  e.currentTarget.scrollTop += e.deltaY;
+                  e.preventDefault();
+                }
               }}
             >
               {desktopSearch.trim() ? (() => {
@@ -1029,19 +1032,19 @@ const HomePage: React.FC = () => {
                           <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
                             <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
                               <button
-                                onClick={() => { setEditingEntry(entry); setIsDesktopFormOpen(true); }}
+                                onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsDesktopFormOpen(true); }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100"
                               >
                                 <Edit2 className="h-3 w-3" /> Edit
                               </button>
                               <button
-                                onClick={() => setSelectedEntryForPopup(entry)}
+                                onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
                                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200"
                               >
                                 <GitBranch className="h-3 w-3" /> Thread
                               </button>
                               <button
-                                onClick={() => handleMobileDeleteEntry(entry)}
+                                onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
                                 className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100"
                               >
                                 <Trash2 className="h-3 w-3" /> Delete
@@ -1074,7 +1077,10 @@ const HomePage: React.FC = () => {
             <div
               className="flex-1 min-h-0 overflow-y-auto p-4 momentum-scroll overscroll-contain"
               onWheel={(e) => {
-                if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollTop += e.deltaY;
+                if (e.deltaY !== 0) {
+                  e.currentTarget.scrollTop += e.deltaY;
+                  e.preventDefault();
+                }
               }}
             >
               {error&&(
@@ -1090,8 +1096,12 @@ const HomePage: React.FC = () => {
       </div>
 
       {isDesktopFormOpen&&(
-        <JournalEntryForm initialDate={new Date()} initialEntry={null}
-          onClose={()=>setIsDesktopFormOpen(false)} onSave={handleJournalSave} />
+        <JournalEntryForm
+          initialDate={editingEntry ? new Date(editingEntry.entry_date) : new Date()}
+          initialEntry={editingEntry}
+          onClose={()=>{ setIsDesktopFormOpen(false); setEditingEntry(null); }}
+          onSave={handleJournalSave}
+        />
       )}
 
       {selectedEntryForPopup&&(
