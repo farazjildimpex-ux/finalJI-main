@@ -260,7 +260,7 @@ const CalendarPage: React.FC = () => {
           {format(day, 'd')}
         </span>
 
-        <div className="flex flex-col gap-0.5 w-full">
+        <div className="flex flex-col gap-0.5 w-full min-h-[18px] sm:min-h-[36px]">
           {types.slice(0, 3).map(type => {
             const cfg   = EVENT_CFG[type];
             const count = groupedByType[type]!.length;
@@ -470,11 +470,13 @@ const CalendarPage: React.FC = () => {
                 <button
                   key={ds}
                   onClick={() => handleDateSelect(ds)}
-                  className={`${mobileCalendarMode === 'month' ? 'h-10' : 'h-14'} rounded-xl text-center transition-colors ${active ? 'text-blue-600 bg-blue-50' : 'text-gray-500 active:bg-gray-50'} ${!isSameMonth(day, selectedParsed) ? 'opacity-35' : ''}`}
+                  className={`${mobileCalendarMode === 'month' ? 'h-11' : 'h-14'} rounded-xl text-center transition-colors flex flex-col items-center justify-center ${active ? 'text-blue-600 bg-blue-50' : 'text-gray-500 active:bg-gray-50'} ${!isSameMonth(day, selectedParsed) ? 'opacity-35' : ''}`}
                 >
-                  {mobileCalendarMode === 'week' && <span className="block text-[10px] font-semibold uppercase">{format(day, 'EEE')}</span>}
-                  <span className="block mt-1 text-[15px] font-bold">{format(day, 'd')}</span>
-                  {count > 0 && <span className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full ${active ? 'bg-blue-600' : 'bg-gray-300'}`} />}
+                  <span className={`block h-3 text-[10px] font-semibold uppercase ${mobileCalendarMode === 'week' ? '' : 'opacity-0'}`}>
+                    {mobileCalendarMode === 'week' ? format(day, 'EEE') : 'day'}
+                  </span>
+                  <span className="block mt-0.5 text-[15px] font-bold leading-none">{format(day, 'd')}</span>
+                  <span className={`mx-auto mt-1 block h-1.5 w-1.5 rounded-full ${count > 0 ? (active ? 'bg-blue-600' : 'bg-gray-300') : 'bg-transparent'}`} />
                 </button>
               );
             })}

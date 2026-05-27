@@ -4,8 +4,28 @@ import { useAuth } from './useAuth';
 
 const ICON  = '/icon-192.png';
 const BADGE = '/icon-192.png';
+const ONE_DAY_MS = 86_400_000;
+
+function localDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function wasAlreadyNotified(tag: string): boolean {
+  if (typeof localStorage === 'undefined') return false;
+  return localStorage.getItem(`jild_notified_${tag}`) === '1';
+}
+
+function markNotified(tag: string) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(`jild_notified_${tag}`, '1');
+}
 
 async function sendNotification(title: string, body: string, tag: string, url: string) {
+  if (wasAlreadyNotified(tag)) return;
+
   const options: NotificationOptions = {
     body,
     icon:   ICON,
@@ -15,10 +35,16 @@ async function sendNotification(title: string, body: string, tag: string, url: s
     data: { url },
   };
   try {
-    const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification(title, options);
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      await reg.showNotification(title, options);
+    } else {
+      new Notification(title, { body, icon: ICON });
+    }
+    markNotified(tag);
   } catch {
     new Notification(title, { body, icon: ICON });
+    markNotified(tag);
   }
 }
 
@@ -28,11 +54,12 @@ export function useReminderChecker() {
 
   const checkReminders = async () => {
     if (!user) return;
+    if (!('Notification' in window)) return;
     if (Notification.permission !== 'granted') return;
 
     const now          = new Date();
-    const todayStr     = now.toISOString().split('T')[0];
-    const tomorrowStr  = new Date(now.getTime() + 86_400_000).toISOString().split('T')[0];
+    const todayStr     = localDateKey(now);
+    const tomorrowStr  = localDateKey(new Date(now.getTime() + ONE_DAY_MS));
 
     try {
       // ── 1. Journal entry reminders (by time) ─────────────────────────────
@@ -65,38 +92,46 @@ export function useReminderChecker() {
 
       // ── 2. Contract delivery dates (today + tomorrow) ─────────────────────
       // contracts table has no user_id — RLS handles row-level security
-      const { data: deliveryContracts } = await supabase
+      const { data: deliveryContracts, error: deliveryError } = await supabase
         .from('contracts')
         .select('id, contract_no, buyer_name, delivery_date')
         .not('delivery_date', 'is', null)
         .in('delivery_date', [todayStr, tomorrowStr]);
 
-      for (const c of deliveryContracts || []) {
-        const isToday = c.delivery_date === todayStr;
-        await sendNotification(
-          isToday ? `Delivery today: ${c.contract_no}` : `Delivery tomorrow: ${c.contract_no}`,
-          c.buyer_name ? `Buyer: ${c.buyer_name}` : 'Tap to open contract',
-          `contract-${c.id}-${c.delivery_date}`,
-          `/app/contracts/${c.id}`
-        );
+      if (deliveryError) {
+        console.warn('Contract delivery reminder query skipped:', deliveryError.message);
+      } else {
+        for (const c of deliveryContracts || []) {
+          const isToday = c.delivery_date === todayStr;
+          await sendNotification(
+            isToday ? `Delivery today: ${c.contract_no}` : `Delivery tomorrow: ${c.contract_no}`,
+            c.buyer_name ? `Buyer: ${c.buyer_name}` : 'Tap to open contract',
+            `contract-${c.id}-${c.delivery_date}`,
+            `/app/contracts/${c.id}`
+          );
+        }
       }
 
       // ── 3. Sample letter due dates (today + tomorrow) ─────────────────────
-      const { data: dueSamples } = await supabase
+      const { data: dueSamples, error: sampleError } = await supabase
         .from('samples')
         .select('id, sample_number, supplier_name, due_date')
         .eq('user_id', user.id)
         .not('due_date', 'is', null)
         .in('due_date', [todayStr, tomorrowStr]);
 
-      for (const s of dueSamples || []) {
-        const isToday = s.due_date === todayStr;
-        await sendNotification(
-          isToday ? `Letter due today: ${s.sample_number}` : `Letter due tomorrow: ${s.sample_number}`,
-          s.supplier_name ? `Supplier: ${s.supplier_name}` : 'Tap to open letter',
-          `sample-${s.id}-${s.due_date}`,
-          `/app/samples/${s.id}`
-        );
+      if (sampleError) {
+        console.warn('Sample due reminder query skipped:', sampleError.message);
+      } else {
+        for (const s of dueSamples || []) {
+          const isToday = s.due_date === todayStr;
+          await sendNotification(
+            isToday ? `Letter due today: ${s.sample_number}` : `Letter due tomorrow: ${s.sample_number}`,
+            s.supplier_name ? `Supplier: ${s.supplier_name}` : 'Tap to open letter',
+            `sample-${s.id}-${s.due_date}`,
+            `/app/samples/${s.id}`
+          );
+        }
       }
     } catch (err) {
       console.error('Reminder check error:', err);
@@ -108,5 +143,5 @@ export function useReminderChecker() {
     checkReminders();
     intervalRef.current = setInterval(checkReminders, 60_000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [user]);
+  }, [user?.id]);
 }

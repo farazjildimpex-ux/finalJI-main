@@ -139,7 +139,7 @@ self.addEventListener('push', (event) => {
   try { data = event.data.json(); } catch (e) { data = { notification: { title: 'JILD IMPEX', body: event.data.text() } }; }
 
   const title = data.notification?.title || 'JILD IMPEX';
-  const targetUrl = data.data?.url || data.fcmOptions?.link || '/app/journal';
+  const targetUrl = data.data?.url || data.fcmOptions?.link || '/app/home';
   const options = {
     body: data.notification?.body || '',
     icon: '/icon-192.png',
@@ -154,7 +154,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/app/journal';
+  const targetUrl = event.notification.data?.url || '/app/home';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

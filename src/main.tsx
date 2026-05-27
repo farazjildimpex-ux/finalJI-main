@@ -9,7 +9,7 @@ initPWA();
 
 // Register Firebase messaging service worker for background push notifications
 if ('serviceWorker' in navigator && isFirebaseConfigured) {
-  navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+  navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' })
     .then((reg) => {
       const firebaseConfig = {
         apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
