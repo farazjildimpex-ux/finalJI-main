@@ -191,6 +191,7 @@ const EmailSyncSection: React.FC = () => {
   }, [gmailStatus, imapStatus, testImapConnection]);
 
   const handleSaveKey = () => {
+    localStorage.setItem(PROVIDER_STORAGE, provider);
     if (provider === 'google') {
       if (!googleKey.trim()) return;
       localStorage.setItem(GOOGLE_KEY_STORAGE, googleKey.trim());

@@ -45,6 +45,22 @@
     color: #111827;
     color-scheme: light;
   }
+
+  @media (prefers-reduced-motion: no-preference) {
+    button,
+    a,
+    [role="button"] {
+      transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+      transition-duration: 160ms;
+      transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    button:active,
+    a:active,
+    [role="button"]:active {
+      transform: translateY(1px) scale(0.99);
+    }
+  }
 }
 
 @layer utilities {

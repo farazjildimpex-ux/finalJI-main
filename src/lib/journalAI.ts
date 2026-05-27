@@ -45,10 +45,16 @@ export async function suggestJournalLink(
     .sort((a, b) => new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime())
     .slice(0, 15);
 
-  const provider = localStorage.getItem('jild_ai_provider') || 'google';
-  const apiKey = provider === 'google' 
-    ? localStorage.getItem('jild_google_key') 
+  let provider = localStorage.getItem('jild_ai_provider') || 'google';
+  let apiKey = provider === 'google'
+    ? localStorage.getItem('jild_google_key')
     : localStorage.getItem('jild_openai_key');
+
+  if ((!apiKey || !apiKey.trim()) && localStorage.getItem('jild_google_key')?.trim()) {
+    provider = 'google';
+    apiKey = localStorage.getItem('jild_google_key');
+    localStorage.setItem('jild_ai_provider', 'google');
+  }
 
   if (!apiKey || !apiKey.trim()) {
     return { suggested_parent_id: null, reasoning: 'AI not configured' };
@@ -98,7 +104,8 @@ export async function suggestJournalLink(
     }
 
     if (!resp.ok) {
-      throw new Error(`AI request failed (${resp.status})`);
+      const detail = await resp.text().catch(() => '');
+      throw new Error(`AI request failed (${resp.status}). ${detail.slice(0, 180) || 'Check your API key and model.'}`);
     }
 
     const data = await resp.json();

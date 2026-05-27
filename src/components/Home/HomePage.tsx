@@ -285,9 +285,30 @@ const HomePage: React.FC = () => {
         if (sg.suggested_parent_id) {
           const parent=past.find(e=>e.id===sg.suggested_parent_id);
           if (parent) {
-            const link=await dialogService.confirm({title:'Link Journal Entry?',message:`AI noticed this entry is related to: "${parent.title}".\n\nReason: ${sg.reasoning}\n\nLink them?`,confirmLabel:'Link Entries'});
-            if (link) { await supabase.from('journal_entries').update({parent_id:parent.id}).eq('id',savedEntry.id); fetchJournalEntries(); dialogService.success('Entries linked.'); }
+            const { error } = await supabase.from('journal_entries').update({parent_id:parent.id}).eq('id',savedEntry.id);
+            if (error) {
+              await dialogService.alert({
+                title: 'Thread link failed',
+                message: error.message,
+                tone: 'danger',
+              });
+              return;
+            }
+            await fetchJournalEntries();
+            await dialogService.alert({
+              title: 'Journal Thread Linked',
+              message: `This entry was linked with "${parent.title}".\n\n${sg.reasoning || 'AI found this as the closest related thread.'}`,
+              confirmLabel: 'Done',
+              tone: 'success',
+            });
           }
+        } else if (sg.reasoning && !/not configured/i.test(sg.reasoning)) {
+          dialogService.toast({
+            title: 'No thread linked',
+            message: sg.reasoning,
+            tone: sg.reasoning.toLowerCase().includes('failed') || sg.reasoning.toLowerCase().includes('request') ? 'warning' : 'default',
+            durationMs: 4500,
+          });
         }
       }
     }
@@ -954,7 +975,7 @@ const HomePage: React.FC = () => {
                   </div>
                 );
               })() : (
-                <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+                <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 max-h-full">
                   <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-gray-100">
                     <div className="min-w-0">
                       <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
@@ -1002,7 +1023,16 @@ const HomePage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="px-4 pb-3 pt-3 space-y-2">
+                  <div
+                    className="px-4 pb-3 pt-3 space-y-2 overflow-y-auto momentum-scroll min-h-0"
+                    style={{ maxHeight: 'calc(100vh - 260px)' }}
+                    onWheel={(e) => {
+                      if (e.deltaY !== 0) {
+                        e.currentTarget.scrollTop += e.deltaY;
+                        e.preventDefault();
+                      }
+                    }}
+                  >
                     {journalLoading ? (
                       <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
                         <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
