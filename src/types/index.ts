@@ -317,6 +317,8 @@ export interface JournalEntry {
   reminder_sent: boolean;
   parent_id?: string | null;
   color?: string | null;
+  follow_up_required?: boolean;
+  follow_up_completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

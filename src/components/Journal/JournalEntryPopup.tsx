@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { Search, Plus, Link2Off, Link as LinkIcon, X, MessageSquarePlus, Pencil, Bell, Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Search, Plus, Link2Off, Link as LinkIcon, X, MessageSquarePlus, Pencil, Bell, Sparkles, Pin, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { JournalEntry } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
@@ -30,7 +30,6 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const activeEntryRef = useRef<HTMLDivElement>(null);
-  const lastTapRef = useRef<number>(0);
 
   // Always use the freshest version of the entry from allEntries so that
   // parent_id changes (e.g. after another session links this entry) are reflected.
@@ -66,14 +65,6 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
       .sort((a, b) => new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime());
   }, [allEntries, entry, rootId, linkSearchTerm]);
 
-  const handleDoubleTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    const now = Date.now();
-    if (now - lastTapRef.current < 350) {
-      onClose();
-    }
-    lastTapRef.current = now;
-  }, [onClose]);
-
   const handleLinkEntry = async (targetEntryId: string) => {
     try {
       setIsProcessing(true);
@@ -107,6 +98,31 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
       onUpdate();
     } catch (error) {
       console.error('Error unlinking entry:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCompleteFollowUp = async (targetEntryId: string) => {
+    try {
+      setIsProcessing(true);
+      const { error } = await supabase
+        .from('journal_entries')
+        .update({
+          follow_up_required: false,
+          follow_up_completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', targetEntryId);
+      if (error) throw error;
+      onUpdate();
+      dialogService.success('Follow-up completed.');
+    } catch (error: any) {
+      dialogService.alert({
+        title: 'Could not complete follow-up',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
     } finally {
       setIsProcessing(false);
     }
@@ -168,24 +184,21 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
 
   return (
     <>
-      {/* Backdrop — single click closes, double tap also closes */}
+      {/* Thread workspace */}
       <div
-        className="fixed inset-0 bg-slate-950/35 backdrop-blur-sm z-[100] flex items-stretch md:items-center justify-center md:p-6"
+        className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-[100] flex items-stretch md:items-center justify-center md:p-5"
         onClick={onClose}
-        onDoubleClick={onClose}
       >
         <div
-          className="bg-[#F8FAFC] w-full h-full md:h-auto md:max-w-2xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-          style={{ maxHeight: '100vh' }}
+          className="bg-[#F8FAFC] w-full h-full md:h-[calc(100vh-40px)] md:max-w-6xl md:rounded-[28px] shadow-2xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
-          onDoubleClick={(e) => e.stopPropagation()}
         >
-          <div className="px-5 pt-4 pb-3 shrink-0 border-b border-slate-200/70 bg-white">
-            <div className="flex items-start justify-between gap-3">
+          <div className="px-5 md:px-7 pt-4 pb-4 shrink-0 border-b border-slate-200/70 bg-white">
+            <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Journal Thread</p>
-                <h2 className="mt-1 text-[17px] font-bold text-slate-950 truncate">{currentEntry.title}</h2>
-                <p className="mt-1 text-[11px] text-slate-400">
+                <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-blue-600">Journal Thread</p>
+                <h2 className="mt-1 text-xl md:text-2xl font-black text-slate-950 truncate">{currentEntry.title}</h2>
+                <p className="mt-1 text-[12px] text-slate-400">
                   {conversationThread.length} {conversationThread.length === 1 ? 'entry' : 'entries'} linked
                 </p>
               </div>
@@ -197,17 +210,17 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-4 flex gap-2 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => setShowReplyForm(true)}
-                className="h-9 rounded-xl bg-blue-600 text-white text-[12px] font-semibold flex items-center justify-center gap-2 active:bg-blue-700"
+                className="h-10 px-4 rounded-xl bg-blue-600 text-white text-[12px] font-bold flex items-center justify-center gap-2 active:bg-blue-700 shrink-0"
               >
                 <MessageSquarePlus className="h-3.5 w-3.5" />
                 Add entry
               </button>
               <button
                 onClick={() => setShowLinkPicker(true)}
-                className="h-9 rounded-xl bg-white text-slate-700 border border-slate-200 text-[12px] font-semibold flex items-center justify-center gap-2 active:bg-slate-50"
+                className="h-10 px-4 rounded-xl bg-white text-slate-700 border border-slate-200 text-[12px] font-bold flex items-center justify-center gap-2 active:bg-slate-50 shrink-0"
               >
                 <LinkIcon className="h-3.5 w-3.5" />
                 Link existing
@@ -215,25 +228,24 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
             </div>
           </div>
 
-          {/* Scroll area — double tap to close */}
+          {/* Scroll area */}
           <div
             ref={scrollContainerRef}
-            className="flex-1 overflow-y-auto px-5 py-4 space-y-4"
-            onClick={handleDoubleTap}
-            onTouchEnd={handleDoubleTap}
+            className="flex-1 overflow-y-auto px-4 md:px-8 py-5 md:py-7 space-y-5"
           >
             {conversationThread.map((item, index) => {
               const isSelected = item.id === entry.id;
               const hasReminder = item.reminder_enabled && item.reminder_date;
+              const isFollowUp = item.follow_up_required && !item.follow_up_completed_at;
 
               return (
                 <div
                   key={item.id}
                   ref={isSelected ? activeEntryRef : null}
-                  className="relative pl-9"
+                  className="relative pl-9 md:pl-12"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <div className={`absolute left-0 top-1.5 h-7 w-7 rounded-full border flex items-center justify-center text-[11px] font-bold ${
+                  <div className={`absolute left-0 top-2 h-7 w-7 md:h-9 md:w-9 rounded-full border flex items-center justify-center text-[11px] font-bold ${
                     isSelected
                       ? 'bg-blue-600 border-blue-600 text-white'
                       : 'bg-white border-slate-200 text-slate-400'
@@ -241,29 +253,44 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                     {index + 1}
                   </div>
                   {index < conversationThread.length - 1 && (
-                    <div className="absolute left-[13px] top-9 bottom-[-18px] w-px bg-slate-200" />
+                    <div className="absolute left-[13px] md:left-[17px] top-11 bottom-[-22px] w-px bg-slate-200" />
                   )}
                   <div
-                    className={`rounded-[22px] border transition-all duration-200 overflow-hidden ${
+                    className={`rounded-[24px] border transition-all duration-200 overflow-hidden ${
                       isSelected
-                        ? 'border-slate-300 bg-white shadow-sm'
+                        ? 'border-blue-200 bg-white shadow-[0_16px_45px_rgba(37,99,235,0.10)]'
                         : 'border-slate-100 bg-white shadow-sm'
                     }`}
                   >
 
-                    <div className="p-4 sm:p-6">
+                    <div className="p-4 sm:p-6 md:p-7">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium text-slate-400 mb-1">
+                          <p className="text-[11px] font-semibold text-slate-400 mb-1">
                             {format(new Date(item.entry_date), 'MMM d, yyyy')} at {format(new Date(item.created_at), 'h:mm a')}
                           </p>
-                          <h3 className={`text-[15px] sm:text-lg font-bold leading-snug ${
+                          <h3 className={`text-[16px] sm:text-xl font-black leading-snug ${
                             isSelected ? 'text-slate-950' : 'text-slate-900'
                           }`}>
                             {item.title}
                           </h3>
+                          {isFollowUp && (
+                            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 border border-blue-100">
+                              <Pin className="h-3 w-3" /> Follow-up
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0 -mt-0.5">
+                          {isFollowUp && (
+                            <button
+                              onClick={() => handleCompleteFollowUp(item.id)}
+                              disabled={isProcessing}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all disabled:opacity-50"
+                              title="Complete follow-up"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => setEditingEntry(item)}
                             className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-50 transition-all"
@@ -285,7 +312,7 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
 
                       {/* Content — this is the star */}
                       {item.content && (
-                        <p className="text-[14px] leading-6 text-slate-700 whitespace-pre-wrap mb-4">
+                        <p className="text-[14px] md:text-[15px] leading-7 text-slate-700 whitespace-pre-wrap mb-4 max-w-4xl">
                           {item.content}
                         </p>
                       )}
@@ -318,11 +345,10 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
               );
             })}
 
-            {/* Double-tap hint — fades out */}
             <div className="h-1" />
           </div>
 
-          <div className="shrink-0 px-4 sm:px-5 py-3 border-t border-slate-100 bg-white">
+          <div className="shrink-0 px-4 sm:px-5 py-3 border-t border-slate-100 bg-white md:hidden">
             <button
               onClick={onClose}
               className="h-10 w-full rounded-xl bg-blue-600 text-white text-xs font-semibold active:bg-blue-700"

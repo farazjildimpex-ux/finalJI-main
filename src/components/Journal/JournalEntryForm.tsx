@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft } from 'lucide-react';
+import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft, Pin } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -38,6 +38,7 @@ const JournalEntryForm: React.FC<{
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [reminderDate, setReminderDate] = useState('');
   const [reminderTime, setReminderTime] = useState('09:00');
+  const [followUpRequired, setFollowUpRequired] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -48,8 +49,17 @@ const JournalEntryForm: React.FC<{
       setReminderEnabled(initialEntry.reminder_enabled || false);
       setReminderDate(initialEntry.reminder_date || '');
       setReminderTime(initialEntry.reminder_time || '09:00');
+      setFollowUpRequired(Boolean(initialEntry.follow_up_required && !initialEntry.follow_up_completed_at));
+    } else {
+      setTitle('');
+      setContent('');
+      setEntryDate(format(initialDate, 'yyyy-MM-dd'));
+      setReminderEnabled(false);
+      setReminderDate('');
+      setReminderTime('09:00');
+      setFollowUpRequired(false);
     }
-  }, [initialEntry]);
+  }, [initialEntry, initialDate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,6 +76,8 @@ const JournalEntryForm: React.FC<{
         reminder_time: reminderEnabled && reminderTime ? reminderTime : null,
         reminder_sent: false,
         color: null,
+        follow_up_required: followUpRequired,
+        follow_up_completed_at: followUpRequired ? null : initialEntry?.follow_up_completed_at || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -161,6 +173,34 @@ const JournalEntryForm: React.FC<{
                 />
               </div>
             </div>
+
+            {/* Follow-up Section */}
+            {!parentId && (
+              <div className="bg-white md:bg-slate-50 rounded-2xl md:rounded-3xl p-4 md:p-5 border border-slate-100">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`p-2 rounded-xl ${followUpRequired ? 'bg-blue-100 text-blue-600' : 'bg-slate-200 text-slate-500'}`}>
+                      <Pin className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900">Follow-up required</p>
+                      <p className="text-[10px] font-medium text-slate-400">Keep this entry visible until completed</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setFollowUpRequired(value => !value)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none ${
+                      followUpRequired ? 'bg-blue-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      followUpRequired ? 'translate-x-6' : 'translate-x-1'
+                    }`} />
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Reminder Section */}
             <div className="bg-white md:bg-slate-50 rounded-2xl md:rounded-3xl p-4 md:p-5 border border-slate-100">

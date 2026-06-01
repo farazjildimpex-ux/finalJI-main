@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Search, X, ChevronRight, AlertCircle,
   FileText, Bookmark, Receipt, Edit2, Trash2, GitBranch,
+  Pin, CheckCircle2,
 } from 'lucide-react';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -208,8 +209,15 @@ const HomePage: React.FC = () => {
 
   const mobileJournalDateKey = useMemo(() => toDateKey(mobileJournalDate), [mobileJournalDate]);
 
+  const activeFollowUps = useMemo(
+    () => journalEntries
+      .filter(entry => entry.follow_up_required && !entry.follow_up_completed_at)
+      .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()),
+    [journalEntries],
+  );
+
   const mobileJournalEntries = useMemo(
-    () => journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey),
+    () => journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey && !(entry.follow_up_required && !entry.follow_up_completed_at)),
     [journalEntries, mobileJournalDateKey],
   );
 
@@ -258,6 +266,24 @@ const HomePage: React.FC = () => {
     setMobileOpenEntryId(null);
     fetchJournalEntries();
     dialogService.success('Entry deleted.');
+  };
+
+  const handleCompleteFollowUp = async (entry: JournalEntry) => {
+    const { error } = await supabase
+      .from('journal_entries')
+      .update({
+        follow_up_required: false,
+        follow_up_completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', entry.id);
+    if (error) {
+      dialogService.alert({ title: 'Could not complete follow-up', message: error.message, tone: 'danger' });
+      return;
+    }
+    setMobileOpenEntryId(null);
+    await fetchJournalEntries();
+    dialogService.success('Follow-up completed.');
   };
 
   const handleMobileEntryTap = (entry: JournalEntry) => {
@@ -403,6 +429,47 @@ const HomePage: React.FC = () => {
                   })}
                 </div>
               </div>
+
+              {activeFollowUps.length > 0 && (
+                <div className="px-4 pt-3 pb-2 border-b border-blue-50 bg-blue-50/35">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Pin className="h-3.5 w-3.5 text-blue-600" />
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Follow-up</p>
+                  </div>
+                  <div className="space-y-2 max-h-72 overflow-y-auto momentum-scroll">
+                    {activeFollowUps.map(entry => (
+                      <div key={`follow-${entry.id}`} className="rounded-xl bg-white border border-blue-100 overflow-hidden shadow-sm">
+                        <button
+                          onClick={() => handleMobileEntryTap(entry)}
+                          className="w-full px-3.5 py-3 text-left active:bg-blue-50 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                              {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${mobileOpenEntryId === entry.id ? 'line-clamp-5' : 'line-clamp-2'}`}>{entry.content}</p>}
+                              <p className="mt-1 text-[10px] text-blue-500 font-semibold">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
+                            </div>
+                            <ChevronRight className={`h-4 w-4 text-blue-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
+                          </div>
+                        </button>
+                        <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+                          <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-blue-50 bg-white">
+                            <button onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 active:bg-emerald-100">
+                              <CheckCircle2 className="h-3 w-3" /> Done
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsMobileFormOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100">
+                              <Edit2 className="h-3 w-3" /> Edit
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200">
+                              <GitBranch className="h-3 w-3" /> Thread
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="px-4 pb-3 space-y-2">
                 {journalLoading ? (
@@ -1022,6 +1089,44 @@ const HomePage: React.FC = () => {
                       })}
                     </div>
                   </div>
+
+                  {activeFollowUps.length > 0 && (
+                    <div className="px-4 pt-3 pb-2 border-b border-blue-50 bg-blue-50/40 shrink-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Pin className="h-3.5 w-3.5 text-blue-600" />
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Follow-up</p>
+                      </div>
+                      <div className="space-y-2 max-h-72 overflow-y-auto momentum-scroll">
+                        {activeFollowUps.map(entry => (
+                          <div key={`desktop-follow-${entry.id}`} className="rounded-xl bg-white border border-blue-100 overflow-hidden shadow-sm">
+                            <button onClick={() => handleMobileEntryTap(entry)} className="w-full px-3.5 py-3 text-left hover:bg-blue-50 transition-colors">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                                  {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${mobileOpenEntryId === entry.id ? 'line-clamp-5' : 'line-clamp-2'}`}>{entry.content}</p>}
+                                  <p className="mt-1 text-[10px] text-blue-500 font-semibold">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                                </div>
+                                <ChevronRight className={`h-4 w-4 text-blue-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
+                              </div>
+                            </button>
+                            <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
+                              <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-blue-50 bg-white">
+                                <button onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100">
+                                  <CheckCircle2 className="h-3 w-3" /> Done
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsDesktopFormOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100">
+                                  <Edit2 className="h-3 w-3" /> Edit
+                                </button>
+                                <button onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200">
+                                  <GitBranch className="h-3 w-3" /> Thread
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div
                     className="px-4 pb-3 pt-3 space-y-2 overflow-y-auto momentum-scroll min-h-0"
