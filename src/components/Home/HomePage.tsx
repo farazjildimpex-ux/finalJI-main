@@ -286,6 +286,24 @@ const HomePage: React.FC = () => {
     dialogService.success('Follow-up completed.');
   };
 
+  const handleMarkFollowUp = async (entry: JournalEntry) => {
+    const { error } = await supabase
+      .from('journal_entries')
+      .update({
+        follow_up_required: true,
+        follow_up_completed_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', entry.id);
+    if (error) {
+      dialogService.alert({ title: 'Could not mark follow-up', message: error.message, tone: 'danger' });
+      return;
+    }
+    setMobileOpenEntryId(null);
+    await fetchJournalEntries();
+    dialogService.success('Added to follow-up.');
+  };
+
   const handleMobileEntryTap = (entry: JournalEntry) => {
     setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
   };
@@ -499,22 +517,28 @@ const HomePage: React.FC = () => {
                         </div>
                       </button>
                       <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
-                        <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
+                        <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsMobileFormOpen(true); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100 shrink-0"
                           >
                             <Edit2 className="h-3 w-3" /> Edit
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 shrink-0"
                           >
                             <GitBranch className="h-3 w-3" /> Thread
                           </button>
                           <button
+                            onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 active:bg-blue-100 shrink-0"
+                          >
+                            <Pin className="h-3 w-3" /> Follow
+                          </button>
+                          <button
                             onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
-                            className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100"
+                            className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100 shrink-0"
                           >
                             <Trash2 className="h-3 w-3" /> Delete
                           </button>
@@ -972,12 +996,7 @@ const HomePage: React.FC = () => {
         <div className="shrink-0 bg-white border-b border-gray-100 px-6 pt-4 pb-3">
           <div className="flex items-start gap-4">
             <div className="flex-1 min-w-0">
-              <p className="text-2xl font-bold leading-tight">
-                <span className="text-gray-900">JILD </span>
-                <span className="text-blue-600">IMPEX </span>
-                <span className="text-gray-900">Management</span>
-              </p>
-              <h1 className="text-xl font-bold text-gray-900 leading-tight mt-0.5">{getGreeting()} 👋</h1>
+              <h1 className="text-xl font-bold text-gray-900 leading-tight">{getGreeting()}</h1>
               <p className="text-[12px] text-gray-400 mt-1">{formatFullDate()}</p>
             </div>
             <div className="shrink-0 pt-1">
@@ -997,13 +1016,7 @@ const HomePage: React.FC = () => {
           {/* LEFT: Journal */}
           <div className="w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-gray-50 min-h-0 overflow-hidden">
             <div
-              className="flex-1 overflow-y-auto p-3 flex flex-col momentum-scroll"
-              onWheel={(e) => {
-                if (e.deltaY !== 0) {
-                  e.currentTarget.scrollTop += e.deltaY;
-                  e.preventDefault();
-                }
-              }}
+              className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col"
             >
               {desktopSearch.trim() ? (() => {
                 const s = desktopSearch.toLowerCase();
@@ -1042,7 +1055,7 @@ const HomePage: React.FC = () => {
                   </div>
                 );
               })() : (
-                <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 max-h-full">
+                <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 h-full">
                   <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-gray-100">
                     <div className="min-w-0">
                       <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
@@ -1096,7 +1109,7 @@ const HomePage: React.FC = () => {
                         <Pin className="h-3.5 w-3.5 text-blue-600" />
                         <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Follow-up</p>
                       </div>
-                      <div className="space-y-2 max-h-72 overflow-y-auto momentum-scroll">
+                      <div className="space-y-2 max-h-[30vh] overflow-y-auto momentum-scroll overscroll-contain">
                         {activeFollowUps.map(entry => (
                           <div key={`desktop-follow-${entry.id}`} className="rounded-xl bg-white border border-blue-100 overflow-hidden shadow-sm">
                             <button onClick={() => handleMobileEntryTap(entry)} className="w-full px-3.5 py-3 text-left hover:bg-blue-50 transition-colors">
@@ -1129,8 +1142,7 @@ const HomePage: React.FC = () => {
                   )}
 
                   <div
-                    className="px-4 pb-3 pt-3 space-y-2 overflow-y-auto momentum-scroll min-h-0"
-                    style={{ maxHeight: 'calc(100vh - 260px)' }}
+                    className="flex-1 px-4 pb-3 pt-3 space-y-2 overflow-y-auto momentum-scroll min-h-0 overscroll-contain"
                     onWheel={(e) => {
                       if (e.deltaY !== 0) {
                         e.currentTarget.scrollTop += e.deltaY;
@@ -1165,22 +1177,28 @@ const HomePage: React.FC = () => {
                             </div>
                           </button>
                           <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white">
+                            <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsDesktopFormOpen(true); }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 shrink-0"
                               >
                                 <Edit2 className="h-3 w-3" /> Edit
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 shrink-0"
                               >
                                 <GitBranch className="h-3 w-3" /> Thread
                               </button>
                               <button
+                                onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 shrink-0"
+                              >
+                                <Pin className="h-3 w-3" /> Follow
+                              </button>
+                              <button
                                 onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
-                                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100"
+                                className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 shrink-0"
                               >
                                 <Trash2 className="h-3 w-3" /> Delete
                               </button>
