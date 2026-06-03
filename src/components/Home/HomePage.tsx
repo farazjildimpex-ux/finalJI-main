@@ -469,7 +469,7 @@ const HomePage: React.FC = () => {
                     const isOpen = mobileOpenEntryId === entry.id;
                     const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
                     return (
-                    <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+                    <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
                       <button
                         onClick={() => handleMobileEntryTap(entry)}
                         className="w-full px-3.5 py-3 text-left active:bg-gray-100 transition-colors"
@@ -493,34 +493,34 @@ const HomePage: React.FC = () => {
                         <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
                           <button
                             onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsMobileFormOpen(true); }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100 shrink-0"
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100 shrink-0"
                           >
                             <Edit2 className="h-3 w-3" /> Edit
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 shrink-0"
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 shrink-0"
                           >
                             <GitBranch className="h-3 w-3" /> Thread
                           </button>
                           {isFollowUp ? (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 active:bg-emerald-100 shrink-0"
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 active:bg-emerald-100 shrink-0"
                             >
                               <CheckCircle2 className="h-3 w-3" /> Done
                             </button>
                           ) : (
                             <button
                               onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 active:bg-blue-100 shrink-0"
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 bg-blue-50 active:bg-blue-100 shrink-0"
                             >
                               <Pin className="h-3 w-3" /> Follow
                             </button>
                           )}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
-                            className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100 shrink-0"
+                            className="ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100 shrink-0"
                           >
                             <Trash2 className="h-3 w-3" /> Delete
                           </button>
@@ -1108,7 +1108,7 @@ const HomePage: React.FC = () => {
                         const isOpen = mobileOpenEntryId === entry.id;
                         const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
                         return (
-                        <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
+                        <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
                           <button
                             onClick={() => handleMobileEntryTap(entry)}
                             className="w-full px-3.5 py-3 text-left hover:bg-gray-100 transition-colors"
@@ -1132,34 +1132,34 @@ const HomePage: React.FC = () => {
                             <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsDesktopFormOpen(true); }}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 shrink-0"
+                                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 shrink-0"
                               >
                                 <Edit2 className="h-3 w-3" /> Edit
                               </button>
                               <button
                                 onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 shrink-0"
+                                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 shrink-0"
                               >
                                 <GitBranch className="h-3 w-3" /> Thread
                               </button>
                               {isFollowUp ? (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shrink-0"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shrink-0"
                                 >
                                   <CheckCircle2 className="h-3 w-3" /> Done
                                 </button>
                               ) : (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
-                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 shrink-0"
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 shrink-0"
                                 >
                                   <Pin className="h-3 w-3" /> Follow
                                 </button>
                               )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
-                                className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 shrink-0"
+                                className="ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 shrink-0"
                               >
                                 <Trash2 className="h-3 w-3" /> Delete
                               </button>
