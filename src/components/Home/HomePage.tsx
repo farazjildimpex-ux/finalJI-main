@@ -217,8 +217,14 @@ const HomePage: React.FC = () => {
   );
 
   const mobileJournalEntries = useMemo(
-    () => journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey && !(entry.follow_up_required && !entry.follow_up_completed_at)),
-    [journalEntries, mobileJournalDateKey],
+    () => {
+      const datedEntries = journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey);
+      return [
+        ...activeFollowUps,
+        ...datedEntries.filter(entry => !(entry.follow_up_required && !entry.follow_up_completed_at)),
+      ];
+    },
+    [activeFollowUps, journalEntries, mobileJournalDateKey],
   );
 
   const mobileQueuePreview = activityList.slice((activityPage - 1) * ACTIVITY_PAGE_SIZE, activityPage * ACTIVITY_PAGE_SIZE);
@@ -448,47 +454,6 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
 
-              {activeFollowUps.length > 0 && (
-                <div className="px-4 pt-3 pb-2 border-b border-blue-50 bg-blue-50/35">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Pin className="h-3.5 w-3.5 text-blue-600" />
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Follow-up</p>
-                  </div>
-                  <div className="space-y-2 max-h-72 overflow-y-auto momentum-scroll">
-                    {activeFollowUps.map(entry => (
-                      <div key={`follow-${entry.id}`} className="rounded-xl bg-white border border-blue-100 overflow-hidden shadow-sm">
-                        <button
-                          onClick={() => handleMobileEntryTap(entry)}
-                          className="w-full px-3.5 py-3 text-left active:bg-blue-50 transition-colors"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
-                              {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${mobileOpenEntryId === entry.id ? 'line-clamp-5' : 'line-clamp-2'}`}>{entry.content}</p>}
-                              <p className="mt-1 text-[10px] text-blue-500 font-semibold">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</p>
-                            </div>
-                            <ChevronRight className={`h-4 w-4 text-blue-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
-                          </div>
-                        </button>
-                        <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
-                          <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-blue-50 bg-white">
-                            <button onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 active:bg-emerald-100">
-                              <CheckCircle2 className="h-3 w-3" /> Done
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsMobileFormOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100">
-                              <Edit2 className="h-3 w-3" /> Edit
-                            </button>
-                            <button onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200">
-                              <GitBranch className="h-3 w-3" /> Thread
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               <div className="px-4 pb-3 space-y-2">
                 {journalLoading ? (
                   <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
@@ -502,6 +467,7 @@ const HomePage: React.FC = () => {
                 ) : (
                   mobileJournalEntries.map(entry => {
                     const isOpen = mobileOpenEntryId === entry.id;
+                    const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
                     return (
                     <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
                       <button
@@ -510,7 +476,14 @@ const HomePage: React.FC = () => {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
-                            <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                              {isFollowUp && (
+                                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+                                  <Pin className="h-2.5 w-2.5" /> Follow-up
+                                </span>
+                              )}
+                            </div>
                             {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>{entry.content}</p>}
                           </div>
                           <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
@@ -530,12 +503,21 @@ const HomePage: React.FC = () => {
                           >
                             <GitBranch className="h-3 w-3" /> Thread
                           </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 active:bg-blue-100 shrink-0"
-                          >
-                            <Pin className="h-3 w-3" /> Follow
-                          </button>
+                          {isFollowUp ? (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 active:bg-emerald-100 shrink-0"
+                            >
+                              <CheckCircle2 className="h-3 w-3" /> Done
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 active:bg-blue-100 shrink-0"
+                            >
+                              <Pin className="h-3 w-3" /> Follow
+                            </button>
+                          )}
                           <button
                             onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
                             className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100 shrink-0"
@@ -1103,44 +1085,6 @@ const HomePage: React.FC = () => {
                     </div>
                   </div>
 
-                  {activeFollowUps.length > 0 && (
-                    <div className="px-4 pt-3 pb-2 border-b border-blue-50 bg-blue-50/40 shrink-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Pin className="h-3.5 w-3.5 text-blue-600" />
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">Follow-up</p>
-                      </div>
-                      <div className="space-y-2 max-h-[30vh] overflow-y-auto momentum-scroll overscroll-contain">
-                        {activeFollowUps.map(entry => (
-                          <div key={`desktop-follow-${entry.id}`} className="rounded-xl bg-white border border-blue-100 overflow-hidden shadow-sm">
-                            <button onClick={() => handleMobileEntryTap(entry)} className="w-full px-3.5 py-3 text-left hover:bg-blue-50 transition-colors">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
-                                  {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${mobileOpenEntryId === entry.id ? 'line-clamp-5' : 'line-clamp-2'}`}>{entry.content}</p>}
-                                  <p className="mt-1 text-[10px] text-blue-500 font-semibold">{new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                                </div>
-                                <ChevronRight className={`h-4 w-4 text-blue-300 mt-1 shrink-0 transition-transform ${mobileOpenEntryId === entry.id ? 'rotate-90' : ''}`} />
-                              </div>
-                            </button>
-                            <div className={`overflow-hidden transition-all duration-200 ${mobileOpenEntryId === entry.id ? 'max-h-20 opacity-100' : 'max-h-0 opacity-0'}`}>
-                              <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-blue-50 bg-white">
-                                <button onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100">
-                                  <CheckCircle2 className="h-3 w-3" /> Done
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsDesktopFormOpen(true); }} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100">
-                                  <Edit2 className="h-3 w-3" /> Edit
-                                </button>
-                                <button onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }} className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200">
-                                  <GitBranch className="h-3 w-3" /> Thread
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   <div
                     className="flex-1 px-4 pb-3 pt-3 space-y-2 overflow-y-auto momentum-scroll min-h-0 overscroll-contain"
                     onWheel={(e) => {
@@ -1162,6 +1106,7 @@ const HomePage: React.FC = () => {
                     ) : (
                       mobileJournalEntries.map(entry => {
                         const isOpen = mobileOpenEntryId === entry.id;
+                        const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
                         return (
                         <div key={entry.id} className="rounded-xl bg-gray-50 border border-gray-100 overflow-hidden">
                           <button
@@ -1170,7 +1115,14 @@ const HomePage: React.FC = () => {
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                                  {isFollowUp && (
+                                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+                                      <Pin className="h-2.5 w-2.5" /> Follow-up
+                                    </span>
+                                  )}
+                                </div>
                                 {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>{entry.content}</p>}
                               </div>
                               <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
@@ -1190,12 +1142,21 @@ const HomePage: React.FC = () => {
                               >
                                 <GitBranch className="h-3 w-3" /> Thread
                               </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
-                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 shrink-0"
-                              >
-                                <Pin className="h-3 w-3" /> Follow
-                              </button>
+                              {isFollowUp ? (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shrink-0"
+                                >
+                                  <CheckCircle2 className="h-3 w-3" /> Done
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 shrink-0"
+                                >
+                                  <Pin className="h-3 w-3" /> Follow
+                                </button>
+                              )}
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
                                 className="ml-auto flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 shrink-0"
