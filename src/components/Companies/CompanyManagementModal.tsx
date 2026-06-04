@@ -25,6 +25,8 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
   const [letterheadFile, setLetterheadFile] = useState<File | null>(null);
   const [headerFile, setHeaderFile] = useState<File | null>(null);
   const [footerFile, setFooterFile] = useState<File | null>(null);
+  const [headerPreviewUrl, setHeaderPreviewUrl] = useState('');
+  const [footerPreviewUrl, setFooterPreviewUrl] = useState('');
   const [showPlaceholders, setShowPlaceholders] = useState(true);
   const letterheadInputRef = useRef<HTMLInputElement>(null);
   const headerInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +54,26 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
       fetchCompanies();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!headerFile) {
+      setHeaderPreviewUrl(formData.header_url || '');
+      return;
+    }
+    const url = URL.createObjectURL(headerFile);
+    setHeaderPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [headerFile, formData.header_url]);
+
+  useEffect(() => {
+    if (!footerFile) {
+      setFooterPreviewUrl(formData.footer_url || '');
+      return;
+    }
+    const url = URL.createObjectURL(footerFile);
+    setFooterPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [footerFile, formData.footer_url]);
 
   const fetchCompanies = async () => {
     try {
@@ -234,11 +256,11 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
         setUploadingFooter(false);
       }
 
-      // Always save height settings + any uploaded URLs
-      extraUpdates.header_height = formData.header_height;
-      extraUpdates.footer_height = formData.footer_height;
-      extraUpdates.header_scale  = formData.header_scale;
-      extraUpdates.footer_scale  = formData.footer_scale;
+      // Use clean fixed PDF image sizing so exports stay predictable.
+      extraUpdates.header_height = 30;
+      extraUpdates.footer_height = 20;
+      extraUpdates.header_scale  = 100;
+      extraUpdates.footer_scale  = 100;
 
       if (Object.keys(extraUpdates).length > 0 && companyId) {
         await supabase.from('companies').update(extraUpdates).eq('id', companyId);
@@ -459,7 +481,6 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                         <FileText className="h-6 w-6 text-blue-600" />
                         <h4 className="font-black text-blue-900 uppercase tracking-tight">Word Export Template (.docx)</h4>
                       </div>
-                      
                       {editMode ? (
                         <div className="space-y-4">
                           <p className="text-xs text-blue-700 leading-relaxed font-medium">
@@ -563,8 +584,43 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                       </div>
                       <p className="text-xs text-emerald-700 mb-4 font-medium">
                         These images are placed at the top and bottom of every exported PDF. PNG files work best.
-                        Recommended: full-width letterhead (A4 = 210 mm wide). Header ≤ 35 mm tall, Footer ≤ 25 mm tall.
+                        Use full-width letterhead artwork for the cleanest result.
                       </p>
+
+                      <div className="mb-5 rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="text-xs font-black text-slate-700 uppercase tracking-wide">PDF Preview</p>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-full">A4 layout</span>
+                        </div>
+                        <div className="mx-auto w-full max-w-[360px] aspect-[210/297] rounded-xl border border-slate-200 bg-white shadow-inner overflow-hidden flex flex-col">
+                          <div className="h-[18%] border-b border-dashed border-slate-200 bg-slate-50 flex items-center justify-center p-2">
+                            {headerPreviewUrl ? (
+                              <img src={headerPreviewUrl} alt="Header preview" className="max-h-full w-full object-contain" />
+                            ) : (
+                              <span className="text-[11px] font-semibold text-slate-300">Header not set</span>
+                            )}
+                          </div>
+                          <div className="flex-1 p-5 space-y-3">
+                            <div className="h-3 w-2/3 rounded bg-slate-100" />
+                            <div className="h-2 w-full rounded bg-slate-100" />
+                            <div className="h-2 w-5/6 rounded bg-slate-100" />
+                            <div className="mt-4 grid grid-cols-2 gap-3">
+                              <div className="h-16 rounded border border-slate-100 bg-slate-50" />
+                              <div className="h-16 rounded border border-slate-100 bg-slate-50" />
+                            </div>
+                          </div>
+                          <div className="h-[13%] border-t border-dashed border-slate-200 bg-slate-50 flex items-center justify-center p-2">
+                            {footerPreviewUrl ? (
+                              <img src={footerPreviewUrl} alt="Footer preview" className="max-h-full w-full object-contain" />
+                            ) : (
+                              <span className="text-[11px] font-semibold text-slate-300">Footer not set</span>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-3 text-[11px] text-slate-500 font-medium text-center">
+                          Header and footer use a fixed clean size in export. Replace the image if the preview does not look right.
+                        </p>
+                      </div>
 
                       {editMode ? (
                         <div className="space-y-5">
@@ -606,35 +662,9 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                               )}
                             </div>
                             <input ref={headerInputRef} type="file" accept="image/png,image/jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) setHeaderFile(f); }} className="hidden" />
-                            <div className="mt-3 space-y-2.5">
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold text-gray-600 w-24 flex-shrink-0">Height (mm):</label>
-                                <input
-                                  type="number"
-                                  min={10} max={60} step={1}
-                                  value={formData.header_height}
-                                  onChange={(e) => setFormData({ ...formData, header_height: Number(e.target.value) })}
-                                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                                />
-                                <span className="text-xs text-gray-400">{formData.header_height} mm</span>
-                              </div>
-                              <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <label className="text-xs font-bold text-gray-600">Width scale:</label>
-                                  <span className="text-xs font-bold text-emerald-600">{formData.header_scale}%</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min={30} max={100} step={5}
-                                  value={formData.header_scale}
-                                  onChange={(e) => setFormData({ ...formData, header_scale: Number(e.target.value) })}
-                                  className="w-full accent-emerald-600"
-                                />
-                                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                                  <span>30% (smaller)</span><span>100% (full width)</span>
-                                </div>
-                              </div>
-                            </div>
+                            <p className="mt-3 text-[11px] text-gray-500 font-medium">
+                              The export uses a fixed clean header area. Upload a full-width image for the best result.
+                            </p>
                           </div>
 
                           {/* Footer Image */}
@@ -675,35 +705,9 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                               )}
                             </div>
                             <input ref={footerInputRef} type="file" accept="image/png,image/jpeg" onChange={(e) => { const f = e.target.files?.[0]; if (f) setFooterFile(f); }} className="hidden" />
-                            <div className="mt-3 space-y-2.5">
-                              <div className="flex items-center gap-2">
-                                <label className="text-xs font-bold text-gray-600 w-24 flex-shrink-0">Height (mm):</label>
-                                <input
-                                  type="number"
-                                  min={5} max={40} step={1}
-                                  value={formData.footer_height}
-                                  onChange={(e) => setFormData({ ...formData, footer_height: Number(e.target.value) })}
-                                  className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm font-bold text-gray-800 focus:ring-2 focus:ring-emerald-400 focus:outline-none"
-                                />
-                                <span className="text-xs text-gray-400">{formData.footer_height} mm</span>
-                              </div>
-                              <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <label className="text-xs font-bold text-gray-600">Width scale:</label>
-                                  <span className="text-xs font-bold text-emerald-600">{formData.footer_scale}%</span>
-                                </div>
-                                <input
-                                  type="range"
-                                  min={30} max={100} step={5}
-                                  value={formData.footer_scale}
-                                  onChange={(e) => setFormData({ ...formData, footer_scale: Number(e.target.value) })}
-                                  className="w-full accent-emerald-600"
-                                />
-                                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                                  <span>30% (smaller)</span><span>100% (full width)</span>
-                                </div>
-                              </div>
-                            </div>
+                            <p className="mt-3 text-[11px] text-gray-500 font-medium">
+                              The export uses a fixed clean footer area. Upload a full-width image for the best result.
+                            </p>
                           </div>
 
                           <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
@@ -721,7 +725,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                             {formData.header_url ? (
                               <>
                                 <img src={formData.header_url} alt="Header" className="w-full h-12 object-contain rounded border border-gray-100 bg-gray-50 mb-1" />
-                                <p className="text-[10px] text-gray-400 font-medium">{formData.header_height} mm tall</p>
+                                <p className="text-[10px] text-gray-400 font-medium">Fixed clean header size</p>
                               </>
                             ) : (
                               <p className="text-xs text-gray-400 font-medium">Not set</p>
@@ -733,7 +737,7 @@ const CompanyManagementModal: React.FC<CompanyManagementModalProps> = ({
                             {formData.footer_url ? (
                               <>
                                 <img src={formData.footer_url} alt="Footer" className="w-full h-10 object-contain rounded border border-gray-100 bg-gray-50 mb-1" />
-                                <p className="text-[10px] text-gray-400 font-medium">{formData.footer_height} mm tall</p>
+                                <p className="text-[10px] text-gray-400 font-medium">Fixed clean footer size</p>
                               </>
                             ) : (
                               <p className="text-xs text-gray-400 font-medium">Not set</p>

@@ -6,7 +6,7 @@ import {
   Database, Download, Upload, AlertCircle, HardDrive, Trash2,
   ChevronDown, ChevronUp, ChevronRight, FileText, Book, Bookmark,
   Receipt, Clipboard, Search, RefreshCw, CheckCircle2, ShieldCheck,
-  Bell, BellOff, BellRing, LayoutTemplate,
+  Bell, BellOff, BellRing, LayoutTemplate, Moon, Sun,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import { useNotifications } from '../../hooks/useNotifications';
@@ -22,11 +22,18 @@ const SettingsPage: React.FC = () => {
   const [expandedTable, setExpandedTable] = useState<string | null>(null);
   const [records, setRecords] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('jild_theme') === 'dark');
   const [stats, setStats] = useState({
     journals: 0, contacts: 0, contracts: 0, samples: 0, debitNotes: 0,
   });
 
   useEffect(() => { fetchStats(); }, []);
+
+  useEffect(() => {
+    localStorage.setItem('jild_theme', darkMode ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', darkMode);
+    window.dispatchEvent(new Event('jild-theme-change'));
+  }, [darkMode]);
 
   const fetchStats = async () => {
     try {
@@ -149,6 +156,26 @@ const SettingsPage: React.FC = () => {
           <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">Configuration</p>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Settings</h1>
           <p className="text-xs text-slate-500 mt-0.5">Email, data management &amp; system tools</p>
+        </div>
+
+        <div className="flex items-center justify-between p-4 bg-white rounded-3xl border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className={`p-2.5 rounded-2xl ${darkMode ? 'bg-blue-950 text-blue-200' : 'bg-blue-50 text-blue-600'}`}>
+              {darkMode ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-gray-900">Dark Mode</p>
+              <p className="text-xs text-gray-500">Softer colours for evening work</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDarkMode(v => !v)}
+            className={`relative h-7 w-12 rounded-full transition-colors ${darkMode ? 'bg-blue-600' : 'bg-gray-200'}`}
+            aria-label="Toggle dark mode"
+          >
+            <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${darkMode ? 'translate-x-6' : 'translate-x-1'}`} />
+          </button>
         </div>
 
         {/* ── Email section label ── */}

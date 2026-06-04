@@ -697,11 +697,14 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
           {showExportMenu && (
-            <div className="absolute bottom-full mb-1.5 left-0 z-30 min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl">
-              <button type="button" onClick={handleExportPDF} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 disabled:opacity-50">
+            <div className="fixed left-4 right-4 bottom-[calc(84px+env(safe-area-inset-bottom,0px))] z-30 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:absolute sm:bottom-full sm:left-0 sm:right-auto sm:mb-1.5 sm:min-w-[170px] sm:rounded-xl sm:shadow-xl">
+              <div className="px-4 py-3 border-b border-gray-100 sm:hidden">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Export Contract</p>
+              </div>
+              <button type="button" onClick={handleExportPDF} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-blue-50 disabled:opacity-50 sm:py-2.5 sm:font-normal">
                 <FileDown className="h-4 w-4 shrink-0" /> Export PDF
               </button>
-              <button type="button" onClick={handleExportWord} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100">
+              <button type="button" onClick={handleExportWord} disabled={generatingPdf || generatingWord} className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-blue-50 disabled:opacity-50 border-t border-gray-100 sm:py-2.5 sm:font-normal">
                 <FileDown className="h-4 w-4 shrink-0" /> Export Word
               </button>
             </div>
