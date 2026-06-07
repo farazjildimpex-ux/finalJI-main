@@ -44,9 +44,9 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
-    name: 'Data',
+    name: 'Settings',
     path: '/app/settings',
-    icon: 'database',
+    icon: 'settings',
     mobile: false,
   },
 ];

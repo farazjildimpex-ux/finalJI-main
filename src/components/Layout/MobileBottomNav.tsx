@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  Home, Users, MoreHorizontal,
-  Zap, Bookmark, CalendarDays, Settings, CreditCard, X, FileText,
+  Home, Users, MoreHorizontal, Zap, Bookmark, CalendarDays, Settings,
+  CreditCard, FileText, ShieldCheck, LayoutTemplate,
 } from 'lucide-react';
 
 const PRIMARY_TABS = [
@@ -15,11 +15,17 @@ const PRIMARY_TABS = [
   { name: 'More',      path: null,             icon: MoreHorizontal },
 ] as const;
 
-const MORE_ITEMS = [
-  { name: 'Contracts', path: '/app/contracts',    icon: FileText,    color: 'text-indigo-600', bg: 'bg-indigo-50' },
-  { name: 'Payments', path: '/app/debit-notes', icon: CreditCard,  color: 'text-emerald-600',bg: 'bg-emerald-50' },
-  { name: 'Letters',  path: '/app/samples',     icon: Bookmark,    color: 'text-blue-600',   bg: 'bg-blue-50'    },
-  { name: 'Settings', path: '/app/settings',    icon: Settings,    color: 'text-gray-600',   bg: 'bg-gray-100'   },
+const CONTROL_CENTER_ITEMS = [
+  { name: 'Home',       path: '/app/home',              icon: Home,           color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
+  { name: 'Contacts',   path: '/app/contacts',          icon: Users,          color: '#7C3AED', bg: 'rgba(124,58,237,0.12)' },
+  { name: 'Lead IQ',    path: '/app/sales',             icon: Zap,            color: '#EA580C', bg: 'rgba(234,88,12,0.12)' },
+  { name: 'Calendar',   path: '/app/calendar',          icon: CalendarDays,   color: '#0891B2', bg: 'rgba(8,145,178,0.12)' },
+  { name: 'Contracts',  path: '/app/contracts',         icon: FileText,       color: '#4F46E5', bg: 'rgba(79,70,229,0.12)' },
+  { name: 'Letters',    path: '/app/samples',           icon: Bookmark,       color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
+  { name: 'Payments',   path: '/app/debit-notes',       icon: CreditCard,     color: '#059669', bg: 'rgba(5,150,105,0.12)' },
+  { name: 'Approvals',  path: '/app/approvals',         icon: ShieldCheck,    color: '#16A34A', bg: 'rgba(22,163,74,0.12)' },
+  { name: 'PDF Layout', path: '/app/settings/pdf-editor', icon: LayoutTemplate, color: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
+  { name: 'Settings',   path: '/app/settings',          icon: Settings,       color: '#64748B', bg: 'rgba(100,116,139,0.12)' },
 ];
 
 const MobileBottomNav: React.FC = () => {
@@ -33,14 +39,13 @@ const MobileBottomNav: React.FC = () => {
     }
   };
 
-  const isMoreActive = showMore || MORE_ITEMS.some(i => {
-    if (i.path === '/app/home') return false;
+  const isMoreActive = showMore || CONTROL_CENTER_ITEMS.some(i => {
+    if (i.path === '/app/home') return location.pathname === '/app/home';
     return location.pathname.startsWith(i.path);
   });
 
   return (
     <>
-      {/* ── BOTTOM NAV BAR ── */}
       <nav
         className="md:hidden fixed left-4 right-4 z-50 bg-white/95 backdrop-blur-xl"
         style={{
@@ -92,73 +97,73 @@ const MobileBottomNav: React.FC = () => {
         </div>
       </nav>
 
-      {/* ── MORE DRAWER ── */}
+      {/* ── Control Center overlay ── */}
       {showMore && (
         <>
           <div
-            className="md:hidden fixed inset-0 z-40 bg-black/20"
+            className="md:hidden fixed inset-0 z-[60]"
+            style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
             onClick={() => setShowMore(false)}
           />
+
           <div
-            className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white"
+            className="md:hidden fixed z-[70] left-3 right-3"
             style={{
-              borderRadius: '28px 28px 0 0',
-              boxShadow: '0 -8px 32px rgba(15,23,42,0.10)',
-              paddingBottom: 'calc(86px + env(safe-area-inset-bottom, 0px))',
+              bottom: 'calc(78px + env(safe-area-inset-bottom, 0px))',
+              animation: 'fadeIn 0.22s ease-out',
             }}
           >
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full" style={{ background: '#E9EEF5' }} />
-            </div>
-            <div className="flex items-center justify-between px-6 pt-2 pb-4">
-              <p style={{ fontSize: 16, fontWeight: 700, color: '#0F172A', fontFamily: 'Inter, sans-serif' }}>More</p>
-              <button
-                onClick={() => setShowMore(false)}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: '#F1F5F9' }}
-              >
-                <X style={{ width: 15, height: 15, color: '#667085' }} />
-              </button>
-            </div>
-            <div className="px-4 pb-4 grid grid-cols-2 gap-3">
-              {MORE_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = item.path !== '/app/home' && location.pathname.startsWith(item.path);
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.path}
-                    onClick={() => setShowMore(false)}
-                    className="flex items-center gap-3 px-4 py-3.5 active:opacity-80"
-                    style={{
-                      borderRadius: 20,
-                      border: isActive ? '1px solid #BFDBFE' : '1px solid #E9EEF5',
-                      background: isActive ? '#EEF4FF' : '#F8FAFC',
-                    }}
-                  >
-                    <div
-                      className="flex items-center justify-center shrink-0"
-                      style={{
-                        width: 36, height: 36, borderRadius: 12,
-                        background: isActive ? '#DBEAFE' : 'white',
-                        border: '1px solid #E9EEF5',
-                      }}
+            <div
+              className="rounded-[28px] overflow-hidden"
+              style={{
+                background: 'rgba(255,255,255,0.82)',
+                backdropFilter: 'blur(40px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+                border: '1px solid rgba(255,255,255,0.6)',
+                boxShadow: '0 24px 64px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.8)',
+              }}
+            >
+              <div className="px-5 pt-4 pb-2">
+                <p className="text-[13px] font-bold text-slate-500 tracking-wide">Quick Access</p>
+              </div>
+
+              <div className="px-4 pb-4 grid grid-cols-4 gap-2.5">
+                {CONTROL_CENTER_ITEMS.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = item.path === '/app/home'
+                    ? location.pathname === '/app/home'
+                    : location.pathname.startsWith(item.path);
+
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.path}
+                      onClick={() => setShowMore(false)}
+                      className="flex flex-col items-center gap-1.5 py-2 active:scale-95 transition-transform"
                     >
-                      <Icon
-                        style={{ width: 16, height: 16, color: isActive ? '#2563FF' : '#667085' }}
-                        strokeWidth={1.75}
-                      />
-                    </div>
-                    <span style={{
-                      fontSize: 13, fontWeight: 600,
-                      color: isActive ? '#2563FF' : '#0F172A',
-                      fontFamily: 'Inter, sans-serif',
-                    }}>
-                      {item.name}
-                    </span>
-                  </Link>
-                );
-              })}
+                      <div
+                        className="w-[52px] h-[52px] rounded-[18px] flex items-center justify-center transition-all"
+                        style={{
+                          background: isActive ? item.bg : 'rgba(248,250,252,0.9)',
+                          border: isActive ? `1.5px solid ${item.color}33` : '1px solid rgba(226,232,240,0.8)',
+                          boxShadow: isActive ? `0 4px 14px ${item.color}22` : '0 2px 8px rgba(15,23,42,0.06)',
+                        }}
+                      >
+                        <Icon
+                          style={{ width: 22, height: 22, color: isActive ? item.color : '#64748B' }}
+                          strokeWidth={1.75}
+                        />
+                      </div>
+                      <span
+                        className="text-[10px] font-semibold text-center leading-tight max-w-[64px] truncate"
+                        style={{ color: isActive ? item.color : '#475569' }}
+                      >
+                        {item.name}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </>

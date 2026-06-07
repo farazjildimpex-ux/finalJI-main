@@ -14,6 +14,8 @@ import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import type { Order, JournalEntry } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { suggestJournalLink } from '../../lib/journalAI';
+import StatusChangePopup from '../UI/StatusChangePopup';
+import { updateOrderStatus } from '../../utils/orderStatus';
 import { dialogService } from '../../lib/dialogService';
 
 /* ── helpers ─────────────────────────────────────────────────── */
@@ -108,6 +110,7 @@ const HomePage: React.FC = () => {
   const [mobileJournalDate,     setMobileJournalDate]     = useState(new Date());
   const [mobileWeekStart,       setMobileWeekStart]       = useState(() => startOfWeekMonday(new Date()));
   const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
+  const [statusPopupOrder,      setStatusPopupOrder]      = useState<Order | null>(null);
   const weekTouchStartX = useRef<number | null>(null);
 
   /* ── fetch ───────────────────────────────────────────────── */
@@ -322,6 +325,16 @@ const HomePage: React.FC = () => {
     else if (order.type==='sample') navigate(`/app/samples/${order.id}`,     {state:{sample:order.sampleData}});
     else                            navigate(`/app/debit-notes/${order.id}`, {state:{debitNote:order.debitNoteData}});
   }, [navigate]);
+
+  const handleStatusChange = useCallback(async (order: Order, newStatus: string) => {
+    try {
+      await updateOrderStatus(order, newStatus);
+      await fetchData();
+      setStatusPopupOrder(null);
+    } catch (error: any) {
+      dialogService.alert({ title: 'Failed to update status', message: error?.message || 'Please try again.', tone: 'danger' });
+    }
+  }, [fetchData]);
 
   const handleJournalSave = useCallback(async(savedEntry?: JournalEntry)=>{
     setIsMobileFormOpen(false); setIsDesktopFormOpen(false); setEditingEntry(null);
@@ -580,7 +593,7 @@ const HomePage: React.FC = () => {
                       const Icon = tc.Icon;
                       const badge = STATUS_BADGE[(order.status || 'issued').toLowerCase()] || 'text-slate-600 bg-slate-50 border border-slate-200';
                       return (
-                        <button key={`${order.type}-${order.id}`} onClick={() => goToOrder(order)} className="w-full px-4 py-3.5 text-left flex items-center gap-3 active:bg-slate-50">
+                        <div key={`${order.type}-${order.id}`} onClick={() => goToOrder(order)} className="w-full px-4 py-3.5 flex items-center gap-3 active:bg-slate-50 cursor-pointer">
                           <div className={`h-10 w-10 rounded-2xl ${tc.bg} flex items-center justify-center shrink-0`}>
                             <Icon className={`h-4 w-4 ${tc.iconCls}`} />
                           </div>
@@ -593,8 +606,14 @@ const HomePage: React.FC = () => {
                               </p>
                             )}
                           </div>
-                          <span className={`px-2 py-1 rounded-full text-[10px] font-semibold shrink-0 ${badge}`}>{order.status || 'Issued'}</span>
-                        </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setStatusPopupOrder(order); }}
+                            className={`px-2 py-1 rounded-full text-[10px] font-semibold shrink-0 ${badge}`}
+                          >
+                            {order.status || 'Issued'}
+                          </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1221,6 +1240,14 @@ const HomePage: React.FC = () => {
       {selectedEntryForPopup&&(
         <JournalEntryPopup entry={selectedEntryForPopup} allEntries={journalEntries}
           onClose={()=>setSelectedEntryForPopup(null)} onUpdate={fetchJournalEntries} />
+      )}
+
+      {statusPopupOrder && (
+        <StatusChangePopup
+          order={statusPopupOrder}
+          onClose={() => setStatusPopupOrder(null)}
+          onSelect={(status) => handleStatusChange(statusPopupOrder, status)}
+        />
       )}
     </>
   );

@@ -7,6 +7,10 @@ import { isFirebaseConfigured } from './lib/firebase.ts';
 
 initPWA();
 
+// Force light mode — dark mode removed
+localStorage.setItem('jild_theme', 'light');
+document.documentElement.classList.remove('dark');
+
 // Register Firebase messaging service worker for background push notifications
 if ('serviceWorker' in navigator && isFirebaseConfigured) {
   navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/firebase-cloud-messaging-push-scope' })

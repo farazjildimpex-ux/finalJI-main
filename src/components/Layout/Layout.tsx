@@ -13,7 +13,6 @@ const Layout: React.FC = () => {
   useReminderChecker();
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('jild_theme') === 'dark');
   const location = useLocation();
   const scrollContainerRef = useRef<HTMLElement>(null);
 
@@ -25,16 +24,6 @@ const Layout: React.FC = () => {
       scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }, [location.pathname, location.search]);
-
-  useEffect(() => {
-    const syncTheme = () => setDarkMode(localStorage.getItem('jild_theme') === 'dark');
-    window.addEventListener('jild-theme-change', syncTheme);
-    return () => window.removeEventListener('jild-theme-change', syncTheme);
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-  }, [darkMode]);
 
   return (
     <div className="flex h-screen bg-white overflow-hidden pt-safe">
