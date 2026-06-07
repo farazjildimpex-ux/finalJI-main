@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Users, MoreHorizontal, Zap, Bookmark, CalendarDays, Settings,
-  CreditCard, FileText, ShieldCheck, LayoutTemplate,
+  CreditCard, FileText,
 } from 'lucide-react';
 
 const PRIMARY_TABS = [
@@ -23,8 +23,6 @@ const CONTROL_CENTER_ITEMS = [
   { name: 'Contracts',  path: '/app/contracts',         icon: FileText,       color: '#4F46E5', bg: 'rgba(79,70,229,0.12)' },
   { name: 'Letters',    path: '/app/samples',           icon: Bookmark,       color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
   { name: 'Payments',   path: '/app/debit-notes',       icon: CreditCard,     color: '#059669', bg: 'rgba(5,150,105,0.12)' },
-  { name: 'Approvals',  path: '/app/approvals',         icon: ShieldCheck,    color: '#16A34A', bg: 'rgba(22,163,74,0.12)' },
-  { name: 'PDF Layout', path: '/app/settings/pdf-editor', icon: LayoutTemplate, color: '#6366F1', bg: 'rgba(99,102,241,0.12)' },
   { name: 'Settings',   path: '/app/settings',          icon: Settings,       color: '#64748B', bg: 'rgba(100,116,139,0.12)' },
 ];
 

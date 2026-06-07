@@ -400,7 +400,7 @@ const HomePage: React.FC = () => {
     <>
       {/* ━━━━━━━━━━━━━━━━━━  MOBILE  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div
-        className="md:hidden min-h-screen bg-gray-50 text-gray-900"
+        className="md:hidden min-h-screen bg-gray-50 text-gray-900 mobile-smooth-scroll"
         style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
@@ -992,7 +992,7 @@ const HomePage: React.FC = () => {
       )}
 
       {/* ━━━━━━━━━━━━━━━━━━  DESKTOP  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
-      <div className="hidden md:flex flex-col h-full min-h-0 overflow-hidden page-fade-in">
+      <div className="hidden md:flex flex-col h-full min-h-0 overflow-hidden page-fade-in bg-gray-50">
 
         <div className="shrink-0 bg-white border-b border-gray-100 px-6 pt-4 pb-3">
           <div className="flex items-start gap-4">
@@ -1004,7 +1004,9 @@ const HomePage: React.FC = () => {
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                 <input
-                  type="text" value={desktopSearch} onChange={e=>setDesktopSearch(e.target.value)}
+                  type="text"
+                  value={desktopSearch}
+                  onChange={e => setDesktopSearch(e.target.value)}
                   placeholder="Search orders & journal…"
                   className="h-9 pl-8 pr-3 w-72 text-[13px] bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
                 />
@@ -1013,12 +1015,10 @@ const HomePage: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex min-h-0 overflow-hidden gap-3 p-3">
           {/* LEFT: Journal */}
-          <div className="w-[360px] shrink-0 border-r border-gray-100 flex flex-col bg-gray-50 min-h-0 overflow-hidden">
-            <div
-              className="flex-1 min-h-0 overflow-hidden p-3 flex flex-col"
-            >
+          <div className="w-[360px] shrink-0 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
               {desktopSearch.trim() ? (() => {
                 const s = desktopSearch.toLowerCase();
                 const matched = journalEntries.filter(e=>e.title.toLowerCase().includes(s)||(e.content&&e.content.toLowerCase().includes(s)));
@@ -1195,35 +1195,40 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* RIGHT: Recent Activity */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden bg-gray-50/50">
-            <div className="px-4 pt-3 pb-2.5 border-b border-gray-100 bg-white shrink-0">
-              <h2 className="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">Recent Activity</h2>
-              <div className="flex gap-1.5 flex-wrap">
-                {FILTERS.map(f=>(
-                  <button key={f.value} onClick={()=>setDesktopFilter(f.value)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${desktopFilter===f.value?f.on:f.off}`}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div
-              className="flex-1 min-h-0 overflow-y-auto p-4 momentum-scroll overscroll-contain"
-              onWheel={(e) => {
-                if (e.deltaY !== 0) {
-                  e.currentTarget.scrollTop += e.deltaY;
-                  e.preventDefault();
-                }
-              }}
-            >
-              {error&&(
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700 text-sm">
-                  <AlertCircle className="h-5 w-5 mr-3 shrink-0"/>{error}
-                  <button onClick={fetchData} className="ml-auto font-bold underline">Retry</button>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 h-full">
+              <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+                <h2 className="text-[15px] font-bold text-gray-900 leading-tight mb-2.5">Recent Activity</h2>
+                <div className="flex gap-1.5 flex-wrap">
+                  {FILTERS.map(f => (
+                    <button
+                      key={f.value}
+                      onClick={() => setDesktopFilter(f.value)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-all ${desktopFilter === f.value ? f.on : f.off}`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
                 </div>
-              )}
-              <RecentOrdersList orders={desktopOrders} loading={loading} onStatusChange={fetchData} />
-            </div>
+              </div>
+              <div
+                className="flex-1 min-h-0 overflow-y-auto momentum-scroll overscroll-contain"
+                onWheel={(e) => {
+                  if (e.deltaY !== 0) {
+                    e.currentTarget.scrollTop += e.deltaY;
+                    e.preventDefault();
+                  }
+                }}
+              >
+                {error && (
+                  <div className="m-4 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center text-red-700 text-sm">
+                    <AlertCircle className="h-5 w-5 mr-3 shrink-0" />{error}
+                    <button onClick={fetchData} className="ml-auto font-bold underline">Retry</button>
+                  </div>
+                )}
+                <RecentOrdersList orders={desktopOrders} loading={loading} onStatusChange={fetchData} embedded />
+              </div>
+            </section>
           </div>
         </div>
       </div>

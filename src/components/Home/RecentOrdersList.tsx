@@ -10,6 +10,7 @@ interface RecentOrdersListProps {
   orders: Order[];
   loading: boolean;
   onStatusChange: () => void;
+  embedded?: boolean;
 }
 
 const ITEMS_PER_PAGE = 15;
@@ -32,7 +33,7 @@ const TYPE_STYLES: Record<string, { row: string; badge: string; icon: string }> 
   },
 };
 
-const RecentOrdersList: React.FC<RecentOrdersListProps> = ({ orders, loading, onStatusChange }) => {
+const RecentOrdersList: React.FC<RecentOrdersListProps> = ({ orders, loading, onStatusChange, embedded = false }) => {
   const navigate = useNavigate();
   const [statusPopupOrder, setStatusPopupOrder] = useState<Order | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,9 +76,13 @@ const RecentOrdersList: React.FC<RecentOrdersListProps> = ({ orders, loading, on
     return <FileText className="h-4 w-4 text-gray-400" />;
   };
 
+  const shellCls = embedded
+    ? 'overflow-hidden'
+    : 'bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm';
+
   if (loading) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 flex items-center justify-center">
+      <div className={`${embedded ? 'p-6' : 'bg-white rounded-xl border border-gray-200 p-6'} flex items-center justify-center`}>
         <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-blue-600" />
       </div>
     );
@@ -85,7 +90,7 @@ const RecentOrdersList: React.FC<RecentOrdersListProps> = ({ orders, loading, on
 
   if (orders.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-gray-200 p-6 text-center text-sm text-gray-400">
+      <div className={`${embedded ? 'p-6' : 'bg-white rounded-xl border border-gray-200 p-6'} text-center text-sm text-gray-400`}>
         No records found.
       </div>
     );
@@ -93,7 +98,7 @@ const RecentOrdersList: React.FC<RecentOrdersListProps> = ({ orders, loading, on
 
   return (
     <>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className={shellCls}>
         <div className="overflow-x-auto no-scrollbar">
           <table className="min-w-full divide-y divide-gray-100">
             <thead>

@@ -21,12 +21,13 @@ const Layout: React.FC = () => {
 
   useEffect(() => {
     if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      const behavior = window.matchMedia('(min-width: 768px)').matches ? 'smooth' : 'auto';
+      scrollContainerRef.current.scrollTo({ top: 0, behavior });
     }
   }, [location.pathname, location.search]);
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden pt-safe">
+    <div className="flex h-[100dvh] bg-white overflow-hidden max-md:pt-safe">
       {/* Desktop Sidebar — hidden on mobile */}
       <aside className="hidden md:block h-full shrink-0">
         <Sidebar
@@ -40,7 +41,7 @@ const Layout: React.FC = () => {
             all other pages scroll normally via overflow-y-auto */}
         <main
           ref={scrollContainerRef}
-          className={`flex-1 overflow-x-hidden bg-gray-50/50 min-h-0 ${
+          className={`flex-1 overflow-x-hidden bg-gray-50/50 min-h-0 max-md:mobile-smooth-scroll ${
             isHomePage ? 'md:overflow-hidden overflow-y-auto' : 'overflow-y-auto'
           }`}
         >

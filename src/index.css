@@ -101,6 +101,22 @@
     overscroll-behavior: contain;
   }
 
+  /* Native-feel touch scrolling on mobile */
+  .mobile-smooth-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    touch-action: pan-y;
+    scroll-behavior: auto;
+    overflow-anchor: auto;
+  }
+
+  @media (display-mode: standalone) and (min-width: 768px) {
+    html, body, #root {
+      height: 100dvh;
+      overflow: hidden;
+    }
+  }
+
   .journal-press-effect {
     @apply transition-all duration-200;
   }
