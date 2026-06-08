@@ -1,11 +1,13 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import type { Order } from '../../types';
+import { getAvailableStatuses } from '../../utils/orderStatus';
 
 const STATUS_COLORS: Record<string, string> = {
   Issued:    'bg-blue-50 text-blue-700 border-blue-200 ring-blue-100',
   Inspected: 'bg-amber-50 text-amber-700 border-amber-200 ring-amber-100',
   Completed: 'bg-emerald-50 text-emerald-700 border-emerald-200 ring-emerald-100',
+  Cancelled: 'bg-red-50 text-red-700 border-red-200 ring-red-100',
 };
 
 interface StatusChangePopupProps {
@@ -15,14 +17,12 @@ interface StatusChangePopupProps {
 }
 
 const StatusChangePopup: React.FC<StatusChangePopupProps> = ({ order, onClose, onSelect }) => {
-  const options = order.type === 'contract'
-    ? ['Issued', 'Inspected', 'Completed']
-    : ['Issued', 'Completed'];
+  const options = getAvailableStatuses(order.type);
 
   const typeLabel = order.type === 'contract' ? 'Contract' : order.type === 'sample' ? 'Letter' : 'Payment';
 
   return (
-    <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
         className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in"

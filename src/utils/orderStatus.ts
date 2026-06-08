@@ -2,7 +2,9 @@ import type { Order } from '../types';
 import { supabase } from '../lib/supabaseClient';
 
 export function getAvailableStatuses(orderType: string): string[] {
-  return orderType === 'contract' ? ['Issued', 'Inspected', 'Completed'] : ['Issued', 'Completed'];
+  return orderType === 'contract'
+    ? ['Issued', 'Inspected', 'Completed', 'Cancelled']
+    : ['Issued', 'Completed', 'Cancelled'];
 }
 
 export async function updateOrderStatus(order: Order, newStatus: string): Promise<void> {

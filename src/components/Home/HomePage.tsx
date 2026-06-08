@@ -75,6 +75,7 @@ const STATUS_BADGE: Record<string, string> = {
   open:      'text-amber-700 bg-amber-50 border border-amber-100',
   completed: 'text-emerald-700 bg-emerald-50 border border-emerald-100',
   delivered: 'text-emerald-700 bg-emerald-50 border border-emerald-100',
+  cancelled: 'text-red-700 bg-red-50 border border-red-100',
 };
 
 const OPEN_STATUSES = ['Issued', 'Inspected'];
@@ -1105,7 +1106,7 @@ const HomePage: React.FC = () => {
                   </div>
 
                   <div
-                    className="flex-1 px-4 pb-3 pt-3 space-y-2 overflow-y-auto momentum-scroll min-h-0 overscroll-contain"
+                    className="flex-1 px-4 pb-3 pt-3 space-y-2 overflow-y-auto overflow-x-hidden momentum-scroll min-h-0 overscroll-contain no-scrollbar"
                     onWheel={(e) => {
                       if (e.deltaY !== 0) {
                         e.currentTarget.scrollTop += e.deltaY;
@@ -1212,7 +1213,7 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
               <div
-                className="flex-1 min-h-0 overflow-y-auto momentum-scroll overscroll-contain"
+                className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar"
                 onWheel={(e) => {
                   if (e.deltaY !== 0) {
                     e.currentTarget.scrollTop += e.deltaY;
