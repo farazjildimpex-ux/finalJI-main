@@ -164,6 +164,10 @@ const HomePage: React.FC = () => {
 
   // Reset page when filter changes
   useEffect(()=>{ setActivityPage(1); }, [mobileFilter]);
+  useEffect(() => {
+    setDesktopJournalPage(1);
+    setMobileOpenEntryId(null);
+  }, [desktopSearch]);
 
   useEffect(()=>{
     const id = searchParams.get('entry');
@@ -316,6 +320,99 @@ const HomePage: React.FC = () => {
 
   const handleMobileEntryTap = (entry: JournalEntry) => {
     setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
+  };
+
+  const renderJournalEntryCard = (entry: JournalEntry, useDesktopForm = false) => {
+    const isOpen = mobileOpenEntryId === entry.id;
+    const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
+    const rowTapClass = useDesktopForm ? 'hover:bg-gray-100' : 'active:bg-gray-100';
+    const editBtnClass = useDesktopForm ? 'hover:bg-blue-100' : 'active:bg-blue-100';
+    const threadBtnClass = useDesktopForm ? 'hover:bg-gray-200' : 'active:bg-gray-200';
+    const followBtnClass = useDesktopForm ? 'hover:bg-blue-100' : 'active:bg-blue-100';
+    const doneBtnClass = useDesktopForm ? 'hover:bg-emerald-100' : 'active:bg-emerald-100';
+    const deleteBtnClass = useDesktopForm ? 'hover:bg-rose-100' : 'active:bg-rose-100';
+
+    const openEditForm = () => {
+      setEditingEntry(entry);
+      if (useDesktopForm) setIsDesktopFormOpen(true);
+      else setIsMobileFormOpen(true);
+    };
+
+    return (
+      <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
+        <button
+          type="button"
+          onClick={() => handleMobileEntryTap(entry)}
+          className={`w-full px-3.5 py-3 text-left transition-colors ${rowTapClass}`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+                {isFollowUp && (
+                  <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+                    <Pin className="h-2.5 w-2.5" /> Follow-up
+                  </span>
+                )}
+              </div>
+              {entry.content && (
+                <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>
+                  {entry.content}
+                </p>
+              )}
+              {useDesktopForm && (
+                <p className="mt-1 text-[10px] text-gray-400">
+                  {new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </p>
+              )}
+            </div>
+            <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+          </div>
+        </button>
+        <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); openEditForm(); }}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-600 bg-blue-50 ${editBtnClass} shrink-0`}
+            >
+              <Edit2 className="h-3 w-3" /> Edit
+            </button>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
+              className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 bg-gray-100 ${threadBtnClass} shrink-0`}
+            >
+              <GitBranch className="h-3 w-3" /> Thread
+            </button>
+            {isFollowUp ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 ${doneBtnClass} shrink-0`}
+              >
+                <CheckCircle2 className="h-3 w-3" /> Done
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 bg-blue-50 ${followBtnClass} shrink-0`}
+              >
+                <Pin className="h-3 w-3" /> Follow
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
+              className={`ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 ${deleteBtnClass} shrink-0`}
+            >
+              <Trash2 className="h-3 w-3" /> Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   /* ── handlers ────────────────────────────────────────────── */
@@ -479,70 +576,7 @@ const HomePage: React.FC = () => {
                     <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
                   </button>
                 ) : (
-                  mobileJournalEntries.map(entry => {
-                    const isOpen = mobileOpenEntryId === entry.id;
-                    const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
-                    return (
-                    <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
-                      <button
-                        onClick={() => handleMobileEntryTap(entry)}
-                        className="w-full px-3.5 py-3 text-left active:bg-gray-100 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 min-w-0">
-                              <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
-                              {isFollowUp && (
-                                <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
-                                  <Pin className="h-2.5 w-2.5" /> Follow-up
-                                </span>
-                              )}
-                            </div>
-                            {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>{entry.content}</p>}
-                          </div>
-                          <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                        </div>
-                      </button>
-                      <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
-                        <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsMobileFormOpen(true); }}
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-600 bg-blue-50 active:bg-blue-100 shrink-0"
-                          >
-                            <Edit2 className="h-3 w-3" /> Edit
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 shrink-0"
-                          >
-                            <GitBranch className="h-3 w-3" /> Thread
-                          </button>
-                          {isFollowUp ? (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
-                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 active:bg-emerald-100 shrink-0"
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> Done
-                            </button>
-                          ) : (
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
-                              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 bg-blue-50 active:bg-blue-100 shrink-0"
-                            >
-                              <Pin className="h-3 w-3" /> Follow
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
-                            className="ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 active:bg-rose-100 shrink-0"
-                          >
-                            <Trash2 className="h-3 w-3" /> Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    );
-                  })
+                  mobileJournalEntries.map(entry => renderJournalEntryCard(entry))
                 )}
               </div>
             </section>
@@ -915,28 +949,8 @@ const HomePage: React.FC = () => {
                       <p className="text-[13px] text-gray-400">No matching journal entries</p>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                      {searchJournalResults.map((entry, idx) => (
-                        <button
-                          key={`sj-${entry.id}`}
-                          onClick={() => { setSelectedEntryForPopup(entry); setShowSearch(false); setSearchTerm(''); }}
-                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 ${idx>0?'border-t border-gray-50':''}`}
-                        >
-                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-indigo-50">
-                            <FileText className="h-4 w-4 text-indigo-500" strokeWidth={1.75} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-bold text-gray-900 truncate">{entry.title}</p>
-                            <p className="text-[10px] text-gray-400">
-                              {new Date(entry.entry_date).toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric'})}
-                            </p>
-                            {entry.content && (
-                              <p className="text-[10px] text-gray-400 truncate mt-0.5">{entry.content}</p>
-                            )}
-                          </div>
-                          <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
-                        </button>
-                      ))}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-3 space-y-2">
+                      {searchJournalResults.map(entry => renderJournalEntryCard(entry))}
                     </div>
                   )
                 )}
@@ -1027,34 +1041,30 @@ const HomePage: React.FC = () => {
                 const pg    = Math.min(desktopJournalPage, total);
                 const slice = matched.slice((pg-1)*JOURNAL_PAGE_SIZE, pg*JOURNAL_PAGE_SIZE);
                 return (
-                  <div className="flex flex-col flex-1 min-h-0">
-                    {matched.length===0 ? (
-                      <p className="text-[12px] text-gray-400 text-center py-6">No entries match "{desktopSearch}"</p>
-                    ) : (
-                      <>
-                        <div className="space-y-2 pb-3">
-                          {slice.map(entry=>(
-                            <div key={entry.id}
-                              className="rounded-xl border border-gray-100 bg-white px-3 py-2.5 shadow-sm cursor-pointer hover:border-blue-200 transition-colors"
-                              onClick={()=>setSelectedEntryForPopup(entry)}>
-                              <p className="text-[13px] font-bold text-gray-800 line-clamp-1">{entry.title}</p>
-                              <p className="text-[10px] text-gray-400 mt-0.5">{new Date(entry.entry_date).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</p>
-                              {entry.content&&<p className="text-[12px] text-gray-500 mt-1 line-clamp-3">{entry.content}</p>}
-                            </div>
-                          ))}
+                  <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 h-full">
+                    <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+                      <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal results</h2>
+                      <p className="mt-0.5 text-[11px] font-medium text-gray-400">
+                        {matched.length} {matched.length === 1 ? 'entry' : 'entries'} for "{desktopSearch}"
+                      </p>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar px-4 py-3 space-y-2">
+                      {matched.length === 0 ? (
+                        <p className="text-[12px] text-gray-400 text-center py-6">No entries match "{desktopSearch}"</p>
+                      ) : (
+                        slice.map(entry => renderJournalEntryCard(entry, true))
+                      )}
+                    </div>
+                    {total > 1 && (
+                      <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 shrink-0">
+                        <p className="text-[11px] text-gray-400">{(pg - 1) * JOURNAL_PAGE_SIZE + 1}–{Math.min(pg * JOURNAL_PAGE_SIZE, matched.length)} of {matched.length}</p>
+                        <div className="flex gap-1">
+                          <button onClick={() => setDesktopJournalPage(p => Math.max(1, p - 1))} disabled={pg === 1} className="px-2.5 py-1 rounded-lg text-[11px] bg-gray-100 text-gray-600 disabled:opacity-30 hover:bg-gray-200">‹ Prev</button>
+                          <button onClick={() => setDesktopJournalPage(p => Math.min(total, p + 1))} disabled={pg === total} className="px-2.5 py-1 rounded-lg text-[11px] bg-gray-100 text-gray-600 disabled:opacity-30 hover:bg-gray-200">Next ›</button>
                         </div>
-                        {total>1&&(
-                          <div className="flex items-center justify-between pt-1 pb-3 border-t border-gray-100 mt-auto shrink-0">
-                            <p className="text-[11px] text-gray-400">{(pg-1)*JOURNAL_PAGE_SIZE+1}–{Math.min(pg*JOURNAL_PAGE_SIZE,matched.length)} of {matched.length}</p>
-                            <div className="flex gap-1">
-                              <button onClick={()=>setDesktopJournalPage(p=>Math.max(1,p-1))} disabled={pg===1} className="px-2.5 py-1 rounded-lg text-[11px] bg-gray-100 text-gray-600 disabled:opacity-30 hover:bg-gray-200">‹ Prev</button>
-                              <button onClick={()=>setDesktopJournalPage(p=>Math.min(total,p+1))} disabled={pg===total} className="px-2.5 py-1 rounded-lg text-[11px] bg-gray-100 text-gray-600 disabled:opacity-30 hover:bg-gray-200">Next ›</button>
-                            </div>
-                          </div>
-                        )}
-                      </>
+                      </div>
                     )}
-                  </div>
+                  </section>
                 );
               })() : (
                 <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 h-full">
@@ -1124,70 +1134,7 @@ const HomePage: React.FC = () => {
                         <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
                       </button>
                     ) : (
-                      mobileJournalEntries.map(entry => {
-                        const isOpen = mobileOpenEntryId === entry.id;
-                        const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
-                        return (
-                        <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
-                          <button
-                            onClick={() => handleMobileEntryTap(entry)}
-                            className="w-full px-3.5 py-3 text-left hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
-                                  {isFollowUp && (
-                                    <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
-                                      <Pin className="h-2.5 w-2.5" /> Follow-up
-                                    </span>
-                                  )}
-                                </div>
-                                {entry.content && <p className={`mt-1 text-[11px] leading-5 text-gray-500 ${isOpen ? 'line-clamp-5' : 'line-clamp-3'}`}>{entry.content}</p>}
-                              </div>
-                              <ChevronRight className={`h-4 w-4 text-gray-300 mt-1 shrink-0 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                            </div>
-                          </button>
-                          <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
-                            <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t border-gray-100 bg-white overflow-x-auto no-scrollbar">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setEditingEntry(entry); setIsDesktopFormOpen(true); }}
-                                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 shrink-0"
-                              >
-                                <Edit2 className="h-3 w-3" /> Edit
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
-                                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 shrink-0"
-                              >
-                                <GitBranch className="h-3 w-3" /> Thread
-                              </button>
-                              {isFollowUp ? (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleCompleteFollowUp(entry); }}
-                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 shrink-0"
-                                >
-                                  <CheckCircle2 className="h-3 w-3" /> Done
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); handleMarkFollowUp(entry); }}
-                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 shrink-0"
-                                >
-                                  <Pin className="h-3 w-3" /> Follow
-                                </button>
-                              )}
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleMobileDeleteEntry(entry); }}
-                                className="ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 shrink-0"
-                              >
-                                <Trash2 className="h-3 w-3" /> Delete
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        );
-                      })
+                      mobileJournalEntries.map(entry => renderJournalEntryCard(entry, true))
                     )}
                   </div>
                 </section>
