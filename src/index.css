@@ -169,6 +169,15 @@
     from { opacity: 0; transform: translateY(24px) scale(0.96); }
     to   { opacity: 1; transform: translateY(0)    scale(1);    }
   }
+
+  @keyframes followUpShake {
+    0%, 100% { transform: rotate(-0.6deg) translateX(-1px); }
+    50% { transform: rotate(0.6deg) translateX(1px); }
+  }
+
+  .follow-up-shake {
+    animation: followUpShake 0.28s ease-in-out infinite;
+  }
 }
 
 /* Custom scrollbar */

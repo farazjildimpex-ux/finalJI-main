@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Search, X, ChevronRight, AlertCircle,
   FileText, Bookmark, Receipt, Edit2, Trash2, GitBranch,
-  Pin, CheckCircle2,
+  Pin, CheckCircle2, GripVertical,
 } from 'lucide-react';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
@@ -112,7 +112,14 @@ const HomePage: React.FC = () => {
   const [mobileWeekStart,       setMobileWeekStart]       = useState(() => startOfWeekMonday(new Date()));
   const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
   const [statusPopupOrder,      setStatusPopupOrder]      = useState<Order | null>(null);
+  const [followUpReorderMode,   setFollowUpReorderMode]   = useState(false);
+  const [followUpReorderList,   setFollowUpReorderList]   = useState<JournalEntry[]>([]);
+  const [draggingFollowUpId,    setDraggingFollowUpId]    = useState<string | null>(null);
+  const [savingFollowUpOrder,   setSavingFollowUpOrder]   = useState(false);
   const weekTouchStartX = useRef<number | null>(null);
+  const followUpLongPressTimer = useRef<number | null>(null);
+  const followUpLongPressTriggered = useRef(false);
+  const followUpDragState = useRef<{ id: string; startY: number } | null>(null);
 
   /* ── fetch ───────────────────────────────────────────────── */
   const fetchData = useCallback(async () => {
@@ -159,7 +166,12 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     window.addEventListener('home-journal-reset', resetJournalToToday);
-    return () => window.removeEventListener('home-journal-reset', resetJournalToToday);
+    return () => {
+      window.removeEventListener('home-journal-reset', resetJournalToToday);
+      if (followUpLongPressTimer.current != null) {
+        window.clearTimeout(followUpLongPressTimer.current);
+      }
+    };
   }, [resetJournalToToday]);
 
   // Reset page when filter changes
@@ -220,8 +232,21 @@ const HomePage: React.FC = () => {
   const activeFollowUps = useMemo(
     () => journalEntries
       .filter(entry => entry.follow_up_required && !entry.follow_up_completed_at)
-      .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime()),
+      .sort((a, b) => {
+        const ao = a.follow_up_sort_order ?? Number.MAX_SAFE_INTEGER;
+        const bo = b.follow_up_sort_order ?? Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime();
+      }),
     [journalEntries],
+  );
+
+  const datedMobileJournalEntries = useMemo(
+    () => journalEntries.filter(entry =>
+      entry.entry_date === mobileJournalDateKey &&
+      !(entry.follow_up_required && !entry.follow_up_completed_at)
+    ),
+    [journalEntries, mobileJournalDateKey],
   );
 
   const mobileJournalEntries = useMemo(
@@ -301,11 +326,16 @@ const HomePage: React.FC = () => {
   };
 
   const handleMarkFollowUp = async (entry: JournalEntry) => {
+    const maxOrder = activeFollowUps.reduce(
+      (max, item) => Math.max(max, item.follow_up_sort_order ?? -1),
+      -1,
+    );
     const { error } = await supabase
       .from('journal_entries')
       .update({
         follow_up_required: true,
         follow_up_completed_at: null,
+        follow_up_sort_order: maxOrder + 1,
         updated_at: new Date().toISOString(),
       })
       .eq('id', entry.id);
@@ -319,10 +349,145 @@ const HomePage: React.FC = () => {
   };
 
   const handleMobileEntryTap = (entry: JournalEntry) => {
+    if (followUpReorderMode || followUpLongPressTriggered.current) return;
     setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
   };
 
-  const renderJournalEntryCard = (entry: JournalEntry, useDesktopForm = false) => {
+  const cancelFollowUpLongPress = () => {
+    if (followUpLongPressTimer.current != null) {
+      window.clearTimeout(followUpLongPressTimer.current);
+      followUpLongPressTimer.current = null;
+    }
+  };
+
+  const enterFollowUpReorderMode = () => {
+    if (activeFollowUps.length < 2) {
+      dialogService.toast({ message: 'Add at least 2 follow-ups to reorder', durationMs: 2200 });
+      return;
+    }
+    setFollowUpReorderMode(true);
+    setFollowUpReorderList([...activeFollowUps]);
+    setMobileOpenEntryId(null);
+    navigator.vibrate?.(40);
+  };
+
+  const startFollowUpLongPress = (entry: JournalEntry) => {
+    if (followUpReorderMode) return;
+    if (!(entry.follow_up_required && !entry.follow_up_completed_at)) return;
+    cancelFollowUpLongPress();
+    followUpLongPressTriggered.current = false;
+    followUpLongPressTimer.current = window.setTimeout(() => {
+      followUpLongPressTriggered.current = true;
+      enterFollowUpReorderMode();
+    }, 480);
+  };
+
+  const cancelFollowUpReorderMode = () => {
+    setFollowUpReorderMode(false);
+    setFollowUpReorderList([]);
+    setDraggingFollowUpId(null);
+    followUpDragState.current = null;
+  };
+
+  const handleFollowUpReorderTouchStart = (entry: JournalEntry, _index: number, e: React.TouchEvent) => {
+    e.stopPropagation();
+    followUpDragState.current = { id: entry.id, startY: e.touches[0].clientY };
+    setDraggingFollowUpId(entry.id);
+  };
+
+  const handleFollowUpReorderTouchMove = (_index: number, e: React.TouchEvent) => {
+    if (!followUpDragState.current) return;
+    e.preventDefault();
+    const y = e.touches[0].clientY;
+    const dy = y - followUpDragState.current.startY;
+    if (Math.abs(dy) < 28) return;
+
+    const direction = dy > 0 ? 1 : -1;
+
+    setFollowUpReorderList(prev => {
+      const currentIndex = prev.findIndex(item => item.id === followUpDragState.current!.id);
+      const nextIndex = currentIndex + direction;
+      if (nextIndex < 0 || nextIndex >= prev.length) return prev;
+
+      const next = [...prev];
+      [next[currentIndex], next[nextIndex]] = [next[nextIndex], next[currentIndex]];
+      navigator.vibrate?.(12);
+      followUpDragState.current = { id: followUpDragState.current!.id, startY: y };
+      return next;
+    });
+  };
+
+  const handleFollowUpReorderTouchEnd = () => {
+    followUpDragState.current = null;
+    setDraggingFollowUpId(null);
+  };
+
+  const saveFollowUpOrder = async () => {
+    if (followUpReorderList.length === 0) {
+      cancelFollowUpReorderMode();
+      return;
+    }
+    setSavingFollowUpOrder(true);
+    try {
+      const results = await Promise.all(
+        followUpReorderList.map((entry, index) =>
+          supabase
+            .from('journal_entries')
+            .update({
+              follow_up_sort_order: index,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', entry.id)
+        ),
+      );
+      const failed = results.find(result => result.error);
+      if (failed?.error) throw failed.error;
+      await fetchJournalEntries();
+      cancelFollowUpReorderMode();
+      dialogService.success('Follow-up order saved.');
+    } catch (error: any) {
+      dialogService.alert({
+        title: 'Failed to save order',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      setSavingFollowUpOrder(false);
+    }
+  };
+
+  const renderFollowUpReorderCard = (entry: JournalEntry, index: number) => (
+    <div
+      key={entry.id}
+      className={`rounded-xl border overflow-hidden follow-up-shake touch-none select-none ${
+        draggingFollowUpId === entry.id
+          ? 'border-blue-300 bg-blue-50/80 shadow-md scale-[1.02]'
+          : 'border-blue-100 bg-white'
+      }`}
+      onTouchStart={(e) => handleFollowUpReorderTouchStart(entry, index, e)}
+      onTouchMove={(e) => handleFollowUpReorderTouchMove(index, e)}
+      onTouchEnd={handleFollowUpReorderTouchEnd}
+      onTouchCancel={handleFollowUpReorderTouchEnd}
+    >
+      <div className="px-3.5 py-3 flex items-start gap-3">
+        <GripVertical className="h-4 w-4 text-blue-400 shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-[13px] font-semibold text-gray-900 truncate">{entry.title}</p>
+            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+              <Pin className="h-2.5 w-2.5" /> Follow-up
+            </span>
+          </div>
+          {entry.content && (
+            <p className="mt-1 text-[11px] leading-5 text-gray-500 line-clamp-2">{entry.content}</p>
+          )}
+        </div>
+        <span className="text-[10px] font-bold text-blue-500 shrink-0">{index + 1}</span>
+      </div>
+    </div>
+  );
+
+  const renderJournalEntryCard = (entry: JournalEntry, useDesktopForm = false, enableFollowUpLongPress = false) => {
     const isOpen = mobileOpenEntryId === entry.id;
     const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
     const rowTapClass = useDesktopForm ? 'hover:bg-gray-100' : 'active:bg-gray-100';
@@ -342,7 +507,16 @@ const HomePage: React.FC = () => {
       <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
         <button
           type="button"
-          onClick={() => handleMobileEntryTap(entry)}
+          onClick={() => {
+            cancelFollowUpLongPress();
+            handleMobileEntryTap(entry);
+          }}
+          onTouchStart={() => {
+            if (enableFollowUpLongPress && isFollowUp) startFollowUpLongPress(entry);
+          }}
+          onTouchEnd={cancelFollowUpLongPress}
+          onTouchMove={cancelFollowUpLongPress}
+          onTouchCancel={cancelFollowUpLongPress}
           className={`w-full px-3.5 py-3 text-left transition-colors ${rowTapClass}`}
         >
           <div className="flex items-start justify-between gap-3">
@@ -437,6 +611,16 @@ const HomePage: React.FC = () => {
   const handleJournalSave = useCallback(async(savedEntry?: JournalEntry)=>{
     setIsMobileFormOpen(false); setIsDesktopFormOpen(false); setEditingEntry(null);
     fetchJournalEntries();
+    if (savedEntry?.follow_up_required && !savedEntry.follow_up_completed_at && savedEntry.follow_up_sort_order == null) {
+      const maxOrder = journalEntries
+        .filter(e => e.follow_up_required && !e.follow_up_completed_at && e.id !== savedEntry.id)
+        .reduce((max, e) => Math.max(max, e.follow_up_sort_order ?? -1), -1);
+      await supabase
+        .from('journal_entries')
+        .update({ follow_up_sort_order: maxOrder + 1, updated_at: new Date().toISOString() })
+        .eq('id', savedEntry.id);
+      fetchJournalEntries();
+    }
     if (savedEntry&&!savedEntry.parent_id) {
       const ten=new Date(); ten.setDate(ten.getDate()-10);
       const past=journalEntries.filter(e=>e.id!==savedEntry.id&&new Date(e.entry_date)>=ten);
@@ -565,7 +749,7 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="px-4 pb-3 space-y-2">
+              <div className={`px-4 space-y-2 ${followUpReorderMode ? 'pb-28' : 'pb-3'}`}>
                 {journalLoading ? (
                   <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
                     <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
@@ -576,7 +760,30 @@ const HomePage: React.FC = () => {
                     <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
                   </button>
                 ) : (
-                  mobileJournalEntries.map(entry => renderJournalEntryCard(entry))
+                  <>
+                    {followUpReorderMode ? (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-semibold text-blue-600 px-0.5">
+                          Drag follow-ups to reorder, then tap Save
+                        </p>
+                        {followUpReorderList.map((entry, index) => renderFollowUpReorderCard(entry, index))}
+                      </div>
+                    ) : (
+                      activeFollowUps.length > 0 && (
+                        <div className="space-y-2">
+                          {activeFollowUps.length >= 2 && (
+                            <p className="text-[10px] text-gray-400 px-0.5">Hold a follow-up to reorder</p>
+                          )}
+                          {activeFollowUps.map(entry => renderJournalEntryCard(entry, false, true))}
+                        </div>
+                      )
+                    )}
+                    {datedMobileJournalEntries.length > 0 && (
+                      <div className={`space-y-2 ${activeFollowUps.length > 0 || followUpReorderMode ? 'mt-2' : ''}`}>
+                        {datedMobileJournalEntries.map(entry => renderJournalEntryCard(entry))}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </section>
@@ -679,6 +886,32 @@ const HomePage: React.FC = () => {
           </div>
         </PullToRefresh>
       </div>
+
+      {followUpReorderMode && (
+        <div
+          className="fixed inset-x-0 z-40 md:hidden px-4"
+          style={{ bottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}
+        >
+          <div className="rounded-2xl bg-white border border-gray-200 shadow-xl p-3 flex gap-2">
+            <button
+              type="button"
+              onClick={cancelFollowUpReorderMode}
+              disabled={savingFollowUpOrder}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 active:bg-gray-200 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={saveFollowUpOrder}
+              disabled={savingFollowUpOrder}
+              className="flex-[1.4] px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 active:bg-blue-700 disabled:opacity-50 shadow-md shadow-blue-200/60"
+            >
+              {savingFollowUpOrder ? 'Saving…' : 'Save order'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div
         className="hidden"

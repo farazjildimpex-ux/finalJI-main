@@ -319,6 +319,7 @@ export interface JournalEntry {
   color?: string | null;
   follow_up_required?: boolean;
   follow_up_completed_at?: string | null;
+  follow_up_sort_order?: number | null;
   created_at: string;
   updated_at: string;
 }
