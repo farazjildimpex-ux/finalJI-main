@@ -112,7 +112,39 @@ export function useReminderChecker() {
         }
       }
 
-      // ── 3. Sample letter due dates (today + tomorrow) ─────────────────────
+      // ── 3. Invoice delivery dates (today + tomorrow) ────────────────────────
+      const { data: deliveryInvoices, error: invoiceDeliveryError } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, contract_numbers, delivery_date')
+        .eq('user_id', user.id)
+        .not('delivery_date', 'is', null)
+        .in('delivery_date', [todayStr, tomorrowStr]);
+
+      if (invoiceDeliveryError) {
+        console.warn('Invoice delivery reminder query skipped:', invoiceDeliveryError.message);
+      } else {
+        for (const inv of deliveryInvoices || []) {
+          const isToday = inv.delivery_date === todayStr;
+          const contractNo = inv.contract_numbers?.[0];
+          let url = '/app/home';
+          if (contractNo) {
+            const { data: contractRow } = await supabase
+              .from('contracts')
+              .select('id')
+              .eq('contract_no', contractNo)
+              .maybeSingle();
+            if (contractRow?.id) url = `/app/contracts/${contractRow.id}`;
+          }
+          await sendNotification(
+            isToday ? `Invoice delivery today: ${inv.invoice_number}` : `Invoice delivery tomorrow: ${inv.invoice_number}`,
+            contractNo ? `Contract: ${contractNo}` : 'Tap to open invoice',
+            `invoice-${inv.id}-${inv.delivery_date}`,
+            url,
+          );
+        }
+      }
+
+      // ── 4. Sample letter due dates (today + tomorrow) ─────────────────────
       const { data: dueSamples, error: sampleError } = await supabase
         .from('samples')
         .select('id, sample_number, supplier_name, due_date')

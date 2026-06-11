@@ -296,6 +296,7 @@ export interface Invoice {
   bill_type?: 'Airway Bill' | 'Bill of Lading' | '';
   bill_number?: string;
   shipping_date?: string | null;
+  delivery_date?: string | null;
   is_approved?: boolean;
   approved_at?: string | null;
   approved_by?: string | null;

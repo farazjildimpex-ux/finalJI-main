@@ -7,7 +7,7 @@ import {
 } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
-type EventType = 'journal' | 'reminder' | 'contract' | 'sample';
+type EventType = 'journal' | 'reminder' | 'contract' | 'sample' | 'invoice';
 
 interface CalendarEvent {
   id: string;
@@ -32,10 +32,11 @@ const EVENT_CFG: Record<EventType, { label: string; pill: string; bar: string; t
   reminder: { label: 'Reminder', pill: 'bg-amber-100 text-amber-800',    bar: 'bg-amber-400',   text: 'text-amber-700',   badge: 'bg-amber-500',   openLabel: 'View Reminder' },
   contract: { label: 'Contract', pill: 'bg-emerald-100 text-emerald-800', bar: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-500', openLabel: 'Open Contract' },
   sample:   { label: 'Letter',   pill: 'bg-blue-100 text-blue-800',      bar: 'bg-blue-500',    text: 'text-blue-700',    badge: 'bg-blue-500',    openLabel: 'Open Letter'   },
+  invoice:  { label: 'Invoice',  pill: 'bg-orange-100 text-orange-800',  bar: 'bg-orange-500',  text: 'text-orange-700',  badge: 'bg-orange-500',  openLabel: 'Open Contract' },
 };
 
 const ABBR: Record<EventType, string> = {
-  journal: 'JNL', reminder: 'REM', contract: 'CON', sample: 'LTR',
+  journal: 'JNL', reminder: 'REM', contract: 'CON', sample: 'LTR', invoice: 'INV',
 };
 
 const WEEKDAYS_LONG  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -133,11 +134,12 @@ const CalendarPage: React.FC = () => {
     const rangeStart = format(calendarDays[0], 'yyyy-MM-dd');
     const rangeEnd   = format(calendarDays[calendarDays.length - 1], 'yyyy-MM-dd');
 
-    const [journalRes, reminderRes, contractRes, sampleRes] = await Promise.allSettled([
+    const [journalRes, reminderRes, contractRes, sampleRes, invoiceRes] = await Promise.allSettled([
       supabase.from('journal_entries').select('id, title, entry_date').gte('entry_date', rangeStart).lte('entry_date', rangeEnd),
       supabase.from('journal_entries').select('id, title, reminder_date, reminder_time').eq('reminder_enabled', true).not('reminder_date', 'is', null).gte('reminder_date', rangeStart).lte('reminder_date', rangeEnd),
       supabase.from('contracts').select('id, contract_no, buyer_name, delivery_schedule'),
       supabase.from('samples').select('id, sample_number, supplier_name, due_date').not('due_date', 'is', null).gte('due_date', rangeStart).lte('due_date', rangeEnd),
+      supabase.from('invoices').select('id, invoice_number, contract_numbers, delivery_date').not('delivery_date', 'is', null).gte('delivery_date', rangeStart).lte('delivery_date', rangeEnd),
     ]);
 
     const next: CalendarEvent[] = [];
@@ -161,6 +163,32 @@ const CalendarPage: React.FC = () => {
     }
     if (sampleRes.status === 'fulfilled' && sampleRes.value.data) {
       sampleRes.value.data.forEach(s => next.push({ id: s.id, type: 'sample', title: s.sample_number, date: s.due_date as string, subtitle: s.supplier_name, link: `/app/samples/${s.id}` }));
+    }
+    if (invoiceRes.status === 'fulfilled' && invoiceRes.value.data) {
+      const contractNos = [...new Set(
+        invoiceRes.value.data.flatMap(inv => inv.contract_numbers || []).filter(Boolean),
+      )];
+      const contractLinkByNo: Record<string, string> = {};
+      if (contractNos.length > 0) {
+        const { data: contractRows } = await supabase
+          .from('contracts')
+          .select('id, contract_no')
+          .in('contract_no', contractNos);
+        for (const row of contractRows || []) {
+          contractLinkByNo[row.contract_no] = `/app/contracts/${row.id}`;
+        }
+      }
+      invoiceRes.value.data.forEach(inv => {
+        const contractNo = inv.contract_numbers?.[0];
+        next.push({
+          id: `inv-${inv.id}`,
+          type: 'invoice',
+          title: inv.invoice_number,
+          date: inv.delivery_date as string,
+          subtitle: contractNo ? `Contract ${contractNo}` : 'Invoice delivery',
+          link: contractNo && contractLinkByNo[contractNo] ? contractLinkByNo[contractNo] : undefined,
+        });
+      });
     }
 
     setEvents(next);
@@ -404,6 +432,7 @@ const CalendarPage: React.FC = () => {
                     ${ev.type === 'journal'  ? 'bg-violet-50 text-violet-700 hover:bg-violet-100'   : ''}
                     ${ev.type === 'reminder' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'       : ''}
                     ${ev.type === 'sample'   ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'          : ''}
+                    ${ev.type === 'invoice'  ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'  : ''}
                   `}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />

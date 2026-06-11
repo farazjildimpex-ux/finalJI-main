@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { addDays, format } from 'date-fns';
 import {
   Plus,
   Trash2,
@@ -30,7 +31,15 @@ const createEmptyInvoice = (contractNumber: string): Invoice => ({
   bill_type: '',
   bill_number: '',
   shipping_date: null,
+  delivery_date: null,
 });
+
+const DELIVERY_PRESETS = [
+  { label: '1 week', days: 7 },
+  { label: '2 weeks', days: 14 },
+  { label: '4 weeks', days: 28 },
+  { label: '5 weeks', days: 35 },
+] as const;
 
 const formatDate = (value: string | null | undefined) => {
   if (!value) return '—';
@@ -167,6 +176,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
         bill_type: editingInvoice.bill_type || null,
         bill_number: editingInvoice.bill_number || '',
         shipping_date: editingInvoice.shipping_date || null,
+        delivery_date: editingInvoice.delivery_date || null,
         user_id: user.id,
       };
 
@@ -380,6 +390,33 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           <FormRow label="Shipping Date">
             <DatePicker value={editingInvoice.shipping_date || ''} onChange={(val) => updateField('shipping_date', val || null)} />
           </FormRow>
+          <FormRow label="Expected Delivery Date">
+            <DatePicker
+              value={editingInvoice.delivery_date || ''}
+              onChange={(val) => updateField('delivery_date', val || null)}
+            />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {DELIVERY_PRESETS.map((preset) => {
+                const target = format(addDays(new Date(), preset.days), 'yyyy-MM-dd');
+                const isActive = editingInvoice.delivery_date === target;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => updateField('delivery_date', target)}
+                    className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border transition-colors ${
+                      isActive
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-1.5 text-[10px] text-gray-400">Quick picks are from today. You will be notified on the delivery day.</p>
+          </FormRow>
         </FormSection>
 
         <div className="flex justify-end gap-3 pt-2">
@@ -459,11 +496,12 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
               </div>
             )}
             
-            {(invoice.bill_type || invoice.bill_number || invoice.shipping_date) && (
-              <div className="grid grid-cols-3 gap-3 text-xs bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
+            {(invoice.bill_type || invoice.bill_number || invoice.shipping_date || invoice.delivery_date) && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-white p-3 rounded-lg border border-gray-100 shadow-sm">
                 <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Type</p><p className="font-bold text-gray-900">{invoice.bill_type || '—'}</p></div>
                 <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Bill #</p><p className="font-bold text-gray-900">{invoice.bill_number || '—'}</p></div>
-                <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Date</p><p className="font-bold text-gray-900">{formatDate(invoice.shipping_date)}</p></div>
+                <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Shipped</p><p className="font-bold text-gray-900">{formatDate(invoice.shipping_date)}</p></div>
+                <div><p className="text-gray-400 uppercase font-bold text-[10px] mb-0.5">Delivery</p><p className="font-bold text-gray-900">{formatDate(invoice.delivery_date)}</p></div>
               </div>
             )}
 

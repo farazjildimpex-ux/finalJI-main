@@ -311,8 +311,23 @@ export const generateContractPDF = async (
   const fBankDocs    = getField(cfg, 'bankDocumentsField');
 
   if (fDelivery.visible) {
-    doc.setFontSize(fDelivery.fontSize);
-    yPosition += addLabelValue(fDelivery.customLabel || 'Delivery:', contract.delivery_schedule?.filter(Boolean).join(', ') || '', margin + fDelivery.xOffset, yPosition + fDelivery.yOffset, labelOffset, 6, fDelivery.fontStyle, fDelivery.dataFontStyle ?? 'normal', fDelivery.dataFontSize);
+    const deliveries = contract.delivery_schedule?.filter(Boolean) || [];
+    if (deliveries.length > 0) {
+      doc.setFontSize(fDelivery.fontSize);
+      deliveries.forEach((line, idx) => {
+        yPosition += addLabelValue(
+          idx === 0 ? (fDelivery.customLabel || 'Delivery:') : '',
+          line,
+          margin + fDelivery.xOffset,
+          yPosition + (idx === 0 ? fDelivery.yOffset : 0),
+          labelOffset,
+          6,
+          fDelivery.fontStyle,
+          fDelivery.dataFontStyle ?? 'normal',
+          fDelivery.dataFontSize,
+        );
+      });
+    }
   }
   if (fDestination.visible) {
     doc.setFontSize(fDestination.fontSize);

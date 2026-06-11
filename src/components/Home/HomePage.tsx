@@ -116,6 +116,7 @@ const HomePage: React.FC = () => {
   const [followUpReorderList,   setFollowUpReorderList]   = useState<JournalEntry[]>([]);
   const [draggingFollowUpId,    setDraggingFollowUpId]    = useState<string | null>(null);
   const [savingFollowUpOrder,   setSavingFollowUpOrder]   = useState(false);
+  const [showFollowUpReorderHint, setShowFollowUpReorderHint] = useState(false);
   const weekTouchStartX = useRef<number | null>(null);
   const followUpLongPressTimer = useRef<number | null>(null);
   const followUpLongPressTriggered = useRef(false);
@@ -249,6 +250,16 @@ const HomePage: React.FC = () => {
     [journalEntries, mobileJournalDateKey],
   );
 
+  useEffect(() => {
+    if (activeFollowUps.length < 2) {
+      setShowFollowUpReorderHint(false);
+      return;
+    }
+    setShowFollowUpReorderHint(true);
+    const timer = window.setTimeout(() => setShowFollowUpReorderHint(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [activeFollowUps.length]);
+
   const mobileJournalEntries = useMemo(
     () => {
       const datedEntries = journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey);
@@ -348,9 +359,20 @@ const HomePage: React.FC = () => {
     dialogService.success('Added to follow-up.');
   };
 
+  const closeEntryActions = () => setMobileOpenEntryId(null);
+
   const handleMobileEntryTap = (entry: JournalEntry) => {
     if (followUpReorderMode || followUpLongPressTriggered.current) return;
     setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
+  };
+
+  const openJournalFromSearch = (entry: JournalEntry) => {
+    const entryDate = new Date(entry.entry_date);
+    setShowSearch(false);
+    setSearchTerm('');
+    setMobileJournalDate(entryDate);
+    setMobileWeekStart(startOfWeekMonday(entryDate));
+    setMobileOpenEntryId(entry.id);
   };
 
   const cancelFollowUpLongPress = () => {
@@ -498,9 +520,15 @@ const HomePage: React.FC = () => {
     const deleteBtnClass = useDesktopForm ? 'hover:bg-rose-100' : 'active:bg-rose-100';
 
     const openEditForm = () => {
+      closeEntryActions();
       setEditingEntry(entry);
       if (useDesktopForm) setIsDesktopFormOpen(true);
       else setIsMobileFormOpen(true);
+    };
+
+    const openThreadPopup = () => {
+      closeEntryActions();
+      setSelectedEntryForPopup(entry);
     };
 
     return (
@@ -554,7 +582,7 @@ const HomePage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setSelectedEntryForPopup(entry); }}
+              onClick={(e) => { e.stopPropagation(); openThreadPopup(); }}
               className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-600 bg-gray-100 ${threadBtnClass} shrink-0`}
             >
               <GitBranch className="h-3 w-3" /> Thread
@@ -771,7 +799,7 @@ const HomePage: React.FC = () => {
                     ) : (
                       activeFollowUps.length > 0 && (
                         <div className="space-y-2">
-                          {activeFollowUps.length >= 2 && (
+                          {showFollowUpReorderHint && activeFollowUps.length >= 2 && (
                             <p className="text-[10px] text-gray-400 px-0.5">Hold a follow-up to reorder</p>
                           )}
                           {activeFollowUps.map(entry => renderJournalEntryCard(entry, false, true))}
@@ -1182,8 +1210,29 @@ const HomePage: React.FC = () => {
                       <p className="text-[13px] text-gray-400">No matching journal entries</p>
                     </div>
                   ) : (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-3 space-y-2">
-                      {searchJournalResults.map(entry => renderJournalEntryCard(entry))}
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                      {searchJournalResults.map((entry, idx) => (
+                        <button
+                          key={`sj-${entry.id}`}
+                          type="button"
+                          onClick={() => openJournalFromSearch(entry)}
+                          className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 ${idx > 0 ? 'border-t border-gray-50' : ''}`}
+                        >
+                          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-indigo-50">
+                            <FileText className="h-4 w-4 text-indigo-500" strokeWidth={1.75} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-bold text-gray-900 truncate">{entry.title}</p>
+                            <p className="text-[10px] text-gray-400">
+                              {new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                            {entry.content && (
+                              <p className="text-[10px] text-gray-400 truncate mt-0.5">{entry.content}</p>
+                            )}
+                          </div>
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                        </button>
+                      ))}
                     </div>
                   )
                 )}
