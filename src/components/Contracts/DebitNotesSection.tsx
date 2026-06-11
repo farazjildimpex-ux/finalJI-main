@@ -362,31 +362,33 @@ const DebitNotesSection: React.FC<DebitNotesSectionProps> = ({ contractNumber })
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={() => handleDeleteDebitNote(id)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-200 px-3 py-1.5 text-xs font-bold uppercase text-rose-600 bg-white hover:bg-rose-50"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete
-              </button>
-              <button
-                type="button"
-                onClick={() => handleExportPDF(debitNote)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-xs font-bold uppercase text-gray-700 bg-white hover:bg-gray-50"
-              >
-                <FileDown className="h-3.5 w-3.5" />
-                PDF
-              </button>
+            <div className="grid grid-cols-1 gap-2 pt-3 border-t border-gray-200 sm:flex sm:justify-end sm:gap-2">
               <button
                 type="button"
                 onClick={() => handleEditDebitNote(debitNote)}
-                className="inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold uppercase text-white bg-blue-600 hover:bg-blue-700"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold uppercase text-white bg-blue-600 active:bg-blue-700 sm:hover:bg-blue-700 min-h-[44px]"
               >
-                <Edit2 className="h-3.5 w-3.5" />
-                Edit
+                <Edit2 className="h-4 w-4" />
+                Edit Debit Note
               </button>
+              <div className="grid grid-cols-2 gap-2 sm:contents">
+                <button
+                  type="button"
+                  onClick={() => handleExportPDF(debitNote)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold uppercase text-gray-700 bg-white active:bg-gray-50 sm:hover:bg-gray-50 min-h-[44px]"
+                >
+                  <FileDown className="h-4 w-4" />
+                  Export PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteDebitNote(id)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold uppercase text-rose-600 bg-white active:bg-rose-50 sm:hover:bg-rose-50 min-h-[44px]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         )}

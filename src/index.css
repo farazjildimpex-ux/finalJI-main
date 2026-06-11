@@ -178,6 +178,15 @@
   .follow-up-shake {
     animation: followUpShake 0.28s ease-in-out infinite;
   }
+
+  @keyframes journalHighlightPulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgb(59 130 246); }
+    50% { box-shadow: 0 0 0 5px rgb(147 197 253); }
+  }
+
+  .journal-entry-highlight {
+    animation: journalHighlightPulse 1.1s ease-in-out 2;
+  }
 }
 
 /* Custom scrollbar */

@@ -128,6 +128,39 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
     }
   };
 
+  const handleMarkFollowUp = async (targetEntryId: string) => {
+    try {
+      setIsProcessing(true);
+      const activeFollowUps = allEntries.filter(
+        e => e.follow_up_required && !e.follow_up_completed_at,
+      );
+      const maxOrder = activeFollowUps.reduce(
+        (max, e) => Math.max(max, e.follow_up_sort_order ?? -1),
+        -1,
+      );
+      const { error } = await supabase
+        .from('journal_entries')
+        .update({
+          follow_up_required: true,
+          follow_up_completed_at: null,
+          follow_up_sort_order: maxOrder + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', targetEntryId);
+      if (error) throw error;
+      onUpdate();
+      dialogService.success('Added to follow-up.');
+    } catch (error: any) {
+      dialogService.alert({
+        title: 'Could not mark follow-up',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const handleAskAI = async () => {
     try {
       setIsProcessing(true);
@@ -281,14 +314,23 @@ const JournalEntryPopup: React.FC<JournalEntryPopupProps> = ({
                           )}
                         </div>
                         <div className="flex items-center gap-1 shrink-0 -mt-0.5">
-                          {isFollowUp && (
+                          {isFollowUp ? (
                             <button
                               onClick={() => handleCompleteFollowUp(item.id)}
                               disabled={isProcessing}
-                              className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all disabled:opacity-50"
+                              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 active:bg-emerald-50 transition-all disabled:opacity-50"
                               title="Complete follow-up"
                             >
                               <CheckCircle2 className="h-4 w-4" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleMarkFollowUp(item.id)}
+                              disabled={isProcessing}
+                              className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 active:bg-blue-50 transition-all disabled:opacity-50"
+                              title="Mark as follow-up"
+                            >
+                              <Pin className="h-4 w-4" />
                             </button>
                           )}
                           <button

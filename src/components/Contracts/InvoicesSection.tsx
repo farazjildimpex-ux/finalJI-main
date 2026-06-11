@@ -287,7 +287,7 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
     const editorTotals = computeColorTotals(editingInvoice.line_items);
 
     return (
-      <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+      <div className="space-y-4 pb-24 md:pb-0 animate-in fade-in slide-in-from-top-4 duration-300">
         <FormSection title="Invoice Details" right={<button onClick={cancelEdit} className="p-1 text-gray-400 hover:text-gray-600"><X className="h-4 w-4" /></button>}>
           <FormRow label="Invoice Number" required>
             <input
@@ -419,10 +419,23 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
           </FormRow>
         </FormSection>
 
-        <div className="flex justify-end gap-3 pt-2">
-          <button type="button" onClick={cancelEdit} disabled={saving} className="px-4 py-2 border border-gray-300 text-xs font-bold uppercase rounded-md text-gray-700 bg-white hover:bg-gray-50">Cancel</button>
-          <button type="button" onClick={handleSave} disabled={saving} className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-xs font-bold uppercase rounded-md hover:bg-blue-700 shadow-sm">
-            <Save className="h-3.5 w-3.5 mr-1.5" /> {saving ? 'Saving...' : isCreatingNew ? 'Save' : 'Update'}
+        <div className="sticky bottom-0 z-10 -mx-3 md:mx-0 mt-4 px-3 py-3 md:static md:px-0 md:py-0 bg-white/95 md:bg-transparent backdrop-blur-sm md:backdrop-blur-none border-t border-gray-200 md:border-0 flex gap-2 md:justify-end md:pt-2">
+          <button
+            type="button"
+            onClick={cancelEdit}
+            disabled={saving}
+            className="flex-1 md:flex-none h-11 md:h-auto px-4 py-2 border border-gray-300 text-sm md:text-xs font-bold uppercase rounded-xl md:rounded-md text-gray-700 bg-white active:bg-gray-50 md:hover:bg-gray-50 min-h-[44px]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="flex-[1.4] md:flex-none inline-flex items-center justify-center h-11 md:h-auto px-4 py-2 bg-blue-600 text-white text-sm md:text-xs font-bold uppercase rounded-xl md:rounded-md active:bg-blue-700 md:hover:bg-blue-700 shadow-sm min-h-[44px]"
+          >
+            <Save className="h-4 w-4 md:h-3.5 md:w-3.5 mr-1.5" />
+            {saving ? 'Saving...' : isCreatingNew ? 'Save' : 'Update'}
           </button>
         </div>
       </div>
@@ -512,9 +525,21 @@ const InvoicesSection: React.FC<InvoicesSectionProps> = ({ contractNumber }) => 
               </div>
             )}
 
-            <div className="flex justify-end gap-3 pt-2 border-t border-gray-200">
-              <button type="button" onClick={() => handleDelete(invoice)} className="inline-flex items-center justify-center gap-1.5 rounded-md border border-rose-200 px-4 py-2 text-xs font-bold uppercase text-rose-600 bg-white hover:bg-rose-50 transition-colors"><Trash2 className="h-4 w-4" /> Delete</button>
-              <button type="button" onClick={() => startEdit(invoice)} className="inline-flex items-center justify-center gap-1.5 rounded-md px-5 py-2 text-xs font-bold uppercase text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors"><Edit2 className="h-4 w-4" /> Edit</button>
+            <div className="grid grid-cols-1 gap-2 pt-3 border-t border-gray-200 sm:flex sm:justify-end sm:gap-2">
+              <button
+                type="button"
+                onClick={() => startEdit(invoice)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold uppercase text-white bg-blue-600 active:bg-blue-700 sm:hover:bg-blue-700 min-h-[44px]"
+              >
+                <Edit2 className="h-4 w-4" /> Edit Invoice
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(invoice)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-rose-200 px-4 py-3 sm:py-2 text-sm sm:text-xs font-bold uppercase text-rose-600 bg-white active:bg-rose-50 sm:hover:bg-rose-50 min-h-[44px]"
+              >
+                <Trash2 className="h-4 w-4" /> Delete
+              </button>
             </div>
           </div>
         )}

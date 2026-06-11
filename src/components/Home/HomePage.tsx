@@ -117,6 +117,7 @@ const HomePage: React.FC = () => {
   const [draggingFollowUpId,    setDraggingFollowUpId]    = useState<string | null>(null);
   const [savingFollowUpOrder,   setSavingFollowUpOrder]   = useState(false);
   const [showFollowUpReorderHint, setShowFollowUpReorderHint] = useState(false);
+  const [highlightedJournalEntryId, setHighlightedJournalEntryId] = useState<string | null>(null);
   const weekTouchStartX = useRef<number | null>(null);
   const followUpLongPressTimer = useRef<number | null>(null);
   const followUpLongPressTriggered = useRef(false);
@@ -260,6 +261,22 @@ const HomePage: React.FC = () => {
     return () => window.clearTimeout(timer);
   }, [activeFollowUps.length]);
 
+  useEffect(() => {
+    if (!highlightedJournalEntryId || showSearch) return;
+
+    const scrollTimer = window.setTimeout(() => {
+      document.getElementById(`journal-entry-${highlightedJournalEntryId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 200);
+
+    const clearTimer = window.setTimeout(() => setHighlightedJournalEntryId(null), 4000);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [highlightedJournalEntryId, showSearch, mobileJournalDateKey]);
+
   const mobileJournalEntries = useMemo(
     () => {
       const datedEntries = journalEntries.filter(entry => entry.entry_date === mobileJournalDateKey);
@@ -373,6 +390,7 @@ const HomePage: React.FC = () => {
     setMobileJournalDate(entryDate);
     setMobileWeekStart(startOfWeekMonday(entryDate));
     setMobileOpenEntryId(entry.id);
+    setHighlightedJournalEntryId(entry.id);
   };
 
   const cancelFollowUpLongPress = () => {
@@ -511,6 +529,7 @@ const HomePage: React.FC = () => {
 
   const renderJournalEntryCard = (entry: JournalEntry, useDesktopForm = false, enableFollowUpLongPress = false) => {
     const isOpen = mobileOpenEntryId === entry.id;
+    const isHighlighted = highlightedJournalEntryId === entry.id;
     const isFollowUp = entry.follow_up_required && !entry.follow_up_completed_at;
     const rowTapClass = useDesktopForm ? 'hover:bg-gray-100' : 'active:bg-gray-100';
     const editBtnClass = useDesktopForm ? 'hover:bg-blue-100' : 'active:bg-blue-100';
@@ -532,7 +551,15 @@ const HomePage: React.FC = () => {
     };
 
     return (
-      <div key={entry.id} className={`rounded-xl border border-gray-100 overflow-hidden ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`}>
+      <div
+        id={`journal-entry-${entry.id}`}
+        key={entry.id}
+        className={`rounded-xl border overflow-hidden transition-all duration-300 ${
+          isHighlighted
+            ? 'border-blue-400 ring-2 ring-blue-500 journal-entry-highlight bg-blue-50/40'
+            : `border-gray-100 ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`
+        }`}
+      >
         <button
           type="button"
           onClick={() => {
@@ -777,7 +804,7 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className={`px-4 space-y-2 ${followUpReorderMode ? 'pb-28' : 'pb-3'}`}>
+              <div className={`px-4 pt-3 space-y-2 ${followUpReorderMode ? 'pb-28' : 'pb-3'}`}>
                 {journalLoading ? (
                   <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
                     <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
@@ -799,9 +826,17 @@ const HomePage: React.FC = () => {
                     ) : (
                       activeFollowUps.length > 0 && (
                         <div className="space-y-2">
-                          {showFollowUpReorderHint && activeFollowUps.length >= 2 && (
-                            <p className="text-[10px] text-gray-400 px-0.5">Hold a follow-up to reorder</p>
-                          )}
+                          <div
+                            className={`overflow-hidden transition-all duration-700 ease-in-out ${
+                              showFollowUpReorderHint && activeFollowUps.length >= 2
+                                ? 'max-h-10 opacity-100 mb-1'
+                                : 'max-h-0 opacity-0 mb-0'
+                            }`}
+                          >
+                            <p className="text-[10px] text-gray-400 px-0.5 leading-5">
+                              Hold a follow-up to reorder
+                            </p>
+                          </div>
                           {activeFollowUps.map(entry => renderJournalEntryCard(entry, false, true))}
                         </div>
                       )
