@@ -756,7 +756,7 @@ const HomePage: React.FC = () => {
               </button>
             </div>
 
-            <section className="mt-4 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+            <section className="mt-3 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-gray-100">
                 <div className="min-w-0">
                   <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
@@ -773,7 +773,7 @@ const HomePage: React.FC = () => {
               </div>
 
               <div
-                className="px-4 py-3 border-b border-gray-50"
+                className="px-4 py-2.5 border-b border-gray-50"
                 onTouchStart={(e) => { weekTouchStartX.current = e.changedTouches[0].clientX; }}
                 onTouchEnd={handleWeekTouchEnd}
               >
@@ -804,10 +804,10 @@ const HomePage: React.FC = () => {
                 </div>
               </div>
 
-              <div className={`px-4 pt-3 space-y-2 ${followUpReorderMode ? 'pb-28' : 'pb-3'}`}>
+              <div className={`px-4 pt-3 space-y-1.5 ${followUpReorderMode ? 'pb-28' : 'pb-2.5'}`}>
                 {journalLoading ? (
                   <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
-                    <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
+                    <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
                   </div>
                 ) : mobileJournalEntries.length === 0 ? (
                   <button onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }} className="w-full rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-4 text-left active:bg-gray-100">
@@ -1060,7 +1060,7 @@ const HomePage: React.FC = () => {
 
               {loading ? (
                 <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm flex justify-center py-9">
-                  <div className="animate-spin h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600" />
+                  <div className="animate-spin h-5 w-5 rounded-full border-2 border-gray-200 border-t-gray-400" />
                 </div>
               ) : activityList.length === 0 ? (
                 <div className="bg-white rounded-[22px] border border-gray-100 shadow-sm py-9 text-center">
@@ -1443,7 +1443,7 @@ const HomePage: React.FC = () => {
                   >
                     {journalLoading ? (
                       <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
-                        <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-b-blue-600 animate-spin" />
+                        <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
                       </div>
                     ) : mobileJournalEntries.length === 0 ? (
                       <button onClick={() => { setEditingEntry(null); setIsDesktopFormOpen(true); }} className="w-full rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-4 text-left hover:bg-gray-100">

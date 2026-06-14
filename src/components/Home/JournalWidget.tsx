@@ -104,7 +104,7 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
       >
         {loading ? (
           <div className="text-center py-4 text-gray-500">
-            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2" />
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-400 mx-auto mb-2" />
             <p className="text-xs font-medium">Loading…</p>
           </div>
         ) : selectedDayEntries.length === 0 ? (
