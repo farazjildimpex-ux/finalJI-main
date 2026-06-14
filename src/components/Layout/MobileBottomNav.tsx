@@ -5,6 +5,7 @@ import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Users, MoreHorizontal, Zap, Bookmark, CalendarDays, Settings,
   CreditCard, FileText,
+  Mail,
 } from 'lucide-react';
 
 const PRIMARY_TABS = [
@@ -19,6 +20,7 @@ const CONTROL_CENTER_ITEMS = [
   { name: 'Home',       path: '/app/home',              icon: Home,           color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
   { name: 'Contacts',   path: '/app/contacts',          icon: Users,          color: '#7C3AED', bg: 'rgba(124,58,237,0.12)' },
   { name: 'Lead IQ',    path: '/app/sales',             icon: Zap,            color: '#EA580C', bg: 'rgba(234,88,12,0.12)' },
+  { name: 'Email Templates', path: '/app/email-templates', icon: Mail,        color: '#DB2777', bg: 'rgba(219,39,119,0.12)' },
   { name: 'Calendar',   path: '/app/calendar',          icon: CalendarDays,   color: '#0891B2', bg: 'rgba(8,145,178,0.12)' },
   { name: 'Contracts',  path: '/app/contracts',         icon: FileText,       color: '#4F46E5', bg: 'rgba(79,70,229,0.12)' },
   { name: 'Letters',    path: '/app/samples',           icon: Bookmark,       color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
