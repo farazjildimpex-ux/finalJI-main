@@ -165,6 +165,33 @@ export function useReminderChecker() {
           );
         }
       }
+
+      // â”€â”€ 5. Lead follow-ups â€” due today or earlier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      const { data: dueLeadFollowUps, error: followUpError } = await supabase
+        .from('leads')
+        .select('id, company_name, contact_person, next_follow_up, follow_up_notified_at')
+        .eq('user_id', user.id)
+        .not('next_follow_up', 'is', null)
+        .lte('next_follow_up', todayStr)
+        .is('follow_up_notified_at', null);
+
+      if (followUpError) {
+        console.warn('Lead follow-up reminder query skipped:', followUpError.message);
+      } else {
+        for (const lead of dueLeadFollowUps || []) {
+          if (!lead.next_follow_up) continue;
+          await sendNotification(
+            `Lead follow-up due: ${lead.company_name}`,
+            lead.contact_person ? `Contact: ${lead.contact_person}` : 'Tap to open lead profile',
+            `lead-follow-up-${lead.id}-${lead.next_follow_up}`,
+            `/app/sales?lead=${lead.id}&focus=followup`
+          );
+          await supabase
+            .from('leads')
+            .update({ follow_up_notified_at: new Date().toISOString() })
+            .eq('id', lead.id);
+        }
+      }
     } catch (err) {
       console.error('Reminder check error:', err);
     }

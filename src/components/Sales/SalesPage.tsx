@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Upload, X, Zap, Clock, ChevronDown, Mail } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Plus, Search, Upload, X, Zap, Clock, ChevronDown, Mail, Phone, Calendar, MessageSquare } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Lead } from '../../types';
 import LeadModal from './LeadModal';
@@ -78,21 +79,55 @@ const STATUS_COLOR: Record<string, string> = {
   won:           'text-green-700 bg-green-50',
 };
 
+type LeadTab = 'updates' | 'leads';
+type LeadProfileTab = 'overview' | 'activity' | 'edit';
+type LeadUpdateKind = 'call' | 'email' | 'follow_up';
+
+interface LeadUpdateItem {
+  id: string;
+  leadId: string;
+  leadName: string;
+  contactPerson?: string;
+  kind: LeadUpdateKind;
+  summary: string;
+  detail?: string;
+  date: string;
+  badge: string;
+  badgeColor: string;
+  iconColor: string;
+  focusId: string;
+}
+
+function formatShortDate(value: string) {
+  return new Date(value).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 // ── Main page ─────────────────────────────────────────────────────────
 
 const SalesPage: React.FC = () => {
   const [leads, setLeads]               = useState<Lead[]>([]);
+  const [leadUpdates, setLeadUpdates]   = useState<LeadUpdateItem[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [updatesLoading, setUpdatesLoading] = useState(true);
   const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showStatusDrop, setShowStatusDrop] = useState(false);
+  const [activeTab, setActiveTab]       = useState<LeadTab>('updates');
 
   const [activeLead, setActiveLead]         = useState<Lead | null>(null);
+  const [leadProfileTab, setLeadProfileTab] = useState<LeadProfileTab>('overview');
+  const [leadProfileFocusId, setLeadProfileFocusId] = useState<string | null>(null);
+  const [leadActivityRefreshToken, setLeadActivityRefreshToken] = useState(0);
   const [isAddOpen, setIsAddOpen]           = useState(false);
   const [isCallOpen, setIsCallOpen]         = useState(false);
   const [isEmailOpen, setIsEmailOpen]       = useState(false);
   const [isBulkEmailOpen, setIsBulkEmailOpen] = useState(false);
   const [isLWGOpen, setIsLWGOpen]           = useState(false);
+  const [searchParams, setSearchParams]     = useSearchParams();
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -104,7 +139,98 @@ const SalesPage: React.FC = () => {
 
   useEffect(() => { fetchLeads(); }, [fetchLeads]);
 
-  const filtered = leads.filter(l => {
+  const fetchLeadUpdates = useCallback(async (leadRows: Lead[]) => {
+    setUpdatesLoading(true);
+    const [callRes, emailRes] = await Promise.all([
+      supabase.from('call_logs').select('id, lead_id, call_date, call_type, outcome, duration_minutes, notes').order('call_date', { ascending: false }).limit(20),
+      supabase.from('lead_email_logs').select('id, lead_id, sent_at, subject, body, status').order('sent_at', { ascending: false }).limit(20),
+    ]);
+
+    const leadById = new Map(
+      leadRows
+        .filter((lead): lead is Lead & { id: string } => !!lead.id)
+        .map((lead) => [lead.id, lead]),
+    );
+    const next: LeadUpdateItem[] = [];
+
+    (callRes.data || []).forEach((call: any) => {
+      const lead = leadById.get(call.lead_id);
+      if (!lead) return;
+      next.push({
+        id: `call-${call.id}`,
+        leadId: lead.id!,
+        leadName: lead.company_name,
+        contactPerson: lead.contact_person,
+        kind: 'call',
+        summary: `${call.call_type === 'outbound' ? 'Outbound' : 'Inbound'} call · ${String(call.outcome || '').replace('_', ' ')}`,
+        detail: call.notes,
+        date: call.call_date,
+        badge: call.duration_minutes ? `${call.duration_minutes} min` : 'Call',
+        badgeColor: call.outcome === 'connected' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600',
+        iconColor: 'bg-emerald-100 text-emerald-600',
+        focusId: `call-${call.id}`,
+      });
+    });
+
+    (emailRes.data || []).forEach((email: any) => {
+      const lead = leadById.get(email.lead_id);
+      if (!lead) return;
+      next.push({
+        id: `email-${email.id}`,
+        leadId: lead.id!,
+        leadName: lead.company_name,
+        contactPerson: lead.contact_person,
+        kind: 'email',
+        summary: `Email sent · ${email.subject || 'Untitled message'}`,
+        detail: email.body?.slice(0, 120) + (email.body?.length > 120 ? '…' : ''),
+        date: email.sent_at,
+        badge: email.status || 'sent',
+        badgeColor: 'bg-blue-100 text-blue-700',
+        iconColor: 'bg-blue-100 text-blue-600',
+        focusId: `email-${email.id}`,
+      });
+    });
+
+    leadRows
+      .filter((lead): lead is Lead & { id: string; next_follow_up: string } => !!lead.id && !!lead.next_follow_up)
+      .forEach((lead) => {
+        next.push({
+          id: `followup-${lead.id}`,
+          leadId: lead.id,
+          leadName: lead.company_name,
+          contactPerson: lead.contact_person,
+          kind: 'follow_up',
+          summary: 'Follow-up scheduled',
+          detail: `Due on ${formatShortDate(lead.next_follow_up)}`,
+          date: lead.next_follow_up,
+          badge: 'Due',
+          badgeColor: 'bg-fuchsia-100 text-fuchsia-700',
+          iconColor: 'bg-fuchsia-100 text-fuchsia-600',
+          focusId: `followup-${lead.id}`,
+        });
+      });
+
+    next.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    setLeadUpdates(next.slice(0, 24));
+    setUpdatesLoading(false);
+  }, []);
+
+  useEffect(() => { fetchLeadUpdates(leads); }, [leads, fetchLeadUpdates]);
+
+  useEffect(() => {
+    const leadId = searchParams.get('lead');
+    if (!leadId || leads.length === 0) return;
+    const found = leads.find((lead) => lead.id === leadId);
+    if (!found) return;
+    const focus = searchParams.get('focus');
+    setActiveTab('leads');
+    setActiveLead(found);
+    setLeadProfileTab('activity');
+    setLeadProfileFocusId(focus === 'followup' ? `followup-${found.id}` : null);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, leads, setSearchParams]);
+
+  const filteredLeads = leads.filter(l => {
     const q = searchTerm.toLowerCase();
     const matchSearch = !q || [l.company_name, l.contact_person, l.email, l.country || '']
       .some(v => v.toLowerCase().includes(q));
@@ -116,13 +242,116 @@ const SalesPage: React.FC = () => {
     if (updated) {
       setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
       setActiveLead(updated);
+      setLeadActivityRefreshToken(token => token + 1);
     } else {
       fetchLeads();
       setActiveLead(null);
     }
   };
 
+  const openLeadProfile = (lead: Lead, options?: { initialTab?: LeadProfileTab; focusId?: string | null }) => {
+    setActiveLead(lead);
+    setLeadProfileTab(options?.initialTab || 'overview');
+    setLeadProfileFocusId(options?.focusId ?? null);
+    setActiveTab('leads');
+  };
+
+  const handleUpdateClick = (update: LeadUpdateItem) => {
+    const lead = leads.find(item => item.id === update.leadId);
+    if (!lead) return;
+    openLeadProfile(lead, { initialTab: 'activity', focusId: update.focusId });
+  };
+
   const currentStatusLabel = STATUS_OPTS.find(o => o.key === statusFilter)?.label ?? 'All stages';
+
+  const renderStatusDropdown = () => (
+    <div className="relative shrink-0">
+      <button
+        onClick={() => setShowStatusDrop(!showStatusDrop)}
+        className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-gray-300 transition-colors whitespace-nowrap text-slate-700"
+      >
+        {statusFilter !== 'all' && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[statusFilter]}`} />}
+        {currentStatusLabel}
+        <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
+      </button>
+      {showStatusDrop && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setShowStatusDrop(false)} />
+          <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden w-44">
+            {STATUS_OPTS.map(o => {
+              const cnt = o.key === 'all' ? leads.length : leads.filter(l => l.status === o.key).length;
+              return (
+                <button key={o.key} onClick={() => { setStatusFilter(o.key); setShowStatusDrop(false); }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-left hover:bg-gray-50 transition-colors ${statusFilter === o.key ? 'text-blue-600 bg-blue-50/60' : 'text-slate-700'}`}>
+                  <span className="flex items-center gap-2">
+                    {o.key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[o.key]}`} />}
+                    {o.label}
+                  </span>
+                  {cnt > 0 && <span className="text-[10px] text-gray-400 font-bold">{cnt}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  const renderUpdates = () => (
+    <div className="space-y-3">
+      {updatesLoading ? (
+        <div className="flex items-center justify-center py-14">
+          <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : leadUpdates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 bg-white rounded-3xl border border-dashed border-gray-200">
+          <MessageSquare className="h-8 w-8 text-gray-200 mb-3" />
+          <p className="text-sm font-bold text-slate-400">
+            {searchTerm ? 'No updates match your search' : 'No lead updates yet'}
+          </p>
+        </div>
+      ) : (
+        leadUpdates
+          .filter((item) => {
+            const q = searchTerm.toLowerCase();
+            if (!q) return true;
+            return [item.leadName, item.contactPerson || '', item.summary, item.detail || '', item.badge]
+              .some((value) => value.toLowerCase().includes(q));
+          })
+          .map((update) => {
+            const icon =
+              update.kind === 'call' ? <Phone className="h-4 w-4" /> :
+              update.kind === 'follow_up' ? <Calendar className="h-4 w-4" /> :
+              <Mail className="h-4 w-4" />;
+
+            return (
+              <button
+                key={update.id}
+                onClick={() => handleUpdateClick(update)}
+                className="w-full bg-white rounded-3xl border border-gray-200 shadow-sm px-4 py-3.5 text-left hover:border-blue-200 hover:bg-blue-50/40 transition-colors active:scale-[0.99]"
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${update.iconColor}`}>
+                    {icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{update.leadName}</p>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${update.badgeColor}`}>
+                        {update.badge}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">{update.summary}</p>
+                    {update.detail && <p className="text-[11px] text-slate-400 mt-1 line-clamp-2">{update.detail}</p>}
+                    <p className="text-[10px] text-gray-300 mt-1">{formatShortDate(update.date)}</p>
+                  </div>
+                </div>
+              </button>
+            );
+          })
+      )}
+    </div>
+  );
 
   return (
     <div className="bg-gray-50/60">
@@ -184,6 +413,27 @@ const SalesPage: React.FC = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-1.5 bg-white rounded-2xl border border-gray-200 p-1 shadow-sm">
+          <button
+            onClick={() => setActiveTab('updates')}
+            className={`h-10 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+              activeTab === 'updates' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" /> Updates
+          </button>
+          <button
+            onClick={() => setActiveTab('leads')}
+            className={`h-10 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${
+              activeTab === 'leads' ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Zap className="h-4 w-4" /> Leads
+          </button>
+        </div>
+
+        {activeTab === 'updates' ? renderUpdates() : (
+          <>
         {/* ── Search + filter row ── */}
         <div className="flex gap-2">
           <div className="relative flex-1">
@@ -202,37 +452,7 @@ const SalesPage: React.FC = () => {
             )}
           </div>
 
-          {/* Status dropdown */}
-          <div className="relative shrink-0">
-            <button
-              onClick={() => setShowStatusDrop(!showStatusDrop)}
-              className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold bg-white border border-gray-200 rounded-2xl shadow-sm hover:border-gray-300 transition-colors whitespace-nowrap text-slate-700"
-            >
-              {statusFilter !== 'all' && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[statusFilter]}`} />}
-              {currentStatusLabel}
-              <ChevronDown className="h-3.5 w-3.5 text-gray-400" />
-            </button>
-            {showStatusDrop && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setShowStatusDrop(false)} />
-                <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden w-44">
-                  {STATUS_OPTS.map(o => {
-                    const cnt = o.key === 'all' ? leads.length : leads.filter(l => l.status === o.key).length;
-                    return (
-                      <button key={o.key} onClick={() => { setStatusFilter(o.key); setShowStatusDrop(false); }}
-                        className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-left hover:bg-gray-50 transition-colors ${statusFilter === o.key ? 'text-blue-600 bg-blue-50/60' : 'text-slate-700'}`}>
-                        <span className="flex items-center gap-2">
-                          {o.key !== 'all' && <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[o.key]}`} />}
-                          {o.label}
-                        </span>
-                        {cnt > 0 && <span className="text-[10px] text-gray-400 font-bold">{cnt}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
+          {renderStatusDropdown()}
         </div>
 
         {/* ── Lead list ── */}
@@ -240,7 +460,7 @@ const SalesPage: React.FC = () => {
           <div className="flex items-center justify-center h-44">
             <div className="w-7 h-7 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filteredLeads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 bg-white rounded-3xl border border-dashed border-gray-200">
             <Zap className="h-8 w-8 text-gray-200 mb-3" />
             <p className="text-sm font-bold text-slate-400">
@@ -259,15 +479,15 @@ const SalesPage: React.FC = () => {
           </div>
         ) : (
           <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
-            {filtered.map((lead, idx) => {
+            {filteredLeads.map((lead, idx) => {
               const fupDue = isFollowUpDue(lead.next_follow_up);
               const days   = daysSince(lead.last_contact_date);
-              const isLast = idx === filtered.length - 1;
+              const isLast = idx === filteredLeads.length - 1;
 
               return (
                 <button
                   key={lead.id}
-                  onClick={() => setActiveLead(lead)}
+                  onClick={() => openLeadProfile(lead)}
                   className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors active:bg-blue-50/50 group ${!isLast ? 'border-b border-gray-100' : ''}`}
                 >
                   {/* Avatar */}
@@ -309,7 +529,8 @@ const SalesPage: React.FC = () => {
             })}
           </div>
         )}
-
+          </>
+        )}
 
       </div>
 
@@ -321,6 +542,9 @@ const SalesPage: React.FC = () => {
           onUpdate={handleModalUpdate}
           onLogCall={() => setIsCallOpen(true)}
           onSendEmail={() => setIsEmailOpen(true)}
+          initialTab={leadProfileTab}
+          highlightedActivityId={leadProfileFocusId}
+          refreshToken={leadActivityRefreshToken}
         />
       )}
 
@@ -343,7 +567,9 @@ const SalesPage: React.FC = () => {
             const updated = { ...activeLead, last_contact_date: new Date().toISOString().split('T')[0] };
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
             setActiveLead(updated);
+            setLeadActivityRefreshToken(token => token + 1);
           }
+          fetchLeads();
         }}
       />
 
@@ -352,14 +578,18 @@ const SalesPage: React.FC = () => {
         isOpen={isEmailOpen}
         onClose={() => setIsEmailOpen(false)}
         lead={activeLead}
-        onEmailSent={() => setIsEmailOpen(false)}
+        onEmailSent={() => {
+          setIsEmailOpen(false);
+          fetchLeads();
+          setLeadActivityRefreshToken(token => token + 1);
+        }}
       />
 
       {/* ── Bulk cold email modal ── */}
       <BulkEmailModal
         isOpen={isBulkEmailOpen}
         onClose={() => setIsBulkEmailOpen(false)}
-        leads={filtered}
+        leads={filteredLeads}
       />
 
       {/* ── LWG import modal ── */}

@@ -12,7 +12,7 @@ import { dialogService } from '../../lib/dialogService';
 
 interface ActivityItem {
   id: string;
-  type: 'call' | 'email';
+  type: 'call' | 'email' | 'follow_up';
   date: string;
   summary: string;
   detail?: string;
@@ -26,6 +26,9 @@ interface LeadModalProps {
   onUpdate: (updated?: Lead) => void;
   onLogCall: () => void;
   onSendEmail: () => void;
+  initialTab?: 'overview' | 'activity' | 'edit';
+  highlightedActivityId?: string | null;
+  refreshToken?: number;
 }
 
 const PIPELINE_STAGES: { key: Lead['status']; label: string }[] = [
@@ -75,30 +78,45 @@ const lbl = 'block text-[10px] font-semibold text-slate-400 uppercase tracking-w
 
 // ── Component ──────────────────────────────────────────────────────────
 
-const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCall, onSendEmail }) => {
-  const [tab, setTab]                   = useState<'overview' | 'activity' | 'edit'>('overview');
+const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCall, onSendEmail, initialTab = 'overview', highlightedActivityId = null, refreshToken = 0 }) => {
+  const [tab, setTab]                   = useState<'overview' | 'activity' | 'edit'>(initialTab);
   const [saving, setSaving]             = useState(false);
   const [status, setStatus]             = useState<Lead['status']>(lead.status);
   const [showStatusDrop, setShowStatusDrop] = useState(false);
   const [activity, setActivity]         = useState<ActivityItem[]>([]);
   const [actLoading, setActLoading]     = useState(false);
+  const [flashActivityId, setFlashActivityId] = useState<string | null>(null);
   const [noteText, setNoteText]         = useState('');
   const [savingNote, setSavingNote]     = useState(false);
   const [followUpDate, setFollowUpDate] = useState(lead.next_follow_up || '');
   const [editForm, setEditForm]         = useState<Partial<Lead>>({ ...lead });
   const dropRef = useRef<HTMLDivElement>(null);
+  const activityItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     setStatus(lead.status);
     setFollowUpDate(lead.next_follow_up || '');
     setEditForm({ ...lead });
     setNoteText('');
-    setTab('overview');
-  }, [lead.id]);
+    setTab(initialTab);
+  }, [lead.id, initialTab]);
 
   useEffect(() => {
     if (tab === 'activity') loadActivity();
-  }, [tab, lead.id]);
+  }, [tab, lead.id, refreshToken]);
+
+  useEffect(() => {
+    if (tab !== 'activity' || !highlightedActivityId) return;
+    setFlashActivityId(highlightedActivityId);
+    const timer = window.setTimeout(() => setFlashActivityId(null), 1800);
+    const raf = window.requestAnimationFrame(() => {
+      activityItemRefs.current[highlightedActivityId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => {
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(raf);
+    };
+  }, [tab, highlightedActivityId, activity.length]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -134,6 +152,17 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
       detail: e.body?.slice(0, 120) + (e.body?.length > 120 ? '…' : ''),
       badgeColor: 'bg-blue-100 text-blue-700',
     }));
+    if (lead.next_follow_up) {
+      items.push({
+        id: `followup-${lead.id}`,
+        type: 'follow_up',
+        date: lead.next_follow_up,
+        summary: 'Follow-up scheduled',
+        detail: `Follow-up due on ${new Date(lead.next_follow_up).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
+        badge: 'Due',
+        badgeColor: 'bg-fuchsia-100 text-fuchsia-700',
+      });
+    }
     items.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     setActivity(items);
     setActLoading(false);
@@ -156,7 +185,11 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
   const saveFollowUp = async () => {
     setSaving(true);
     try {
-      await supabase.from('leads').update({ next_follow_up: followUpDate || null, updated_at: new Date().toISOString() }).eq('id', lead.id!);
+      await supabase.from('leads').update({
+        next_follow_up: followUpDate || null,
+        follow_up_notified_at: followUpDate ? null : lead.follow_up_notified_at ?? null,
+        updated_at: new Date().toISOString(),
+      }).eq('id', lead.id!);
       onUpdate({ ...lead, next_follow_up: followUpDate });
       dialogService.success('Follow-up saved.');
     } catch { dialogService.alert({ title: 'Failed', message: 'Please try again.', tone: 'danger' }); }
@@ -184,7 +217,14 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
     }
     setSaving(true);
     try {
-      const payload = { ...editForm, address: editForm.address?.filter(a => a.trim()) || [], tags: editForm.tags || [], updated_at: new Date().toISOString() };
+      const followUpChanged = (editForm.next_follow_up || '') !== (lead.next_follow_up || '');
+      const payload = {
+        ...editForm,
+        address: editForm.address?.filter(a => a.trim()) || [],
+        tags: editForm.tags || [],
+        follow_up_notified_at: followUpChanged ? null : lead.follow_up_notified_at ?? null,
+        updated_at: new Date().toISOString(),
+      };
       await supabase.from('leads').update(payload).eq('id', lead.id!);
       dialogService.success('Saved.');
       onUpdate({ ...lead, ...payload } as Lead);
@@ -298,7 +338,7 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
 
         {/* ── Tabs ── */}
         <div className="flex border-b border-gray-100 flex-shrink-0">
-          {(['overview', 'activity', 'edit'] as const).map(t => (
+                      {(['overview', 'activity', 'edit'] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-3 text-xs font-bold capitalize transition-colors border-b-2 -mb-px ${tab === t ? 'text-blue-600 border-blue-600' : 'text-gray-400 border-transparent hover:text-gray-600'}`}>
               {t}
@@ -419,9 +459,29 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
                   <div className="absolute left-4 top-4 bottom-0 w-px bg-gray-100" />
                   <div className="space-y-6">
                     {activity.map(item => (
-                      <div key={item.id} className="flex gap-4">
-                        <div className={`relative z-10 w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'call' ? 'bg-emerald-100' : 'bg-blue-100'}`}>
-                          {item.type === 'call' ? <Phone className="h-3.5 w-3.5 text-emerald-600" /> : <Mail className="h-3.5 w-3.5 text-blue-600" />}
+                      <div
+                        key={item.id}
+                        ref={(el) => { activityItemRefs.current[item.id] = el; }}
+                        className={`flex gap-4 rounded-2xl border p-3 transition-all ${
+                          flashActivityId === item.id
+                            ? 'border-blue-300 bg-blue-50 shadow-[0_14px_32px_rgba(37,99,235,0.12)]'
+                            : 'border-transparent'
+                        }`}
+                      >
+                        <div className={`relative z-10 w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                          item.type === 'call'
+                            ? 'bg-emerald-100'
+                            : item.type === 'follow_up'
+                              ? 'bg-fuchsia-100'
+                              : 'bg-blue-100'
+                        }`}>
+                          {item.type === 'call' ? (
+                            <Phone className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : item.type === 'follow_up' ? (
+                            <Calendar className="h-3.5 w-3.5 text-fuchsia-600" />
+                          ) : (
+                            <Mail className="h-3.5 w-3.5 text-blue-600" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0 pb-1">
                           <div className="flex items-start justify-between gap-2">

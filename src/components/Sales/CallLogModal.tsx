@@ -59,7 +59,10 @@ const CallLogModal: React.FC<CallLogModalProps> = ({
       if (lead?.id) {
         const updateData: any = { last_contact_date: callData.call_date };
         if (lead.status === 'new' && callData.outcome === 'connected') updateData.status = 'contacted';
-        if (callData.follow_up_required && callData.follow_up_date) updateData.next_follow_up = callData.follow_up_date;
+        if (callData.follow_up_required && callData.follow_up_date) {
+          updateData.next_follow_up = callData.follow_up_date;
+          updateData.follow_up_notified_at = null;
+        }
         await supabase.from('leads').update(updateData).eq('id', lead.id);
       }
 

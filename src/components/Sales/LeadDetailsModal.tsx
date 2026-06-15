@@ -90,6 +90,10 @@ const LeadDetailsModal: React.FC<LeadDetailsModalProps> = ({
         address: formData.address?.filter(a => a.trim() !== '') || [],
         tags: formData.tags || [],
         next_follow_up: formData.next_follow_up || null,
+        follow_up_notified_at:
+          lead && (formData.next_follow_up || '') === (lead.next_follow_up || '')
+            ? lead.follow_up_notified_at ?? null
+            : null,
         updated_at: new Date().toISOString(),
       };
 

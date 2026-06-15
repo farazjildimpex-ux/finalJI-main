@@ -212,6 +212,7 @@ export interface Lead {
   notes?: string;
   last_contact_date?: string;
   next_follow_up?: string;
+  follow_up_notified_at?: string | null;
   tags?: string[];
   created_at?: string;
   updated_at?: string;

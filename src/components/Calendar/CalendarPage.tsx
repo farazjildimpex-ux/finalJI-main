@@ -7,7 +7,7 @@ import {
 } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 
-type EventType = 'journal' | 'reminder' | 'contract' | 'sample' | 'invoice';
+type EventType = 'journal' | 'reminder' | 'contract' | 'sample' | 'invoice' | 'lead_follow_up';
 
 interface CalendarEvent {
   id: string;
@@ -33,10 +33,11 @@ const EVENT_CFG: Record<EventType, { label: string; pill: string; bar: string; t
   contract: { label: 'Contract', pill: 'bg-emerald-100 text-emerald-800', bar: 'bg-emerald-500', text: 'text-emerald-700', badge: 'bg-emerald-500', openLabel: 'Open Contract' },
   sample:   { label: 'Letter',   pill: 'bg-blue-100 text-blue-800',      bar: 'bg-blue-500',    text: 'text-blue-700',    badge: 'bg-blue-500',    openLabel: 'Open Letter'   },
   invoice:  { label: 'Invoice',  pill: 'bg-orange-100 text-orange-800',  bar: 'bg-orange-500',  text: 'text-orange-700',  badge: 'bg-orange-500',  openLabel: 'Open Contract' },
+  lead_follow_up: { label: 'Lead Follow-up', pill: 'bg-fuchsia-100 text-fuchsia-800', bar: 'bg-fuchsia-500', text: 'text-fuchsia-700', badge: 'bg-fuchsia-500', openLabel: 'Open Lead' },
 };
 
 const ABBR: Record<EventType, string> = {
-  journal: 'JNL', reminder: 'REM', contract: 'CON', sample: 'LTR', invoice: 'INV',
+  journal: 'JNL', reminder: 'REM', contract: 'CON', sample: 'LTR', invoice: 'INV', lead_follow_up: 'FUP',
 };
 
 const WEEKDAYS_LONG  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -134,12 +135,13 @@ const CalendarPage: React.FC = () => {
     const rangeStart = format(calendarDays[0], 'yyyy-MM-dd');
     const rangeEnd   = format(calendarDays[calendarDays.length - 1], 'yyyy-MM-dd');
 
-    const [journalRes, reminderRes, contractRes, sampleRes, invoiceRes] = await Promise.allSettled([
+    const [journalRes, reminderRes, contractRes, sampleRes, invoiceRes, leadRes] = await Promise.allSettled([
       supabase.from('journal_entries').select('id, title, entry_date').gte('entry_date', rangeStart).lte('entry_date', rangeEnd),
       supabase.from('journal_entries').select('id, title, reminder_date, reminder_time').eq('reminder_enabled', true).not('reminder_date', 'is', null).gte('reminder_date', rangeStart).lte('reminder_date', rangeEnd),
       supabase.from('contracts').select('id, contract_no, buyer_name, delivery_schedule'),
       supabase.from('samples').select('id, sample_number, supplier_name, due_date').not('due_date', 'is', null).gte('due_date', rangeStart).lte('due_date', rangeEnd),
       supabase.from('invoices').select('id, invoice_number, contract_numbers, delivery_date').not('delivery_date', 'is', null).gte('delivery_date', rangeStart).lte('delivery_date', rangeEnd),
+      supabase.from('leads').select('id, company_name, contact_person, next_follow_up').not('next_follow_up', 'is', null).gte('next_follow_up', rangeStart).lte('next_follow_up', rangeEnd),
     ]);
 
     const next: CalendarEvent[] = [];
@@ -189,6 +191,16 @@ const CalendarPage: React.FC = () => {
           link: contractNo && contractLinkByNo[contractNo] ? contractLinkByNo[contractNo] : undefined,
         });
       });
+    }
+    if (leadRes.status === 'fulfilled' && leadRes.value.data) {
+      leadRes.value.data.forEach(l => next.push({
+        id: `lead-fup-${l.id}`,
+        type: 'lead_follow_up',
+        title: l.company_name || 'Lead Follow-up',
+        date: l.next_follow_up as string,
+        subtitle: l.contact_person ? `Contact: ${l.contact_person}` : 'Follow-up reminder',
+        link: `/app/sales?lead=${l.id}&focus=followup`,
+      }));
     }
 
     setEvents(next);
@@ -433,6 +445,7 @@ const CalendarPage: React.FC = () => {
                     ${ev.type === 'reminder' ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'       : ''}
                     ${ev.type === 'sample'   ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'          : ''}
                     ${ev.type === 'invoice'  ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'  : ''}
+                    ${ev.type === 'lead_follow_up' ? 'bg-fuchsia-50 text-fuchsia-700 hover:bg-fuchsia-100' : ''}
                   `}
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
