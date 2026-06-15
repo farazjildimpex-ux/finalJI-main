@@ -81,7 +81,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 type LeadTab = 'updates' | 'leads';
 type LeadProfileTab = 'overview' | 'activity' | 'edit';
-type LeadUpdateKind = 'call' | 'email' | 'follow_up';
+type LeadUpdateKind = 'call' | 'email' | 'follow_up' | 'note';
 
 interface LeadUpdateItem {
   id: string;
@@ -104,6 +104,18 @@ function formatShortDate(value: string) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function summarizeLeadNote(notes?: string) {
+  if (!notes?.trim()) return null;
+  const firstBlock = notes
+    .split(/\n\s*\n/)
+    .map((part) => part.trim())
+    .find(Boolean);
+  if (!firstBlock) return null;
+
+  const cleaned = firstBlock.replace(/^\[[^\]]+\]\s*/, '').trim();
+  return cleaned || firstBlock;
 }
 
 // ── Main page ─────────────────────────────────────────────────────────
@@ -191,6 +203,25 @@ const SalesPage: React.FC = () => {
       });
     });
 
+    leadRows.forEach((lead) => {
+      const noteSummary = summarizeLeadNote(lead.notes);
+      if (!noteSummary) return;
+      next.push({
+        id: `note-${lead.id}`,
+        leadId: lead.id!,
+        leadName: lead.company_name,
+        contactPerson: lead.contact_person,
+        kind: 'note',
+        summary: 'Note updated',
+        detail: noteSummary.slice(0, 160) + (noteSummary.length > 160 ? '…' : ''),
+        date: lead.updated_at || lead.created_at || new Date().toISOString(),
+        badge: 'Note',
+        badgeColor: 'bg-slate-100 text-slate-700',
+        iconColor: 'bg-slate-100 text-slate-600',
+        focusId: 'notes',
+      });
+    });
+
     leadRows
       .filter((lead): lead is Lead & { id: string; next_follow_up: string } => !!lead.id && !!lead.next_follow_up)
       .forEach((lead) => {
@@ -259,7 +290,10 @@ const SalesPage: React.FC = () => {
   const handleUpdateClick = (update: LeadUpdateItem) => {
     const lead = leads.find(item => item.id === update.leadId);
     if (!lead) return;
-    openLeadProfile(lead, { initialTab: 'activity', focusId: update.focusId });
+    openLeadProfile(lead, {
+      initialTab: update.kind === 'note' ? 'overview' : 'activity',
+      focusId: update.focusId,
+    });
   };
 
   const currentStatusLabel = STATUS_OPTS.find(o => o.key === statusFilter)?.label ?? 'All stages';
@@ -322,6 +356,7 @@ const SalesPage: React.FC = () => {
             const icon =
               update.kind === 'call' ? <Phone className="h-4 w-4" /> :
               update.kind === 'follow_up' ? <Calendar className="h-4 w-4" /> :
+              update.kind === 'note' ? <MessageSquare className="h-4 w-4" /> :
               <Mail className="h-4 w-4" />;
 
             return (

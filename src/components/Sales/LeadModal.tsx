@@ -90,8 +90,10 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
   const [savingNote, setSavingNote]     = useState(false);
   const [followUpDate, setFollowUpDate] = useState(lead.next_follow_up || '');
   const [editForm, setEditForm]         = useState<Partial<Lead>>({ ...lead });
+  const [flashNotes, setFlashNotes]     = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
   const activityItemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const notesSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setStatus(lead.status);
@@ -117,6 +119,19 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
       window.cancelAnimationFrame(raf);
     };
   }, [tab, highlightedActivityId, activity.length]);
+
+  useEffect(() => {
+    if (tab !== 'overview' || highlightedActivityId !== 'notes') return;
+    setFlashNotes(true);
+    const timer = window.setTimeout(() => setFlashNotes(false), 1800);
+    const raf = window.requestAnimationFrame(() => {
+      notesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => {
+      window.clearTimeout(timer);
+      window.cancelAnimationFrame(raf);
+    };
+  }, [tab, highlightedActivityId]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -413,7 +428,10 @@ const LeadModal: React.FC<LeadModalProps> = ({ lead, onClose, onUpdate, onLogCal
               </div>
 
               {/* Notes */}
-              <div>
+              <div
+                ref={notesSectionRef}
+                className={`rounded-2xl p-0 transition-all ${flashNotes ? 'ring-2 ring-blue-300 bg-blue-50 shadow-[0_14px_32px_rgba(37,99,235,0.12)] rounded-2xl' : ''}`}
+              >
                 <p className={lbl}>Notes</p>
                 {lead.notes && (
                   <div className="mb-3 p-3 bg-gray-50 rounded-2xl text-sm text-slate-700 whitespace-pre-wrap leading-relaxed max-h-40 overflow-y-auto">{lead.notes}</div>
