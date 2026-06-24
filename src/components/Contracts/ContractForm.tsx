@@ -188,6 +188,13 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     setAttachmentFile(file);
   };
 
+  const formatBytes = (bytes?: number | null) => {
+    if (bytes === null || bytes === undefined) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
   const handleAttachmentUpload = async () => {
     if (!initialContract?.id) {
       dialogService.alert({
@@ -768,93 +775,140 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
       </FSectionCard>
 
       <FSectionCard title="Attachments" icon={Paperclip} accent="blue">
-        <div className="space-y-3">
+        <div className="space-y-4">
           {!initialContract?.id ? (
-            <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm text-blue-700">
+            <div className="rounded-3xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-4 text-sm text-blue-700">
               Save the contract first, then add supporting documents like Purchase Orders or Letters of Credit.
             </div>
           ) : (
             <>
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end">
-                <div>
-                  <label className={FIELD_LABEL}>Document Type</label>
-                  <select
-                    value={attachmentType}
-                    onChange={(e) => setAttachmentType(e.target.value)}
-                    className={inputClassName}
-                  >
-                    {ATTACHMENT_TYPES.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className={FIELD_LABEL}>File</label>
-                  <input
-                    ref={attachmentInputRef}
-                    type="file"
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                    onChange={handleAttachmentPick}
-                    className={inputClassName}
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAttachmentUpload}
-                  disabled={attachmentUploading || !attachmentFile}
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm"
-                >
-                  <Upload className="h-4 w-4" />
-                  {attachmentUploading ? 'Uploading…' : 'Upload'}
-                </button>
-              </div>
-
-              {attachmentFile && (
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-800 truncate">{attachmentFile.name}</p>
-                    <p className="text-xs text-slate-500">
-                      {attachmentType || 'Other'} · {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
+              <div className="rounded-3xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3 mb-4">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Add a supporting document</p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Store purchase orders, letters of credit, invoices, packing lists, and related files here.
                     </p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 text-[11px] font-semibold">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    {contractFiles.length} file{contractFiles.length === 1 ? '' : 's'}
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end">
+                  <div>
+                    <label className={FIELD_LABEL}>Document Type</label>
+                    <select
+                      value={attachmentType}
+                      onChange={(e) => setAttachmentType(e.target.value)}
+                      className={inputClassName}
+                    >
+                      {ATTACHMENT_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={FIELD_LABEL}>File</label>
+                    <input
+                      ref={attachmentInputRef}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                      onChange={handleAttachmentPick}
+                      className={`${inputClassName} file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200`}
+                    />
                   </div>
                   <button
                     type="button"
-                    onClick={() => { setAttachmentFile(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ''; }}
-                    className="text-gray-400 hover:text-red-600"
+                    onClick={handleAttachmentUpload}
+                    disabled={attachmentUploading || !attachmentFile}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 shadow-sm"
                   >
-                    <X className="h-4 w-4" />
+                    <Upload className="h-4 w-4" />
+                    {attachmentUploading ? 'Uploading…' : 'Upload file'}
                   </button>
                 </div>
-              )}
 
-              <div className="space-y-2">
-                {contractFiles.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-5 text-sm text-slate-400">
-                    No attachments added yet.
-                  </div>
-                ) : contractFiles.map((file) => (
-                  <div key={file.id} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
-                    <button type="button" onClick={() => openAttachment(file)} className="min-w-0 text-left flex-1">
+                {attachmentFile && (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 shrink-0">
-                          {file.document_type || 'Other'}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white text-blue-700 border border-blue-200 shrink-0">
+                          {attachmentType || 'Other'}
                         </span>
-                        <p className="text-sm font-semibold text-slate-800 truncate">{file.file_name}</p>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{attachmentFile.name}</p>
                       </div>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {file.mime_type || 'File'}{file.file_size ? ` · ${(file.file_size / 1024 / 1024).toFixed(2)} MB` : ''}
+                      <p className="text-xs text-slate-500 mt-1">
+                        {formatBytes(attachmentFile.size)} · ready to upload
                       </p>
-                    </button>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => handleAttachmentDelete(file)}
-                      disabled={attachmentDeleting === file.id}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      onClick={() => { setAttachmentFile(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ''; }}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white/80 transition"
                     >
-                      {attachmentDeleting === file.id ? <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
-                ))}
+                )}
+              </div>
+
+              <div className="rounded-3xl border border-dashed border-slate-200 bg-white/90 px-4 py-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Uploaded documents</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Tap a row to open, or use the action buttons on the right.</p>
+                  </div>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    {contractFiles.length} total
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {contractFiles.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-5 text-sm text-slate-400 text-center">
+                      No attachments added yet.
+                    </div>
+                  ) : contractFiles.map((file) => (
+                    <div
+                      key={file.id}
+                      className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-slate-300 transition"
+                    >
+                      <button type="button" onClick={() => openAttachment(file)} className="min-w-0 text-left flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 shrink-0">
+                            {file.document_type || 'Other'}
+                          </span>
+                          <p className="text-sm font-semibold text-slate-800 truncate">{file.file_name}</p>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {file.mime_type || 'File'}
+                          {file.file_size ? ` · ${formatBytes(file.file_size)}` : ''}
+                        </p>
+                      </button>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openAttachment(file)}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                          title="Open file"
+                        >
+                          <FileDown className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAttachmentDelete(file)}
+                          disabled={attachmentDeleting === file.id}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                          title="Delete file"
+                        >
+                          {attachmentDeleting === file.id ? <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           )}

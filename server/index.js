@@ -39,6 +39,15 @@ app.set('trust proxy', true);
 const isProd = process.env.NODE_ENV === 'production';
 const PORT = isProd ? (process.env.PORT || 3000) : 3001;
 
+app.get('/api/health', (req, res) => {
+  res.json({
+    ok: true,
+    uptimeSeconds: Math.round(process.uptime()),
+    zohoConfigured: Boolean(getZohoCreds().email && getZohoCreds().appPassword),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 function zohoStatusPayload() {
   const { email, appPassword } = getZohoCreds();
   return {

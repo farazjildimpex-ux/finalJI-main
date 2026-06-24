@@ -112,8 +112,6 @@ const EmailSyncSection: React.FC = () => {
 
   const [gmailStatus, setGmailStatus] = useState<ZohoStatus>('unknown');
   const [missing, setMissing] = useState<MissingMap>({});
-  const [redirectUri, setRedirectUri] = useState<string>('');
-
   const [imapStatus, setImapStatus] = useState<'unknown' | 'testing' | 'ok' | 'error'>('unknown');
   const [imapInfo, setImapInfo] = useState<string | null>(null);
   const [imapEmail, setImapEmail] = useState<string | null>(null);
@@ -146,10 +144,6 @@ const EmailSyncSection: React.FC = () => {
     } catch {
       setGmailStatus('error');
     }
-  }, []);
-
-  const fetchRedirectUri = useCallback(async () => {
-    setRedirectUri('');
   }, []);
 
   const testImapConnection = useCallback(async () => {
@@ -214,8 +208,6 @@ const EmailSyncSection: React.FC = () => {
     localStorage.setItem(PROVIDER_STORAGE, next);
     setKeySaved(false);
   };
-
-  const handleConnectGoogle = () => {};
 
   const handleSync = async () => {
     const key = activeKey.trim();

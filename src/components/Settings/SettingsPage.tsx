@@ -17,12 +17,34 @@ import NotificationSetupGuide from './NotificationSetupGuide';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [backendHealth, setBackendHealth] = useState<'unknown' | 'ok' | 'error'>('unknown');
+  const [backendMessage, setBackendMessage] = useState('Checking server status…');
   const { permission, loading: notifLoading, enableNotifications } = useNotifications();
   const [stats, setStats] = useState({
     journals: 0, contacts: 0, contracts: 0, samples: 0, debitNotes: 0,
   });
 
-  useEffect(() => { fetchStats(); }, []);
+  useEffect(() => {
+    fetchStats();
+    fetchBackendHealth();
+  }, []);
+
+  const fetchBackendHealth = async () => {
+    try {
+      const resp = await fetch('/api/health');
+      const data = await resp.json();
+      if (resp.ok && data?.ok) {
+        setBackendHealth('ok');
+        setBackendMessage(data.zohoConfigured ? 'Backend online · Zoho mail ready' : 'Backend online · Zoho secrets needed');
+      } else {
+        setBackendHealth('error');
+        setBackendMessage('Backend health check failed');
+      }
+    } catch {
+      setBackendHealth('error');
+      setBackendMessage('Backend not reachable');
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -109,6 +131,23 @@ const SettingsPage: React.FC = () => {
         </div>
 
         {/* ── Email ── */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className={`w-2.5 h-2.5 rounded-full ${backendHealth === 'ok' ? 'bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]' : backendHealth === 'error' ? 'bg-red-500 shadow-[0_0_0_4px_rgba(239,68,68,0.12)]' : 'bg-amber-400 shadow-[0_0_0_4px_rgba(245,158,11,0.12)]'}`} />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">Backend status</p>
+              <p className="text-xs text-slate-500 truncate">{backendMessage}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={fetchBackendHealth}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors shrink-0"
+          >
+            Re-check
+          </button>
+        </div>
+
         <section>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Zoho Mail</p>
           <div className="space-y-3">
