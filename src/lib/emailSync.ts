@@ -370,11 +370,15 @@ export async function syncEmailsWithLog(
   return out;
 }
 
-export async function fetchGmailEmails(): Promise<{ emails: EmailData[] }> {
-  const resp = await fetch('/api/gmail/emails');
+export async function fetchZohoEmails(): Promise<{ emails: EmailData[] }> {
+  const resp = await fetch('/api/zoho/emails');
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(`Failed to fetch emails (${resp.status}): ${text}`);
   }
   return resp.json();
+}
+
+export async function fetchGmailEmails(): Promise<{ emails: EmailData[] }> {
+  return fetchZohoEmails();
 }

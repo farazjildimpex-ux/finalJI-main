@@ -135,6 +135,19 @@ export interface Contract {
   status: 'Issued' | 'Inspected' | 'Completed';
 }
 
+export interface ContractFile {
+  id: string;
+  contract_id: string;
+  file_name: string;
+  file_path: string;
+  file_size?: number | null;
+  mime_type?: string | null;
+  document_type?: string | null;
+  uploaded_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Sample {
   id?: string;
   user_id?: string;

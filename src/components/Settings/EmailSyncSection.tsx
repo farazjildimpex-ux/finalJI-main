@@ -22,7 +22,7 @@ import {
   Check,
 } from 'lucide-react';
 import type { SyncResult, EmailScanResult } from '../../lib/emailSync';
-import { fetchGmailEmails, syncEmailsWithLog } from '../../lib/emailSync';
+import { fetchZohoEmails, syncEmailsWithLog } from '../../lib/emailSync';
 import { supabase } from '../../lib/supabaseClient';
 
 const OPENAI_KEY_STORAGE = 'jild_openai_key';
@@ -82,8 +82,8 @@ const CopyChip: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-type GmailStatus = 'unknown' | 'testing' | 'ok' | 'missing' | 'error';
-type MissingMap = { GOOGLE_CLIENT_ID?: boolean; GOOGLE_CLIENT_SECRET?: boolean; GOOGLE_REFRESH_TOKEN?: boolean };
+type ZohoStatus = 'unknown' | 'testing' | 'ok' | 'missing' | 'error';
+type MissingMap = { ZOHO_EMAIL_ADDRESS?: boolean; ZOHO_APP_PASSWORD?: boolean };
 
 const EmailSyncSection: React.FC = () => {
   const [provider, setProvider] = useState<Provider>(
@@ -110,7 +110,7 @@ const EmailSyncSection: React.FC = () => {
 
   const [showSetup, setShowSetup] = useState(false);
 
-  const [gmailStatus, setGmailStatus] = useState<GmailStatus>('unknown');
+  const [gmailStatus, setGmailStatus] = useState<ZohoStatus>('unknown');
   const [missing, setMissing] = useState<MissingMap>({});
   const [redirectUri, setRedirectUri] = useState<string>('');
 
@@ -132,7 +132,7 @@ const EmailSyncSection: React.FC = () => {
   const testConnection = useCallback(async () => {
     setGmailStatus('testing');
     try {
-      const resp = await fetch('/api/gmail/test');
+      const resp = await fetch('/api/zoho/test');
       const data = await resp.json();
       if (data.connected) {
         setGmailStatus('ok');
@@ -149,20 +149,14 @@ const EmailSyncSection: React.FC = () => {
   }, []);
 
   const fetchRedirectUri = useCallback(async () => {
-    try {
-      const resp = await fetch('/api/google/oauth/redirect-uri');
-      const data = await resp.json();
-      if (data.redirectUri) setRedirectUri(data.redirectUri);
-    } catch {
-      setRedirectUri(`${window.location.origin}/api/google/oauth/callback`);
-    }
+    setRedirectUri('');
   }, []);
 
   const testImapConnection = useCallback(async () => {
     setImapStatus('testing');
     setImapInfo(null);
     try {
-      const resp = await fetch('/api/gmail/test-imap');
+      const resp = await fetch('/api/zoho/test-imap');
       const data = await resp.json();
       if (data.ok) {
         setImapStatus('ok');
@@ -171,7 +165,7 @@ const EmailSyncSection: React.FC = () => {
         setGmailStatus('ok');
       } else {
         setImapStatus('error');
-        setImapInfo(data.error || 'Gmail connection failed');
+        setImapInfo(data.error || 'Zoho connection failed');
       }
     } catch (e: any) {
       setImapStatus('error');
@@ -179,9 +173,9 @@ const EmailSyncSection: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { testConnection(); fetchRedirectUri(); }, [testConnection, fetchRedirectUri]);
+  useEffect(() => { testConnection(); }, [testConnection]);
 
-  // Once /api/gmail/test reports all 3 secrets present, run the live Gmail
+  // Once /api/zoho/test reports all secrets present, run the live Zoho
   // verification automatically so the "Action needed" badge clears without the
   // user having to remember to press the test button.
   useEffect(() => {
@@ -221,9 +215,7 @@ const EmailSyncSection: React.FC = () => {
     setKeySaved(false);
   };
 
-  const handleConnectGoogle = () => {
-    window.open('/api/google/oauth/start', '_blank', 'noopener,noreferrer');
-  };
+  const handleConnectGoogle = () => {};
 
   const handleSync = async () => {
     const key = activeKey.trim();
@@ -234,7 +226,7 @@ const EmailSyncSection: React.FC = () => {
 
     setRunning(true); setSyncError(null); setResults(null); setScans(null); setStage('fetching');
     try {
-      const { emails } = await fetchGmailEmails();
+      const { emails } = await fetchZohoEmails();
       if (emails.length === 0) { setResults([]); setScans([]); setStage('done'); setShowResults(true); return; }
       setStage('analyzing');
       const { data: contracts } = await supabase.from('contracts').select('*');
@@ -262,7 +254,7 @@ const EmailSyncSection: React.FC = () => {
   };
 
   const stageLabel =
-    stage === 'fetching' ? 'Connecting to Gmail and downloading emails…'
+    stage === 'fetching' ? 'Connecting to Zoho and downloading emails…'
     : stage === 'analyzing' ? 'AI is reading emails & attachments for invoice data…'
     : stage === 'saving' ? 'Saving invoices to database…'
     : '';
@@ -282,7 +274,7 @@ const EmailSyncSection: React.FC = () => {
           <div>
             <p className="text-sm font-bold text-gray-900">Auto Invoice Sync</p>
             <p className="text-xs text-gray-500">
-              Scan Gmail (last 7 days) · AI extracts invoices · review &amp; approve before they're saved
+              Scan Zoho mail (last 7 days) · AI extracts invoices · review &amp; approve before they're saved
             </p>
           </div>
         </div>
@@ -300,19 +292,19 @@ const EmailSyncSection: React.FC = () => {
       <div className="px-4 pb-4 flex items-center gap-3 flex-wrap">
         {gmailStatus === 'testing' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs text-gray-500">
-            <RefreshCw className="h-3 w-3 animate-spin" /> Checking Gmail connection…
+            <RefreshCw className="h-3 w-3 animate-spin" /> Checking Zoho connection…
           </div>
         )}
         {gmailStatus === 'ok' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-semibold text-emerald-700">
             <Wifi className="h-3.5 w-3.5" />
-            Gmail connected · office@jildimpex.com
+            Zoho connected · office@jildimpex.com
           </div>
         )}
         {(gmailStatus === 'missing' || gmailStatus === 'error' || gmailStatus === 'unknown') && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-700">
             <WifiOff className="h-3.5 w-3.5" />
-            {gmailStatus === 'missing' ? 'Gmail not set up yet' : 'Gmail not connected'}
+            {gmailStatus === 'missing' ? 'Zoho not set up yet' : 'Zoho not connected'}
           </div>
         )}
         {imapStatus === 'ok' && (
@@ -322,7 +314,7 @@ const EmailSyncSection: React.FC = () => {
         )}
         {imapStatus === 'error' && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 border border-red-200 rounded-xl text-xs font-semibold text-red-700">
-            <AlertCircle className="h-3.5 w-3.5" /> Gmail login failed
+            <AlertCircle className="h-3.5 w-3.5" /> Zoho login failed
           </div>
         )}
         {gmailStatus !== 'testing' && (
@@ -608,12 +600,12 @@ const EmailSyncSection: React.FC = () => {
               </div>
             </div>
 
-            {/* ② Connect Gmail via OAuth */}
+            {/* ② Connect Zoho IMAP / SMTP */}
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white text-[10px] font-black shrink-0">2</div>
                 <p className="text-xs font-bold text-gray-800">
-                  Connect Gmail
+                  Connect Zoho
                   {gmailStatus === 'ok'
                     ? <span className="ml-2 text-emerald-600 font-semibold">✓ Connected</span>
                     : <span className="ml-2 text-amber-600 font-normal">(one-time setup)</span>}
@@ -625,7 +617,7 @@ const EmailSyncSection: React.FC = () => {
                   <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl">
                     <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                     <div>
-                      <p className="text-xs font-bold text-emerald-800">Gmail is connected — you're all set!</p>
+                      <p className="text-xs font-bold text-emerald-800">Zoho is connected — you're all set!</p>
                       <p className="text-[11px] text-emerald-700 mt-0.5">{imapInfo}</p>
                     </div>
                   </div>
@@ -642,74 +634,41 @@ const EmailSyncSection: React.FC = () => {
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-2xl flex gap-2">
                     <Sparkles className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
                     <p className="text-[11px] text-blue-800 leading-relaxed">
-                      <strong>One-time setup using Google's official OAuth.</strong> You'll create a small Google Cloud project,
-                      paste 2 secrets, click "Connect Google", and you're done. Works for any Gmail or Workspace account.
+                      <strong>One-time setup using Zoho IMAP and SMTP.</strong> Add your Zoho mailbox address and app password,
+                      then the app can read mail, extract attachments, and send mail without the old mail flow.
                     </p>
                   </div>
 
                   {/* ── Phase A: get OAuth credentials from Google Cloud ── */}
                   <div className="space-y-3">
                     <p className="text-[12px] font-black text-gray-700 uppercase tracking-wide">
-                      Phase A · Create OAuth credentials in Google Cloud
+                      Phase A · Add Zoho secrets
                     </p>
 
                     <ol className="space-y-3 text-[12px] text-gray-700 leading-relaxed">
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">①</span>
                         <span>
-                          Open{' '}
-                          <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener noreferrer"
-                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
-                            Google Cloud Console <ExternalLink className="h-3 w-3" />
-                          </a>{' '}
-                          and create a new project (e.g. <em>"JILD Sync"</em>). Wait ~10 seconds for it to provision, then select it.
+                          In Zoho Mail, create an <strong>app password</strong> for this app and copy it into Replit Secrets.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">②</span>
                         <span>
-                          Go to{' '}
-                          <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer"
-                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
-                            Gmail API <ExternalLink className="h-3 w-3" />
-                          </a>{' '}
-                          and click <strong>Enable</strong>.
+                          Add{' '}
+                          <strong>ZOHO_EMAIL_ADDRESS</strong> and <strong>ZOHO_APP_PASSWORD</strong> in Replit Secrets.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">③</span>
                         <span>
-                          Open{' '}
-                          <a href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener noreferrer"
-                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
-                            OAuth consent screen <ExternalLink className="h-3 w-3" />
-                          </a>{' '}
-                          → choose <strong>External</strong> → fill in app name (<em>"JILD Sync"</em>), your email as support email and developer contact → save and continue through the steps.
-                          On the <strong>Test users</strong> step, click <strong>Add Users</strong> and add your own Gmail address. Save.
+                          Use the mailbox you want the app to read and send from. No extra project or consent screen is needed.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">④</span>
                         <span>
-                          Open{' '}
-                          <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener noreferrer"
-                            className="text-violet-600 font-bold underline inline-flex items-center gap-0.5">
-                            Credentials <ExternalLink className="h-3 w-3" />
-                          </a>{' '}
-                          → <strong>Create Client</strong> → application type <strong>Web application</strong> → name it <em>"JILD Sync"</em>.
-                          <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                            <p className="text-[11px] font-black text-amber-800 mb-1">Under "Authorized redirect URIs", add this exact URL:</p>
-                            <div className="flex items-center gap-2 p-2 bg-white border border-amber-200 rounded-md">
-                              <code className="flex-1 text-[10px] font-mono text-gray-700 break-all select-all">
-                                {redirectUri || `${window.location.origin}/api/google/oauth/callback`}
-                              </code>
-                              <CopyChip text={redirectUri || `${window.location.origin}/api/google/oauth/callback`} />
-                            </div>
-                            <p className="text-[10px] text-amber-700 mt-1.5">
-                              ⚠️ Must match <em>exactly</em>, including <code>https://</code> and no trailing slash.
-                            </p>
-                          </div>
-                          Click <strong>Create</strong>. A popup shows your <strong>Client ID</strong> and <strong>Client Secret</strong>.
+                          Make sure IMAP is enabled in Zoho settings so the app can scan your inbox.
                         </span>
                       </li>
                       <li className="flex gap-2">
@@ -718,12 +677,12 @@ const EmailSyncSection: React.FC = () => {
                           In Replit, click the <strong>🔒 Secrets</strong> icon and add these two secrets:
                           <div className="mt-2 space-y-1.5">
                             <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                              <code className="text-[11px] font-bold text-gray-700 shrink-0">GOOGLE_CLIENT_ID</code>
-                              <span className="text-[11px] text-gray-500">= the Client ID from Google (ends in <code className="bg-white px-1 rounded">.apps.googleusercontent.com</code>)</span>
+                              <code className="text-[11px] font-bold text-gray-700 shrink-0">ZOHO_EMAIL_ADDRESS</code>
+                              <span className="text-[11px] text-gray-500">= your Zoho email address</span>
                             </div>
                             <div className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                              <code className="text-[11px] font-bold text-gray-700 shrink-0">GOOGLE_CLIENT_SECRET</code>
-                              <span className="text-[11px] text-gray-500">= the Client Secret from Google (starts with <code className="bg-white px-1 rounded">GOCSPX-</code>)</span>
+                              <code className="text-[11px] font-bold text-gray-700 shrink-0">ZOHO_APP_PASSWORD</code>
+                              <span className="text-[11px] text-gray-500">= the app password from Zoho Mail</span>
                             </div>
                           </div>
                         </span>
@@ -731,7 +690,7 @@ const EmailSyncSection: React.FC = () => {
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">⑥</span>
                         <span>
-                          The app restarts automatically. Click <strong>"Re-test"</strong> below — you should see "Client credentials saved" turn green, then move to Phase B.
+                          The app restarts automatically. Click <strong>"Re-test"</strong> below — you should see the secret check turn green, then move to Phase B.
                         </span>
                       </li>
                     </ol>
@@ -754,7 +713,7 @@ const EmailSyncSection: React.FC = () => {
                   {/* ── Phase B: OAuth dance ── */}
                   <div className={`space-y-3 ${!hasClientCreds ? 'opacity-50 pointer-events-none' : ''}`}>
                     <p className="text-[12px] font-black text-gray-700 uppercase tracking-wide">
-                      Phase B · Authorise Gmail access
+                      Phase B · Test Zoho mailbox access
                     </p>
 
                     {!hasClientCreds && (
@@ -765,49 +724,45 @@ const EmailSyncSection: React.FC = () => {
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">①</span>
                         <span>
-                          Click the <strong>"Connect Google"</strong> button below — a new tab opens with Google's sign-in screen.
+                          Click the <strong>"Re-test connection"</strong> button below to confirm the Zoho mailbox is reachable.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">②</span>
                         <span>
-                          Sign in with <strong>office@jildimpex.com</strong> (your Google Workspace account).
-                          If a different account is already selected, click <em>"Use a different account"</em>.
-                          You'll see a warning <em>"Google hasn't verified this app"</em> — that's expected since you created the app yourself.
-                          Click <strong>Advanced</strong> → <strong>Go to JILD Sync (unsafe)</strong>.
+                          Use the Zoho mailbox that you want the app to read and send from.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">③</span>
                         <span>
-                          Approve the <strong>"Read your email"</strong> permission. Google redirects you back, and the page shows a long <strong>refresh token</strong>.
+                          The app will read messages over IMAP and send mail over SMTP with your Zoho app password.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">④</span>
                         <span>
-                          Copy that token and add a third Replit secret:
-                          <div className="mt-2 flex items-start gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                            <code className="text-[11px] font-bold text-gray-700 shrink-0">GOOGLE_REFRESH_TOKEN</code>
-                            <span className="text-[11px] text-gray-500">= the refresh token (starts with <code className="bg-white px-1 rounded">1//</code>)</span>
-                          </div>
+                          No extra OAuth token is needed.
                         </span>
                       </li>
                       <li className="flex gap-2">
                         <span className="font-black text-violet-600 shrink-0">⑤</span>
                         <span>
-                          Once saved, click <strong>"Test Gmail Connection"</strong> below. Green tick = done forever.
+                          Once saved, click <strong>"Test Zoho Connection"</strong> below. Green tick = done forever.
                         </span>
                       </li>
                     </ol>
 
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
-                        onClick={handleConnectGoogle}
-                        disabled={!hasClientCreds}
+                        onClick={testImapConnection}
+                        disabled={imapStatus === 'testing' || !hasClientCreds || needsRefresh}
                         className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 disabled:opacity-40 transition-colors"
                       >
-                        <ExternalLink className="h-3.5 w-3.5" /> Connect Google
+                        {imapStatus === 'testing'
+                          ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Testingâ€¦</>
+                          : <><ExternalLink className="h-3.5 w-3.5" /> Re-test connection</>
+                        }
                       </button>
                       <button
                         onClick={testImapConnection}
@@ -816,7 +771,7 @@ const EmailSyncSection: React.FC = () => {
                       >
                         {imapStatus === 'testing'
                           ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Testing…</>
-                          : <><Wifi className="h-3.5 w-3.5" /> Test Gmail Connection</>
+                          : <><Wifi className="h-3.5 w-3.5" /> Test Zoho Connection</>
                         }
                       </button>
                     </div>
@@ -826,7 +781,7 @@ const EmailSyncSection: React.FC = () => {
                         <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
                         <div>
                           <p className="text-xs font-bold text-emerald-800">
-                            Gmail connected{imapEmail && <> as {imapEmail}</>} — PDF attachments will be read automatically
+                            Zoho connected{imapEmail && <> as {imapEmail}</>} — PDF attachments will be read automatically
                           </p>
                           {imapInfo && <p className="text-[11px] text-emerald-700 mt-0.5">{imapInfo}</p>}
                         </div>
@@ -836,10 +791,10 @@ const EmailSyncSection: React.FC = () => {
                       <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-2xl">
                         <AlertCircle className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-xs font-bold text-red-700">Gmail connection failed</p>
+                          <p className="text-xs font-bold text-red-700">Zoho connection failed</p>
                           {imapInfo && <p className="text-[11px] text-red-600 mt-0.5 break-words">{imapInfo}</p>}
                           <p className="text-[11px] text-red-600 mt-1">
-                            Common fixes: ① Make sure all 3 secrets are saved correctly. ② If you re-ran the OAuth flow, generate a brand-new refresh token (revoke at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" className="underline">myaccount.google.com/permissions</a> first). ③ Confirm your Gmail address is added as a test user on the OAuth consent screen.
+                            Common fixes: ① Make sure the two Zoho secrets are saved correctly. ② Confirm IMAP is enabled in Zoho Mail. ③ Make sure the mailbox password is an app password.
                           </p>
                         </div>
                       </div>

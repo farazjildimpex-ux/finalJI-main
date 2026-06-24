@@ -15,8 +15,8 @@ import type { EmailTemplate, Contact } from '../../types';
 import RichTextEditor from './RichTextEditor';
 
 /* ── Types ── */
-interface GmailAttachment {
-  messageId: string; attachmentId: string; filename: string; mimeType: string; date: string;
+interface MailAttachment {
+  messageUid: string; attachmentIndex: number; filename: string; mimeType: string; date: string;
 }
 interface ComposeModalProps {
   template: EmailTemplate;
@@ -33,16 +33,8 @@ function ctxKey(ctx: EmailContext) {
   const d = ctx.data as Record<string, unknown>;
   return `${ctx.type}|${d?.contract_no ?? d?.sample_number ?? d?.debit_note_no ?? d?.id ?? ''}`;
 }
-function bigrams(s: string): Set<string> {
-  const b = new Set<string>();
-  for (let i = 0; i < s.length - 1; i++) b.add(s.slice(i, i + 2));
-  return b;
-}
-function similarity(a: string, b: string): number {
-  if (!a || !b) return 0;
-  const ba = bigrams(a); const bb = bigrams(b);
-  let n = 0; ba.forEach((g) => { if (bb.has(g)) n++; });
-  return (2 * n) / (ba.size + bb.size);
+function normalizeContactValue(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 function applyGreeting(html: string, name: string): string {
   const greeting = name ? `Dear ${name},` : 'Dear Sir/Madam,';
@@ -92,10 +84,10 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   const [genPdf, setGenPdf]           = useState(false);
   const [cpOpen, setCpOpen]           = useState(false);   // contact panel
   const [cpSearch, setCpSearch]       = useState('');
-  const [gmailOpen, setGmailOpen]     = useState(false);
-  const [gmailList, setGmailList]     = useState<GmailAttachment[]>([]);
-  const [gmailLoading, setGmailLoading] = useState(false);
-  const [gmailFetching, setGmailFetching] = useState<string | null>(null);
+  const [mailOpen, setMailOpen]     = useState(false);
+  const [mailList, setMailList]     = useState<MailAttachment[]>([]);
+  const [mailLoading, setMailLoading] = useState(false);
+  const [mailFetching, setMailFetching] = useState<string | null>(null);
   const [contactsLoading, setContactsLoading] = useState(true);
   const [contactsError, setContactsError]     = useState<string | null>(null);
 
@@ -138,11 +130,11 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
   }, [context, companyName]);
 
   const addQuickPick = (name: string) => {
-    const q = name.toLowerCase();
-    const match = contacts.find(c => {
-      const cn = c.name.toLowerCase();
-      return cn.includes(q) || q.includes(cn) || similarity(cn, q) > 0.55;
-    });
+    const q = normalizeContactValue(name);
+    const match = contacts.find(c =>
+      normalizeContactValue(c.name) === q ||
+      normalizeContactValue(c.contact_person || '') === q
+    );
     if (!match) { setToast({ ok: false, msg: `No contact found matching "${name}"` }); return; }
     if (match.email?.length) addEmail(match.email[0], toList, setToList, () => {});
     if (match.email_cc?.length) setCcList(p => [...new Set([...p, ...match.email_cc!])]);
@@ -197,30 +189,30 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
 
   const clearAttach = () => { setAttachB64(null); setAttachName(''); if (fileRef.current) fileRef.current.value = ''; };
 
-  const openGmail = async () => {
-    setGmailOpen(true);
-    if (gmailList.length) return;
-    setGmailLoading(true);
+  const openZohoMail = async () => {
+    setMailOpen(true);
+    if (mailList.length) return;
+    setMailLoading(true);
     try {
-      const res = await fetch('/api/gmail/recent-attachments');
+      const res = await fetch('/api/zoho/recent-attachments');
       if (!res.ok) throw new Error(await res.text());
-      setGmailList((await res.json()).attachments || []);
+      setMailList((await res.json()).attachments || []);
     } catch (e: any) {
-      setToast({ ok: false, msg: 'Gmail: ' + (e?.message || 'check connection') });
-    } finally { setGmailLoading(false); }
+      setToast({ ok: false, msg: 'Zoho: ' + (e?.message || 'check connection') });
+    } finally { setMailLoading(false); }
   };
 
-  const pickGmail = async (att: GmailAttachment) => {
-    setGmailFetching(att.attachmentId);
+  const pickZohoAttachment = async (att: MailAttachment) => {
+    setMailFetching(String(att.attachmentIndex));
     try {
-      const res = await fetch(`/api/gmail/attachment?messageId=${att.messageId}&attachmentId=${att.attachmentId}&filename=${encodeURIComponent(att.filename)}`);
+      const res = await fetch(`/api/zoho/attachment?messageUid=${encodeURIComponent(att.messageUid)}&attachmentIndex=${att.attachmentIndex}&filename=${encodeURIComponent(att.filename)}`);
       if (!res.ok) throw new Error(await res.text());
       const d = await res.json();
       setAttachB64(d.base64); setAttachName(att.filename); setAttachMime(att.mimeType || 'application/pdf');
-      setGmailOpen(false);
+      setMailOpen(false);
     } catch (e: any) {
       setToast({ ok: false, msg: 'Could not fetch: ' + (e?.message || '') });
-    } finally { setGmailFetching(null); }
+    } finally { setMailFetching(null); }
   };
 
   const handleSend = async () => {
@@ -473,9 +465,9 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
                         </button>
                       )}
 
-                      <button type="button" onClick={openGmail}
+                      <button type="button" onClick={openZohoMail}
                         className="flex items-center gap-2 px-3.5 py-2.5 text-sm font-medium rounded-xl border border-dashed border-violet-300 text-violet-700 hover:bg-violet-50 transition">
-                        <Inbox className="h-4 w-4" /> From Gmail
+                        <Inbox className="h-4 w-4" /> From Zoho
                       </button>
                     </div>
                   )}
@@ -487,7 +479,7 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
           {/* ─ Footer ─ */}
           <div className="h-px bg-slate-100 mx-5" />
           <div className="px-5 py-4 flex items-center justify-between shrink-0">
-            <p className="text-xs text-slate-400">via <span className="font-semibold text-slate-600">Gmail</span></p>
+            <p className="text-xs text-slate-400">via <span className="font-semibold text-slate-600">Zoho</span></p>
             <div className="flex gap-2">
               <button onClick={onClose}
                 className="px-4 py-2.5 text-sm font-semibold rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition">
@@ -502,36 +494,36 @@ const ComposeModal: React.FC<ComposeModalProps> = ({
           </div>
         </div>
 
-        {/* Gmail picker overlay */}
-        {gmailOpen && (
+        {/* Zoho picker overlay */}
+        {mailOpen && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4"
-            onClick={() => setGmailOpen(false)}>
+            onClick={() => setMailOpen(false)}>
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={e => e.stopPropagation()}>
               <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                <p className="text-[15px] font-bold text-slate-900">Gmail attachments</p>
-                <button onClick={() => setGmailOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100 transition">
+                <p className="text-[15px] font-bold text-slate-900">Zoho attachments</p>
+                <button onClick={() => setMailOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100 transition">
                   <X className="h-4 w-4 text-slate-400" />
                 </button>
               </div>
               <div className="p-4 max-h-72 overflow-y-auto">
-                {gmailLoading ? (
+                {mailLoading ? (
                   <div className="flex items-center justify-center py-8 gap-2 text-slate-400 text-sm">
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading…
                   </div>
-                ) : gmailList.length === 0 ? (
+                ) : mailList.length === 0 ? (
                   <div className="text-center py-8 text-sm text-slate-400">
                     <Inbox className="h-8 w-8 text-slate-300 mx-auto mb-2" />
                     No PDF attachments in the last 3 days.
                   </div>
-                ) : gmailList.map(att => (
-                  <button key={att.attachmentId} onClick={() => pickGmail(att)} disabled={gmailFetching === att.attachmentId}
+                ) : mailList.map(att => (
+                  <button key={`${att.messageUid}-${att.attachmentIndex}`} onClick={() => pickZohoAttachment(att)} disabled={mailFetching === String(att.attachmentIndex)}
                     className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 text-left transition disabled:opacity-50">
                     <FileText className="h-5 w-5 text-red-500 shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-800 truncate">{att.filename}</p>
                       <p className="text-xs text-slate-400">{new Date(att.date).toLocaleDateString()}</p>
                     </div>
-                    {gmailFetching === att.attachmentId && <Loader2 className="h-4 w-4 animate-spin text-slate-400 shrink-0" />}
+                    {mailFetching === String(att.attachmentIndex) && <Loader2 className="h-4 w-4 animate-spin text-slate-400 shrink-0" />}
                   </button>
                 ))}
               </div>

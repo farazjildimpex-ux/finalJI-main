@@ -17,6 +17,16 @@ import {
   renderSuccessPage,
   renderErrorPage,
 } from './gmailLib.js';
+import {
+  getZohoCreds,
+  isZohoConfigured,
+  fetchZohoEmailsViaIMAP,
+  fetchZohoRecentAttachmentsViaIMAP,
+  fetchZohoAttachmentViaIMAP,
+  sendZohoEmail,
+  renderZohoSuccessPage,
+  renderZohoErrorPage,
+} from './zohoLib.js';
 import { retrievePdf } from './pdfLinks.js';
 
 initReplitSecretWatcher();
@@ -28,6 +38,95 @@ app.set('trust proxy', true);
 
 const isProd = process.env.NODE_ENV === 'production';
 const PORT = isProd ? (process.env.PORT || 3000) : 3001;
+
+function zohoStatusPayload() {
+  const { email, appPassword } = getZohoCreds();
+  return {
+    configured: Boolean(email && appPassword),
+    email: email || null,
+    hasSendScope: Boolean(email && appPassword),
+  };
+}
+
+app.get('/api/zoho/test', (req, res) => {
+  const { email, appPassword } = getZohoCreds();
+  if (!email || !appPassword) {
+    return res.json({
+      connected: false,
+      reason: 'missing_secrets',
+      missing: {
+        ZOHO_EMAIL_ADDRESS: !email,
+        ZOHO_APP_PASSWORD: !appPassword,
+      },
+    });
+  }
+  res.json({ connected: true, email });
+});
+
+app.get('/api/zoho/test-imap', async (req, res) => {
+  try {
+    const { emails } = await fetchZohoEmailsViaIMAP();
+    const { email } = getZohoCreds();
+    res.json({ ok: true, email, messagesLast7Days: emails.length });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+app.get('/api/zoho/emails', async (req, res) => {
+  try {
+    const result = await fetchZohoEmailsViaIMAP();
+    res.json({ ...result, total: result.emails.length });
+  } catch (err) {
+    console.error('Zoho email fetch error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/zoho/debug-emails', async (req, res) => {
+  try {
+    const { emails } = await fetchZohoEmailsViaIMAP();
+    res.json({
+      total: emails.length,
+      emails: emails.map((e) => ({
+        subject: e.subject,
+        from: e.from,
+        date: e.date,
+        bodyLength: e.body.length,
+        attachments: e.attachments.map((a) => ({ name: a.name, type: a.type, chars: a.text.length })),
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/zoho/recent-attachments', async (req, res) => {
+  try {
+    const result = await fetchZohoRecentAttachmentsViaIMAP();
+    res.json(result);
+  } catch (err) {
+    console.error('[zoho-attachments] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/zoho/attachment', async (req, res) => {
+  const { messageUid, attachmentIndex } = req.query;
+  if (!messageUid && messageUid !== '0') return res.status(400).json({ error: 'messageUid required' });
+  if (attachmentIndex === undefined) return res.status(400).json({ error: 'attachmentIndex required' });
+  try {
+    const result = await fetchZohoAttachmentViaIMAP(messageUid, attachmentIndex);
+    res.json(result);
+  } catch (err) {
+    console.error('[zoho-attachment] error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/zoho/send-status', (req, res) => {
+  res.json(zohoStatusPayload());
+});
 
 // ─── Gmail status / sync ──────────────────────────────────────────────────
 app.get('/api/gmail/test', (req, res) => {
@@ -308,21 +407,7 @@ app.get('/api/pdf-download/:token', (req, res) => {
 
 // ─── Gmail send status ────────────────────────────────────────────────────
 app.get('/api/gmail/send-status', async (req, res) => {
-  const { clientId, clientSecret, refreshToken } = getOAuthCreds();
-  if (!clientId || !clientSecret || !refreshToken) {
-    return res.json({ configured: false, hasSendScope: false, email: null });
-  }
-  try {
-    const token = await getAccessToken();
-    // tokeninfo reveals which scopes this access token has
-    const info = await fetch(`https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=${token}`);
-    const data = await info.json();
-    const scopes = (data.scope || '').split(' ');
-    const hasSendScope = scopes.includes('https://www.googleapis.com/auth/gmail.send');
-    res.json({ configured: true, hasSendScope, email: data.email || null });
-  } catch (err) {
-    res.json({ configured: false, hasSendScope: false, email: null, error: err.message });
-  }
+  res.json(zohoStatusPayload());
 });
 
 // ─── Email send (via Gmail API — real PDF attachments) ────────────────────
@@ -344,20 +429,7 @@ app.post('/api/email/send', async (req, res) => {
   if (!subject)    return res.status(400).json({ error: 'subject is required' });
   if (!body)       return res.status(400).json({ error: 'body is required' });
 
-  const { clientId, clientSecret, refreshToken } = getOAuthCreds();
-  if (!clientId || !clientSecret || !refreshToken) {
-    return res.status(503).json({
-      error: 'Gmail is not connected. Complete the Google OAuth setup in Settings → Email.',
-    });
-  }
-
-  if (attachmentBase64 && attachmentName) {
-    console.log(`[email/send] Sending via Gmail with attachment: ${attachmentName}`);
-  } else {
-    console.log(`[email/send] Sending via Gmail (no attachment)`);
-  }
-
-  const result = await sendGmailEmail({
+  const result = await sendZohoEmail({
     to,
     cc: cc?.length ? cc : undefined,
     subject,

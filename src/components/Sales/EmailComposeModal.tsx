@@ -133,7 +133,7 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
     setLoading(true);
     setSendResult(null);
 
-    // Send via Gmail
+    // Send via Zoho
     const result = await sendEmailViaServer({
       to: [emailData.to],
       subject: emailData.subject,
@@ -166,7 +166,7 @@ const EmailComposeModal: React.FC<EmailComposeModalProps> = ({
     setLoading(false);
     setSendResult({
       ok: result.ok,
-      msg: result.ok ? 'Email sent successfully!' : (result.error || 'Send failed — check Gmail is connected in Settings.'),
+      msg: result.ok ? 'Email sent successfully!' : (result.error || 'Send failed — check Zoho is connected in Settings.'),
     });
 
     if (result.ok) {

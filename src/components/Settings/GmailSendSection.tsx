@@ -33,7 +33,7 @@ const GmailSendSection: React.FC = () => {
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const r = await fetch('/api/gmail/send-status');
+      const r = await fetch('/api/zoho/send-status');
       const d = await r.json();
       setStatus(d);
       if (!d.configured || !d.hasSendScope) setExpanded(true);
@@ -50,31 +50,30 @@ const GmailSendSection: React.FC = () => {
   const needsReauth = status?.configured && !status?.hasSendScope;
 
   const startOAuth = () => {
-    window.open('/api/google/oauth/start', '_blank', 'noopener,width=640,height=720');
+    fetchStatus();
   };
 
   const ConnectSteps = () => (
     <div className="space-y-4">
-      <Step n={1} title="Click the button below">
-        <p>Tap <strong>"Connect Google Account"</strong>. A Google sign-in window will open.</p>
+      <Step n={1} title="Check the mailbox">
+        <p>Zoho sending uses the same mailbox settings as inbox reading, so no separate sign-in window is needed.</p>
       </Step>
 
-      <Step n={2} title={`Sign in with ${OFFICE_EMAIL}`}>
+      <Step n={2} title={`Use ${OFFICE_EMAIL}`}>
         <p>
-          Sign in with <strong>{OFFICE_EMAIL}</strong> (the JILD IMPEX Google Workspace account).
-          If another account is already selected in Google, click <em>"Use a different account"</em> and enter {OFFICE_EMAIL}.
+          Use <strong>{OFFICE_EMAIL}</strong> as the sending mailbox if that is the Zoho account configured in Settings.
         </p>
       </Step>
 
-      <Step n={3} title="Copy the token shown">
-        <p>After approving, you'll see a token starting with <code className="bg-gray-100 px-1 rounded">1//</code>. Copy the entire value.</p>
+      <Step n={3} title="Confirm the app password">
+        <p>Make sure the Zoho app password is saved in Settings so SMTP can authenticate.</p>
       </Step>
 
-      <Step n={4} title='Save it as "GOOGLE_REFRESH_TOKEN" in Replit Secrets'>
-        <p>Go to <strong>Replit → Secrets</strong> (lock icon in the sidebar). Add a secret named <code className="bg-gray-100 px-1 rounded">GOOGLE_REFRESH_TOKEN</code> with the copied value.</p>
+      <Step n={4} title='Save it as "ZOHO_APP_PASSWORD" in Replit Secrets'>
+        <p>Go to <strong>Replit → Secrets</strong> (lock icon in the sidebar). Add the Zoho app password as <code className="bg-gray-100 px-1 rounded">ZOHO_APP_PASSWORD</code>.</p>
       </Step>
 
-      <Step n={5} title="Restart the workflow">
+      <Step n={5} title="Restart and re-test">
         <p>Restart the app from the Shell tab, then tap the refresh icon ↻ here to confirm it's connected.</p>
       </Step>
 
@@ -83,7 +82,7 @@ const GmailSendSection: React.FC = () => {
         className="w-full flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold rounded-2xl bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm mt-2"
       >
         <ExternalLink className="h-4 w-4" />
-        Connect {OFFICE_EMAIL}
+        Re-test Zoho send
       </button>
     </div>
   );
@@ -137,7 +136,7 @@ const GmailSendSection: React.FC = () => {
             <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start gap-3 text-sm text-emerald-800">
               <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold">Gmail sending is active</p>
+                <p className="font-bold">Zoho sending is active</p>
                 <p className="text-xs mt-0.5 text-emerald-700">
                   Emails are sent from <strong>{OFFICE_EMAIL}</strong> with real PDF attachments — files arrive directly in the recipient's inbox.
                 </p>
@@ -150,8 +149,8 @@ const GmailSendSection: React.FC = () => {
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 text-sm text-amber-900">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-amber-600" />
               <div>
-                <p className="font-bold mb-1">One-time re-authorization needed</p>
-                <p className="text-xs leading-relaxed">Your Google account is connected but doesn't yet have email-sending permission. Follow the steps below — it takes about 30 seconds.</p>
+                <p className="font-bold mb-1">Zoho credentials needed</p>
+                <p className="text-xs leading-relaxed">Add the Zoho mailbox address and app password in Settings so the app can send mail directly.</p>
               </div>
             </div>
           )}
@@ -160,7 +159,7 @@ const GmailSendSection: React.FC = () => {
           {!status?.configured && (
             <div className="p-3 bg-blue-50 border border-blue-100 rounded-2xl text-xs text-blue-800 flex items-start gap-2">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-blue-600" />
-              <p>Connect <strong>{OFFICE_EMAIL}</strong> to send contract PDFs and letters directly from the app.</p>
+              <p>Connect <strong>{OFFICE_EMAIL}</strong> to send contract PDFs and letters directly from the app via Zoho.</p>
             </div>
           )}
 

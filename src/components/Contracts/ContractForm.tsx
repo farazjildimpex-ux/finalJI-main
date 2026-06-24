@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote, PenLine, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote, PenLine, CheckCircle2, Paperclip, Upload } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
-import type { Contact, Contract, Company } from '../../types';
+import type { Contact, Contract, Company, ContractFile } from '../../types';
 import DatePicker from '../UI/DatePicker';
 import FormRow, { CollapsibleFormSection, formInputClass, ModernRow, ModernSection, FGrid, FField, FSectionCard, roundedInputClass, roundedTextareaClass } from '../UI/FormRow';
 
@@ -10,6 +10,7 @@ import { generateContractWord, extractLetterheadImages } from '../../utils/contr
 import { loadCompanyLetterheadImages, urlToBase64 } from '../../utils/pdfLayoutConfig';
 import { useNavigate } from 'react-router-dom';
 import { dialogService } from '../../lib/dialogService';
+import { useAuth } from '../../hooks/useAuth';
 import SignaturePickerModal, { type PickedSignature } from '../UI/SignaturePickerModal';
 
 
@@ -22,6 +23,8 @@ const STATUS_COLORS: Record<string, string> = {
   Cancelled: 'bg-red-50 text-red-900 border-red-300',
 };
 const CURRENCY_OPTIONS = ['Euro', 'USD', 'INR'] as const;
+const ATTACHMENT_TYPES = ['Purchase Order', 'Letter of Credit', 'Packing List', 'Bill of Lading', 'Invoice', 'Other'] as const;
+const FIELD_LABEL = 'block text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1';
 
 interface ContractFormProps {
   initialContract?: Contract | null;
@@ -29,8 +32,10 @@ interface ContractFormProps {
 
 export default function ContractForm({ initialContract }: ContractFormProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
+  const [contractFiles, setContractFiles] = useState<ContractFile[]>([]);
   const [buyerSearch, setBuyerSearch] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [showBuyerDropdown, setShowBuyerDropdown] = useState(false);
@@ -42,6 +47,11 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
   const [showCompanyInPdf, setShowCompanyInPdf] = useState(true);
   const [companyLetterheadUrl, setCompanyLetterheadUrl] = useState<string | null>(null);
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  const [attachmentType, setAttachmentType] = useState<string>('Purchase Order');
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const [attachmentDeleting, setAttachmentDeleting] = useState<string | null>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState<Partial<Contract>>({
     company_name: '',
     contract_no: '',
@@ -95,6 +105,27 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     }
   }, [initialContract, companies]);
 
+  useEffect(() => {
+    const loadAttachments = async () => {
+      if (!initialContract?.id) {
+        setContractFiles([]);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('contract_files')
+        .select('*')
+        .eq('contract_id', initialContract.id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.error('Error fetching contract attachments:', error);
+        return;
+      }
+      setContractFiles((data || []) as ContractFile[]);
+    };
+
+    loadAttachments();
+  }, [initialContract?.id]);
+
 
   const fetchContacts = async () => {
     try {
@@ -144,6 +175,105 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         setSupplierSearch(contact.name);
         setShowSupplierDropdown(false);
       }
+    }
+  };
+
+  const openAttachment = async (file: ContractFile) => {
+    const { data } = supabase.storage.from('contract-files').getPublicUrl(file.file_path);
+    window.open(data.publicUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleAttachmentPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setAttachmentFile(file);
+  };
+
+  const handleAttachmentUpload = async () => {
+    if (!initialContract?.id) {
+      dialogService.alert({
+        title: 'Save contract first',
+        message: 'Please save the contract before adding attachments.',
+        tone: 'warning',
+      });
+      return;
+    }
+    if (!attachmentFile || !user) {
+      dialogService.alert({
+        title: 'Choose a file',
+        message: 'Select a document to upload.',
+        tone: 'warning',
+      });
+      return;
+    }
+
+    setAttachmentUploading(true);
+    try {
+      const safeName = attachmentFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `contracts/${initialContract.id}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from('contract-files')
+        .upload(storagePath, attachmentFile, { upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { error: insertError } = await supabase.from('contract_files').insert([{
+        contract_id: initialContract.id,
+        file_name: attachmentFile.name,
+        file_path: storagePath,
+        file_size: attachmentFile.size,
+        mime_type: attachmentFile.type || 'application/octet-stream',
+        document_type: attachmentType.trim() || 'Other',
+        uploaded_by: user.id,
+      }]);
+      if (insertError) throw insertError;
+
+      const { data, error } = await supabase
+        .from('contract_files')
+        .select('*')
+        .eq('contract_id', initialContract.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setContractFiles((data || []) as ContractFile[]);
+      setAttachmentFile(null);
+      setAttachmentType('Purchase Order');
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+      dialogService.success('Attachment uploaded.');
+    } catch (error: any) {
+      console.error('Error uploading attachment:', error);
+      dialogService.alert({
+        title: 'Upload failed',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      setAttachmentUploading(false);
+    }
+  };
+
+  const handleAttachmentDelete = async (file: ContractFile) => {
+    const ok = await dialogService.confirm({
+      title: 'Delete attachment?',
+      message: 'This file will be removed from the contract.',
+      confirmLabel: 'Delete',
+      tone: 'danger',
+    });
+    if (!ok) return;
+
+    setAttachmentDeleting(file.id);
+    try {
+      await supabase.storage.from('contract-files').remove([file.file_path]);
+      const { error } = await supabase.from('contract_files').delete().eq('id', file.id);
+      if (error) throw error;
+      setContractFiles(prev => prev.filter(item => item.id !== file.id));
+      dialogService.success('Attachment deleted.');
+    } catch (error: any) {
+      console.error('Error deleting attachment:', error);
+      dialogService.alert({
+        title: 'Delete failed',
+        message: error?.message || 'Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      setAttachmentDeleting(null);
     }
   };
 
@@ -635,6 +765,100 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         <FField label="Notes" span="full">
           {renderArrayList('important_notes', formData.important_notes, 'Important note', 'Add Note')}
         </FField>
+      </FSectionCard>
+
+      <FSectionCard title="Attachments" icon={Paperclip} accent="blue">
+        <div className="space-y-3">
+          {!initialContract?.id ? (
+            <div className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/60 px-4 py-3 text-sm text-blue-700">
+              Save the contract first, then add supporting documents like Purchase Orders or Letters of Credit.
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] items-end">
+                <div>
+                  <label className={FIELD_LABEL}>Document Type</label>
+                  <select
+                    value={attachmentType}
+                    onChange={(e) => setAttachmentType(e.target.value)}
+                    className={inputClassName}
+                  >
+                    {ATTACHMENT_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={FIELD_LABEL}>File</label>
+                  <input
+                    ref={attachmentInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                    onChange={handleAttachmentPick}
+                    className={inputClassName}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAttachmentUpload}
+                  disabled={attachmentUploading || !attachmentFile}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 shadow-sm"
+                >
+                  <Upload className="h-4 w-4" />
+                  {attachmentUploading ? 'Uploading…' : 'Upload'}
+                </button>
+              </div>
+
+              {attachmentFile && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{attachmentFile.name}</p>
+                    <p className="text-xs text-slate-500">
+                      {attachmentType || 'Other'} · {(attachmentFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setAttachmentFile(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ''; }}
+                    className="text-gray-400 hover:text-red-600"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                {contractFiles.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-5 text-sm text-slate-400">
+                    No attachments added yet.
+                  </div>
+                ) : contractFiles.map((file) => (
+                  <div key={file.id} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+                    <button type="button" onClick={() => openAttachment(file)} className="min-w-0 text-left flex-1">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 shrink-0">
+                          {file.document_type || 'Other'}
+                        </span>
+                        <p className="text-sm font-semibold text-slate-800 truncate">{file.file_name}</p>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">
+                        {file.mime_type || 'File'}{file.file_size ? ` · ${(file.file_size / 1024 / 1024).toFixed(2)} MB` : ''}
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAttachmentDelete(file)}
+                      disabled={attachmentDeleting === file.id}
+                      className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {attachmentDeleting === file.id ? <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
       </FSectionCard>
 
       <FSectionCard title="Signature" icon={PenLine} accent="indigo">
