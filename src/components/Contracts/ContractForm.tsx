@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote, PenLine, CheckCircle2, Paperclip, Upload } from 'lucide-react';
+import { Save, FileDown, Copy, ChevronDown, Trash2, X, Plus, ClipboardList, User, Building2, Package, LayoutGrid, Truck, StickyNote, PenLine, CheckCircle2, Paperclip, Upload, FileText, File as FileIcon, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import type { Contact, Contract, Company, ContractFile } from '../../types';
 import DatePicker from '../UI/DatePicker';
@@ -191,6 +191,21 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const getAttachmentIcon = (mimeType?: string | null) => {
+    const mime = (mimeType || '').toLowerCase();
+    if (mime.startsWith('image/')) return ImageIcon;
+    if (mime.includes('pdf') || mime.includes('word') || mime.includes('text') || mime.includes('sheet') || mime.includes('excel')) return FileText;
+    return FileIcon;
+  };
+
+  const getAttachmentTone = (mimeType?: string | null) => {
+    const mime = (mimeType || '').toLowerCase();
+    if (mime.startsWith('image/')) return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    if (mime.includes('pdf')) return 'bg-rose-50 text-rose-600 border-rose-200';
+    if (mime.includes('sheet') || mime.includes('excel')) return 'bg-amber-50 text-amber-700 border-amber-200';
+    return 'bg-slate-50 text-slate-600 border-slate-200';
   };
 
   const handleAttachmentUpload = async () => {
@@ -779,54 +794,74 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
             </div>
           ) : (
             <>
-              <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                  onChange={handleAttachmentPick}
+                  className="sr-only"
+                />
+
+                <div className="flex items-center justify-between gap-3 mb-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-slate-900">Upload document</p>
+                    <p className="text-sm font-semibold text-slate-900">Files</p>
                     <p className="text-xs text-slate-500 mt-0.5">
                       Rename the file first, then upload it here.
                     </p>
                   </div>
-                  <span className="hidden sm:inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
+                  <span className="inline-flex items-center gap-2 rounded-full bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
                     <Paperclip className="h-3.5 w-3.5" />
                     {contractFiles.length} file{contractFiles.length === 1 ? '' : 's'}
                   </span>
                 </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <div className="flex-1">
-                    <label className={FIELD_LABEL}>File</label>
-                    <input
-                      ref={attachmentInputRef}
-                      type="file"
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                      onChange={handleAttachmentPick}
-                      className={`${inputClassName} file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-slate-700 hover:file:bg-slate-200`}
-                    />
-                  </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => attachmentInputRef.current?.click()}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2.5 text-left hover:bg-slate-100 transition"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
+                      <FileIcon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {attachmentFile ? attachmentFile.name : 'Choose a file'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                        {attachmentFile ? `${formatBytes(attachmentFile.size)} ready to upload` : 'PDF, image, spreadsheet, or document'}
+                      </p>
+                    </div>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleAttachmentUpload}
                     disabled={attachmentUploading || !attachmentFile}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 disabled:opacity-50 shadow-sm"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 sm:min-w-[118px]"
                   >
                     <Upload className="h-4 w-4" />
-                    {attachmentUploading ? 'Uploading…' : 'Upload file'}
+                    {attachmentUploading ? 'Uploading…' : 'Upload'}
                   </button>
                 </div>
 
                 {attachmentFile && (
-                  <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{attachmentFile.name}</p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {formatBytes(attachmentFile.size)} · ready to upload
-                      </p>
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getAttachmentTone(attachmentFile.type)}`}>
+                        {React.createElement(getAttachmentIcon(attachmentFile.type), { className: 'h-4 w-4' })}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{attachmentFile.name}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">{formatBytes(attachmentFile.size)} ready</p>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => { setAttachmentFile(null); if (attachmentInputRef.current) attachmentInputRef.current.value = ''; }}
-                      className="inline-flex items-center justify-center w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white transition"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+                      aria-label="Clear selected file"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -834,39 +869,41 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
                 )}
               </div>
 
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="rounded-3xl border border-slate-200 bg-white px-3 py-2 shadow-sm">
+                <div className="flex items-center justify-between gap-3 px-1 py-1.5">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Uploaded documents</p>
-                    <p className="text-xs text-slate-500 mt-0.5">Tap a file to open it in a new window.</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Uploaded files</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Open any file in a new window.</p>
                   </div>
-                  <span className="text-[11px] font-semibold text-slate-500">
-                    {contractFiles.length} total
-                  </span>
+                  <span className="text-[11px] font-semibold text-slate-500">{contractFiles.length} total</span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {contractFiles.length === 0 ? (
-                    <div className="rounded-2xl border border-slate-100 bg-white px-4 py-5 text-sm text-slate-400 text-center">
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4 text-sm text-slate-400 text-center">
                       No attachments added yet.
                     </div>
                   ) : contractFiles.map((file) => (
                     <div
                       key={file.id}
-                      className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-slate-300 transition"
+                      className="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5 transition hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <button type="button" onClick={() => openAttachment(file)} className="min-w-0 text-left flex-1">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{file.file_name}</p>
-                        <p className="text-xs text-slate-400 mt-1">
-                          {file.mime_type || 'File'}
-                          {file.file_size ? ` · ${formatBytes(file.file_size)}` : ''}
-                        </p>
+                      <button type="button" onClick={() => openAttachment(file)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${getAttachmentTone(file.mime_type)}`}>
+                          {React.createElement(getAttachmentIcon(file.mime_type), { className: 'h-4 w-4' })}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-slate-800 truncate">{file.file_name}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {file.file_size ? `${formatBytes(file.file_size)}` : 'File'}
+                          </p>
+                        </div>
                       </button>
                       <button
                         type="button"
                         onClick={() => handleAttachmentDelete(file)}
                         disabled={attachmentDeleting === file.id}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
                         title="Delete file"
                       >
                         {attachmentDeleting === file.id ? <div className="h-4 w-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin" /> : <Trash2 className="h-4 w-4" />}
