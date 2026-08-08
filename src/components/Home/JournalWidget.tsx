@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, CalendarClock, FileText, Bookmark } from 'lucide-react';
 import { addDays, format } from 'date-fns';
-import type { JournalEntry } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import type { JournalEntry, Order } from '../../types';
 import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryCard from '../Journal/JournalEntryCard';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
@@ -14,17 +15,32 @@ interface JournalWidgetProps {
   entries: JournalEntry[];
   loading: boolean;
   onEntriesUpdated: () => void;
+  orders?: Order[];
   /** When true, hides the "Journal" heading + New Entry button */
   hideHeader?: boolean;
-  /** When true, removes the inner card border/bg/shadow — use when embedded in an outer card */
+  /** When true, removes the inner card border/bg/shadow â€” use when embedded in an outer card */
   noCard?: boolean;
 }
 
 const SWIPE_THRESHOLD = 50;
 
+type DueItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: 'contract' | 'sample';
+  route: string;
+};
+
 const JournalWidget: React.FC<JournalWidgetProps> = ({
-  entries, loading, onEntriesUpdated, hideHeader = false, noCard = false,
+  entries,
+  loading,
+  onEntriesUpdated,
+  orders = [],
+  hideHeader = false,
+  noCard = false,
 }) => {
+  const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
@@ -32,6 +48,31 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   const selectedDateKey = useMemo(() => format(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+
+  const dueItems = useMemo<DueItem[]>(() => {
+    const items: DueItem[] = [];
+    orders.forEach((order) => {
+      if (order.type === 'contract' && order.contractData?.delivery_date === selectedDateKey) {
+        items.push({
+          id: `contract-${order.id}`,
+          title: order.contractNumber,
+          subtitle: order.supplierName || order.contractData?.buyer_name || 'Contract delivery',
+          type: 'contract',
+          route: `/app/contracts/${order.id}`,
+        });
+      }
+      if (order.type === 'sample' && order.sampleData?.due_date === selectedDateKey) {
+        items.push({
+          id: `sample-${order.id}`,
+          title: order.contractNumber,
+          subtitle: order.supplierName || order.sampleData?.company_name || 'Sample due',
+          type: 'sample',
+          route: `/app/samples/${order.id}`,
+        });
+      }
+    });
+    return items;
+  }, [orders, selectedDateKey]);
 
   const selectedDayEntries = useMemo(
     () => entries.filter(e => e.entry_date === selectedDateKey),
@@ -69,7 +110,6 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
         </div>
       )}
 
-      {/* Date navigation — minimal chevrons, swipe is the primary gesture */}
       <div className="flex items-center gap-1 mb-2">
         <button
           onClick={() => handleDateChange(addDays(selectedDate, -1))}
@@ -94,7 +134,6 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
         </button>
       </div>
 
-      {/* Entries container — noCard removes border/bg/shadow for embedding in an outer card */}
       <div
         className={noCard
           ? ''
@@ -102,6 +141,43 @@ const JournalWidget: React.FC<JournalWidgetProps> = ({
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
+        {dueItems.length > 0 && (
+          <div className="mb-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <CalendarClock className="h-4 w-4 text-blue-600" />
+              <p className="text-[12px] font-bold text-blue-900">Due on this date</p>
+            </div>
+            <div className="space-y-2">
+              {dueItems.map((item) => {
+                const Icon = item.type === 'contract' ? FileText : Bookmark;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => navigate(item.route)}
+                    className="w-full rounded-xl border border-blue-100 bg-white px-3 py-2.5 text-left transition hover:border-blue-200 hover:bg-blue-50/60"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[12px] font-bold text-slate-900 truncate">{item.title}</p>
+                          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                            {item.type === 'contract' ? 'Delivery' : 'Due'}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-slate-500 truncate">{item.subtitle}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-4 text-gray-500">
             <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-200 border-t-gray-400 mx-auto mb-2" />

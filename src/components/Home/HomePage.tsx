@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Search, X, ChevronRight, AlertCircle,
-  FileText, Bookmark, Receipt, Edit2, Trash2, GitBranch,
+  FileText, Bookmark, Receipt, Edit2, Trash2, GitBranch, CalendarClock,
   Pin, CheckCircle2, GripVertical,
 } from 'lucide-react';
 import RecentOrdersList from './RecentOrdersList';
@@ -230,6 +230,21 @@ const HomePage: React.FC = () => {
   }, [journalEntries, searchTerm]);
 
   const mobileJournalDateKey = useMemo(() => toDateKey(mobileJournalDate), [mobileJournalDate]);
+
+  const mobileJournalDueItems = useMemo(() => {
+    return orders
+      .filter(order =>
+        (order.type === 'contract' && order.contractData?.delivery_date === mobileJournalDateKey) ||
+        (order.type === 'sample' && order.sampleData?.due_date === mobileJournalDateKey)
+      )
+      .map(order => ({
+        id: `${order.type}-${order.id}`,
+        type: order.type,
+        title: order.contractNumber,
+        subtitle: order.supplierName || (order.type === 'contract' ? order.contractData?.buyer_name : order.sampleData?.company_name) || 'Open record',
+        route: order.type === 'contract' ? `/app/contracts/${order.id}` : `/app/samples/${order.id}`,
+      }));
+  }, [orders, mobileJournalDateKey]);
 
   const activeFollowUps = useMemo(
     () => journalEntries
@@ -805,6 +820,42 @@ const HomePage: React.FC = () => {
               </div>
 
               <div className={`px-4 pt-2 space-y-1 ${followUpReorderMode ? 'pb-28' : 'pb-2'}`}>
+                {mobileJournalDueItems.length > 0 && (
+                  <div className="mb-2 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CalendarClock className="h-4 w-4 text-blue-600" />
+                      <p className="text-[12px] font-bold text-blue-900">Due on this date</p>
+                    </div>
+                    <div className="space-y-2">
+                      {mobileJournalDueItems.map(item => {
+                        const Icon = item.type === 'contract' ? FileText : Bookmark;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => navigate(item.route)}
+                            className="w-full rounded-xl border border-blue-100 bg-white px-3 py-2.5 text-left active:bg-blue-50 transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                <Icon className="h-4 w-4" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-[12px] font-bold text-slate-900 truncate">{item.title}</p>
+                                  <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
+                                    {item.type === 'contract' ? 'Delivery' : 'Due'}
+                                  </span>
+                                </div>
+                                <p className="mt-0.5 text-[11px] text-slate-500 truncate">{item.subtitle}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {journalLoading ? (
                   <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
                     <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
@@ -1024,6 +1075,7 @@ const HomePage: React.FC = () => {
                   entries={journalEntries}
                   loading={journalLoading}
                   onEntriesUpdated={fetchJournalEntries}
+                  orders={orders}
                   hideHeader
                   noCard
                 />
