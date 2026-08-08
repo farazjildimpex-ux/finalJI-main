@@ -48,7 +48,9 @@ export async function suggestJournalLink(
   let provider = localStorage.getItem('jild_ai_provider') || 'google';
   let apiKey = provider === 'google'
     ? localStorage.getItem('jild_google_key')
-    : localStorage.getItem('jild_openai_key');
+    : provider === 'openrouter'
+      ? localStorage.getItem('jild_openrouter_key')
+      : localStorage.getItem('jild_openai_key');
 
   if ((!apiKey || !apiKey.trim()) && localStorage.getItem('jild_google_key')?.trim()) {
     provider = 'google';
@@ -80,15 +82,23 @@ export async function suggestJournalLink(
         }),
       });
     } else {
-      // OpenAI
-      const model = localStorage.getItem('jild_openai_model') || 'gpt-4o-mini';
-      const url = 'https://api.openai.com/v1/chat/completions';
+      const isOpenRouter = provider === 'openrouter';
+      const model = isOpenRouter
+        ? localStorage.getItem('jild_openrouter_model') || 'google/gemini-2.5-flash'
+        : localStorage.getItem('jild_openai_model') || 'gpt-4o-mini';
+      const url = isOpenRouter
+        ? 'https://openrouter.ai/api/v1/chat/completions'
+        : 'https://api.openai.com/v1/chat/completions';
       
       resp = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${apiKey}`,
+          ...(isOpenRouter ? {
+            'HTTP-Referer': window.location.origin,
+            'X-Title': 'JILD IMPEX',
+          } : {}),
         },
         body: JSON.stringify({
           model,

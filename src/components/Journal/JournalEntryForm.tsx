@@ -120,11 +120,9 @@ const JournalEntryForm: React.FC<{
   return (
     <div
       className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm animate-in fade-in duration-200"
-      onClick={onClose}
     >
       <div
         className="bg-white shadow-2xl w-full max-w-md flex flex-col max-h-[min(92dvh,720px)] overflow-hidden rounded-[28px] animate-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">

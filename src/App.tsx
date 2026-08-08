@@ -15,6 +15,7 @@ import SampleBookPage from './components/SampleBook/SampleBookPage';
 import SettingsPage from './components/Settings/SettingsPage';
 import ApprovalsPage from './components/Approvals/ApprovalsPage';
 import EmailTemplatesPage from './components/EmailTemplates/EmailTemplatesPage';
+import EmailInboxPage from './components/Email/EmailInboxPage';
 import SalesPage from './components/Sales/SalesPage';
 import PdfLayoutEditor from './components/PdfEditor/PdfLayoutEditor';
 import CalendarPage from './components/Calendar/CalendarPage';
@@ -49,6 +50,7 @@ function App() {
             <Route path="debit-notes" element={<DebitNotePage />} />
             <Route path="debit-notes/:id" element={<DebitNotePage />} />
             <Route path="sales" element={<SalesPage />} />
+            <Route path="email" element={<EmailInboxPage />} />
             <Route path="email-templates" element={<EmailTemplatesPage />} />
             <Route path="calendar" element={<CalendarPage />} />
             <Route path="settings" element={<SettingsPage />} />

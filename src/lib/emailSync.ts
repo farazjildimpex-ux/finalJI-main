@@ -206,6 +206,70 @@ async function callOpenAI(
   }
 }
 
+async function callOpenRouter(
+  email: EmailData,
+  contracts: Contract[],
+  apiKey: string
+): Promise<ExtractedInvoice[]> {
+  const knownContracts = contracts.map((c) => c.contract_no).join(', ') || 'none yet';
+  const prompt = buildPrompt(knownContracts);
+  const model = localStorage.getItem('jild_openrouter_model') || 'google/gemini-2.5-flash';
+
+  const contentParts: any[] = [
+    { type: 'text', text: prompt + '\n\nDATA TO ANALYZE:\n' + emailHeaderText(email) },
+  ];
+
+  for (const a of email.attachments) {
+    if (a.dataBase64 && (a.mimeType?.startsWith('image/') || a.type === 'image')) {
+      contentParts.push({
+        type: 'image_url',
+        image_url: {
+          url: `data:${a.mimeType || 'image/jpeg'};base64,${a.dataBase64}`,
+        },
+      });
+    }
+  }
+
+  const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+      'HTTP-Referer': window.location.origin,
+      'X-Title': 'JILD IMPEX',
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: contentParts }],
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  if (!resp.ok) {
+    let detail = '';
+    try { detail = (await resp.text()).slice(0, 400); } catch {}
+    throw new Error(
+      `OpenRouter request failed (${resp.status}). ${detail || 'Check your OpenRouter key and model.'}`
+    );
+  }
+
+  const data = await resp.json();
+  const content = data.choices?.[0]?.message?.content || '';
+
+  try {
+    let jsonStr = content.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    if (!jsonStr.startsWith('{')) {
+      const m = jsonStr.match(/\{[\s\S]*\}/);
+      if (m) jsonStr = m[0];
+    }
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed.invoices) ? parsed.invoices : [];
+  } catch {
+    throw new Error('OpenRouter returned data in an unexpected format. Raw: ' + content.slice(0, 200));
+  }
+}
+
 export async function approveExtractedInvoice(
   inv: ExtractedInvoice,
   userId: string,
@@ -319,7 +383,7 @@ async function previewOne(inv: ExtractedInvoice): Promise<SyncResult> {
   };
 }
 
-export type AIProvider = 'google' | 'openai';
+export type AIProvider = 'google' | 'openai' | 'openrouter';
 
 export interface AICredentials {
   provider: AIProvider;
@@ -346,7 +410,9 @@ export async function syncEmailsWithLog(
     try {
       extracted = credentials.provider === 'google'
         ? await callGoogleGemini(email, contracts, credentials.apiKey)
-        : await callOpenAI(email, contracts, credentials.apiKey);
+        : credentials.provider === 'openrouter'
+          ? await callOpenRouter(email, contracts, credentials.apiKey)
+          : await callOpenAI(email, contracts, credentials.apiKey);
         
       if (extracted.length === 0) {
         status = 'no_invoices';

@@ -7,16 +7,18 @@ import {
 } from 'lucide-react';
 import RecentOrdersList from './RecentOrdersList';
 import JournalWidget from './JournalWidget';
+import EmailPreviewSection from '../Email/EmailPreviewSection';
 import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
 import PullToRefresh from '../UI/PullToRefresh';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
-import type { Order, JournalEntry } from '../../types';
+import type { Order, JournalEntry, Invoice } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
 import { suggestJournalLink } from '../../lib/journalAI';
 import StatusChangePopup from '../UI/StatusChangePopup';
 import { updateOrderStatus } from '../../utils/orderStatus';
 import { dialogService } from '../../lib/dialogService';
+import { buildJournalDueItems, type JournalDueItem } from '../../lib/journalDueItems';
 
 /* ── helpers ─────────────────────────────────────────────────── */
 function getGreeting() {
@@ -69,6 +71,13 @@ const TYPE_ICON: Record<string, { Icon: any; bg: string; iconCls: string }> = {
   debit_note: { Icon: Receipt,  bg: 'bg-emerald-50',iconCls: 'text-emerald-600'},
 };
 
+const DUE_THEME: Record<string, { Icon: any; wrap: string; icon: string; badge: string }> = {
+  contract:   { Icon: FileText, wrap: 'border-blue-100 bg-blue-50/70',       icon: 'bg-white text-blue-600 border-blue-100',       badge: 'bg-blue-100 text-blue-700' },
+  sample:     { Icon: Bookmark, wrap: 'border-sky-100 bg-sky-50/70',         icon: 'bg-white text-sky-600 border-sky-100',         badge: 'bg-sky-100 text-sky-700' },
+  debit_note: { Icon: Receipt,  wrap: 'border-emerald-100 bg-emerald-50/70', icon: 'bg-white text-emerald-600 border-emerald-100', badge: 'bg-emerald-100 text-emerald-700' },
+  invoice:    { Icon: Receipt,  wrap: 'border-amber-100 bg-amber-50/70',     icon: 'bg-white text-amber-600 border-amber-100',     badge: 'bg-amber-100 text-amber-700' },
+};
+
 const STATUS_BADGE: Record<string, string> = {
   issued:    'text-blue-700 bg-blue-50 border border-blue-100',
   inspected: 'text-amber-700 bg-amber-50 border border-amber-100',
@@ -99,6 +108,7 @@ const HomePage: React.FC = () => {
   const [desktopJournalPage, setDesktopJournalPage] = useState(1);
 
   const [orders,          setOrders]         = useState<Order[]>([]);
+  const [invoiceDeliveries, setInvoiceDeliveries] = useState<Invoice[]>([]);
   const [journalEntries,  setJournalEntries] = useState<JournalEntry[]>([]);
   const [loading,         setLoading]        = useState(true);
   const [journalLoading,  setJournalLoading] = useState(true);
@@ -128,14 +138,21 @@ const HomePage: React.FC = () => {
     if (!isSupabaseConfigured) { setLoading(false); return; }
     try {
       setLoading(true); setError(null);
-      const [cR, sR, dR] = await Promise.all([
+      const [cR, sR, dR, iR] = await Promise.all([
         supabase.from('contracts').select('*').order('contract_date',     { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
         supabase.from('samples').select('*').order('date',                { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
         supabase.from('debit_notes').select('*').order('debit_note_date', { ascending: false, nullsFirst: false }).order('created_at', { ascending: false }).limit(200),
+        supabase.from('invoices').select('*').not('delivery_date', 'is', null).order('delivery_date', { ascending: false, nullsFirst: false }).limit(200),
       ]);
       if (cR.error) throw cR.error;
       if (sR.error) throw sR.error;
       if (dR.error) throw dR.error;
+      if (iR.error) {
+        console.warn('Invoice delivery query skipped:', iR.error.message);
+        setInvoiceDeliveries([]);
+      } else {
+        setInvoiceDeliveries((iR.data || []) as Invoice[]);
+      }
       const c: Order[] = (cR.data||[]).map(c=>({ id:c.id,  contractNumber:c.contract_no,   supplierName:c.supplier_name, article:c.article||'',     color:c.color?.join(', ')||'', date:c.contract_date,   createdAt:c.created_at, status:c.status, type:'contract',   contractData:c }));
       const s: Order[] = (sR.data||[]).map(s=>({ id:s.id!, contractNumber:s.sample_number, supplierName:s.supplier_name, article:s.description||'', color:s.company_name||'',      date:s.date,            createdAt:s.created_at, status:s.status, type:'sample',    sampleData:s }));
       const d: Order[] = (dR.data||[]).map(d=>({ id:d.id!, contractNumber:d.debit_note_no, supplierName:d.supplier_name, article:d.contract_no||'', color:d.invoice_no||'',        date:d.debit_note_date, createdAt:d.created_at, status:d.status, type:'debit_note', debitNoteData:d }));
@@ -231,20 +248,10 @@ const HomePage: React.FC = () => {
 
   const mobileJournalDateKey = useMemo(() => toDateKey(mobileJournalDate), [mobileJournalDate]);
 
-  const mobileJournalDueItems = useMemo(() => {
-    return orders
-      .filter(order =>
-        (order.type === 'contract' && order.contractData?.delivery_date === mobileJournalDateKey) ||
-        (order.type === 'sample' && order.sampleData?.due_date === mobileJournalDateKey)
-      )
-      .map(order => ({
-        id: `${order.type}-${order.id}`,
-        type: order.type,
-        title: order.contractNumber,
-        subtitle: order.supplierName || (order.type === 'contract' ? order.contractData?.buyer_name : order.sampleData?.company_name) || 'Open record',
-        route: order.type === 'contract' ? `/app/contracts/${order.id}` : `/app/samples/${order.id}`,
-      }));
-  }, [orders, mobileJournalDateKey]);
+  const mobileJournalDueItems = useMemo(
+    () => buildJournalDueItems(orders, mobileJournalDateKey, invoiceDeliveries),
+    [orders, mobileJournalDateKey, invoiceDeliveries],
+  );
 
   const activeFollowUps = useMemo(
     () => journalEntries
@@ -542,6 +549,44 @@ const HomePage: React.FC = () => {
     </div>
   );
 
+  const renderDueItems = (items: JournalDueItem[]) => {
+    if (items.length === 0) return null;
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 px-0.5">
+          <CalendarClock className="h-3.5 w-3.5 text-blue-600" />
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due on this date</p>
+        </div>
+        {items.map(item => {
+          const theme = DUE_THEME[item.type] || DUE_THEME.contract;
+          const Icon = theme.Icon;
+          return (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.route)}
+              className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors active:scale-[0.99] hover:border-blue-200 ${theme.wrap}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${theme.icon}`}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[12px] font-bold text-slate-900 truncate">{item.title}</p>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${theme.badge}`}>
+                      {item.label}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-slate-500 truncate">{item.subtitle}</p>
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
   const renderJournalEntryCard = (entry: JournalEntry, useDesktopForm = false, enableFollowUpLongPress = false) => {
     const isOpen = mobileOpenEntryId === entry.id;
     const isHighlighted = highlightedJournalEntryId === entry.id;
@@ -771,6 +816,13 @@ const HomePage: React.FC = () => {
               </button>
             </div>
 
+            <div className="mt-2">
+              <EmailPreviewSection
+                compact
+                onOpenPage={() => navigate('/app/email')}
+              />
+            </div>
+
             <section className="mt-1.5 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
               <div className="px-4 py-3 flex items-center justify-between gap-4 border-b border-gray-100">
                 <div className="min-w-0">
@@ -820,41 +872,7 @@ const HomePage: React.FC = () => {
               </div>
 
               <div className={`px-4 pt-2 space-y-1 ${followUpReorderMode ? 'pb-28' : 'pb-2'}`}>
-                {mobileJournalDueItems.length > 0 && (
-                  <div className="mb-2 rounded-2xl border border-blue-100 bg-blue-50/60 p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CalendarClock className="h-4 w-4 text-blue-600" />
-                      <p className="text-[12px] font-bold text-blue-900">Due on this date</p>
-                    </div>
-                    <div className="space-y-2">
-                      {mobileJournalDueItems.map(item => {
-                        const Icon = item.type === 'contract' ? FileText : Bookmark;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => navigate(item.route)}
-                            className="w-full rounded-xl border border-blue-100 bg-white px-3 py-2.5 text-left active:bg-blue-50 transition-colors"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className="h-8 w-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                                <Icon className="h-4 w-4" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-[12px] font-bold text-slate-900 truncate">{item.title}</p>
-                                  <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700">
-                                    {item.type === 'contract' ? 'Delivery' : 'Due'}
-                                  </span>
-                                </div>
-                                <p className="mt-0.5 text-[11px] text-slate-500 truncate">{item.subtitle}</p>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                {renderDueItems(mobileJournalDueItems)}
 
                 {journalLoading ? (
                   <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
@@ -1493,6 +1511,8 @@ const HomePage: React.FC = () => {
                       }
                     }}
                   >
+                    {renderDueItems(mobileJournalDueItems)}
+
                     {journalLoading ? (
                       <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
                         <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
@@ -1512,10 +1532,17 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* RIGHT: Recent Activity */}
-          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 h-full">
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden gap-3">
+            <EmailPreviewSection onOpenPage={() => navigate('/app/email')} className="shrink-0" />
+
+            <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
               <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-                <h2 className="text-[15px] font-bold text-gray-900 leading-tight mb-2.5">Recent Activity</h2>
+                <div className="flex items-start justify-between gap-3 mb-2.5">
+                  <div>
+                    <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Recent Activity</h2>
+                    <p className="mt-0.5 text-[11px] font-medium text-gray-400">Work queue and recent records</p>
+                  </div>
+                </div>
                 <div className="flex gap-1.5 flex-wrap">
                   {FILTERS.map(f => (
                     <button

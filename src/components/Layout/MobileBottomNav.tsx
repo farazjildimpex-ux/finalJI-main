@@ -18,9 +18,9 @@ const PRIMARY_TABS = [
 
 const CONTROL_CENTER_ITEMS = [
   { name: 'Home',       path: '/app/home',              icon: Home,           color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
+  { name: 'Email',      path: '/app/email',             icon: Mail,           color: '#0F766E', bg: 'rgba(15,118,110,0.12)' },
   { name: 'Contacts',   path: '/app/contacts',          icon: Users,          color: '#7C3AED', bg: 'rgba(124,58,237,0.12)' },
   { name: 'Lead IQ',    path: '/app/sales',             icon: Zap,            color: '#EA580C', bg: 'rgba(234,88,12,0.12)' },
-  { name: 'Email Templates', path: '/app/email-templates', icon: Mail,        color: '#DB2777', bg: 'rgba(219,39,119,0.12)' },
   { name: 'Calendar',   path: '/app/calendar',          icon: CalendarDays,   color: '#0891B2', bg: 'rgba(8,145,178,0.12)' },
   { name: 'Contracts',  path: '/app/contracts',         icon: FileText,       color: '#4F46E5', bg: 'rgba(79,70,229,0.12)' },
   { name: 'Letters',    path: '/app/samples',           icon: Bookmark,       color: '#2563EB', bg: 'rgba(37,99,235,0.12)' },
@@ -40,7 +40,7 @@ const MobileBottomNav: React.FC = () => {
   };
 
   const isMoreActive = showMore || CONTROL_CENTER_ITEMS.some(i => {
-    if (i.path === '/app/home') return location.pathname === '/app/home';
+    if (i.path === '/app/home' || i.path === '/app/email') return location.pathname === i.path;
     return location.pathname.startsWith(i.path);
   });
 
@@ -127,7 +127,7 @@ const MobileBottomNav: React.FC = () => {
                 <p className="text-[13px] font-bold text-slate-500 tracking-wide">Quick Access</p>
               </div>
 
-              <div className="px-4 pb-4 grid grid-cols-4 gap-2.5">
+              <div className="px-4 pb-4 grid grid-cols-3 gap-2.5">
                 {CONTROL_CENTER_ITEMS.map((item) => {
                   const Icon = item.icon;
                   const isActive = item.path === '/app/home'

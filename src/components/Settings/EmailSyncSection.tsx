@@ -29,9 +29,11 @@ const OPENAI_KEY_STORAGE = 'jild_openai_key';
 const OPENAI_MODEL_STORAGE = 'jild_openai_model';
 const GOOGLE_KEY_STORAGE = 'jild_google_key';
 const GOOGLE_MODEL_STORAGE = 'jild_google_model';
+const OPENROUTER_KEY_STORAGE = 'jild_openrouter_key';
+const OPENROUTER_MODEL_STORAGE = 'jild_openrouter_model';
 const PROVIDER_STORAGE = 'jild_ai_provider';
 
-type Provider = 'google' | 'openai';
+type Provider = 'google' | 'openai' | 'openrouter';
 
 // Direct Google AI Studio models — free tier: 1,500 requests/day, native PDF reading.
 const GOOGLE_MODELS = [
@@ -44,6 +46,12 @@ const GOOGLE_MODELS = [
 const OPENAI_MODELS = [
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini — very cheap, fast, great reasoning · recommended' },
   { value: 'gpt-4o',      label: 'GPT-4o — smartest model, best for complex invoices' },
+];
+
+const OPENROUTER_MODELS = [
+  { value: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash via OpenRouter - recommended' },
+  { value: 'openai/gpt-4o-mini', label: 'GPT-4o Mini via OpenRouter - fast' },
+  { value: 'anthropic/claude-3.5-sonnet', label: 'Claude 3.5 Sonnet via OpenRouter - strong writing' },
 ];
 
 const StatusBadge: React.FC<{ action: SyncResult['action'] }> = ({ action }) => {
@@ -101,12 +109,22 @@ const EmailSyncSection: React.FC = () => {
   const [openaiModel, setOpenaiModel] = useState<string>(
     () => localStorage.getItem(OPENAI_MODEL_STORAGE) || 'gpt-4o-mini'
   );
+  const [openrouterKey, setOpenrouterKey] = useState<string>(
+    () => localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
+  );
+  const [openrouterModel, setOpenrouterModel] = useState<string>(
+    () => localStorage.getItem(OPENROUTER_MODEL_STORAGE) || 'google/gemini-2.5-flash'
+  );
   const [showKey, setShowKey] = useState(false);
   const [keySaved, setKeySaved] = useState(false);
 
 
 
-  const activeKey = provider === 'google' ? googleKey : openaiKey;
+  const activeKey = provider === 'google'
+    ? googleKey
+    : provider === 'openrouter'
+      ? openrouterKey
+      : openaiKey;
 
   const [showSetup, setShowSetup] = useState(false);
 
@@ -184,6 +202,10 @@ const EmailSyncSection: React.FC = () => {
       if (!googleKey.trim()) return;
       localStorage.setItem(GOOGLE_KEY_STORAGE, googleKey.trim());
       localStorage.setItem(GOOGLE_MODEL_STORAGE, googleModel);
+    } else if (provider === 'openrouter') {
+      if (!openrouterKey.trim()) return;
+      localStorage.setItem(OPENROUTER_KEY_STORAGE, openrouterKey.trim());
+      localStorage.setItem(OPENROUTER_MODEL_STORAGE, openrouterModel);
     } else {
       if (!openaiKey.trim()) return;
       localStorage.setItem(OPENAI_KEY_STORAGE, openaiKey.trim());
@@ -203,6 +225,11 @@ const EmailSyncSection: React.FC = () => {
     localStorage.setItem(GOOGLE_MODEL_STORAGE, model);
   };
 
+  const handleOpenrouterModelChange = (model: string) => {
+    setOpenrouterModel(model);
+    localStorage.setItem(OPENROUTER_MODEL_STORAGE, model);
+  };
+
   const handleProviderChange = (next: Provider) => {
     setProvider(next);
     localStorage.setItem(PROVIDER_STORAGE, next);
@@ -214,6 +241,7 @@ const EmailSyncSection: React.FC = () => {
     if (!key) { setShowSetup(true); return; }
     if (gmailStatus !== 'ok') { setShowSetup(true); return; }
     if (provider === 'google') localStorage.setItem(GOOGLE_KEY_STORAGE, key);
+    else if (provider === 'openrouter') localStorage.setItem(OPENROUTER_KEY_STORAGE, key);
     else localStorage.setItem(OPENAI_KEY_STORAGE, key);
 
     setRunning(true); setSyncError(null); setResults(null); setScans(null); setStage('fetching');
@@ -251,8 +279,7 @@ const EmailSyncSection: React.FC = () => {
     : stage === 'saving' ? 'Saving invoices to database…'
     : '';
 
-  const hasClientCreds = !missing.GOOGLE_CLIENT_ID && !missing.GOOGLE_CLIENT_SECRET;
-  const needsRefresh = hasClientCreds && missing.GOOGLE_REFRESH_TOKEN;
+  const hasZohoSecrets = !missing.ZOHO_EMAIL_ADDRESS && !missing.ZOHO_APP_PASSWORD;
 
   return (
     <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
@@ -472,7 +499,7 @@ const EmailSyncSection: React.FC = () => {
 
               <div className="ml-7 space-y-3">
                 {/* Provider toggle */}
-                <div className="grid grid-cols-2 gap-1.5 p-1 bg-gray-100 rounded-xl">
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-100 rounded-xl">
                   <button
                     onClick={() => handleProviderChange('google')}
                     className={`px-3 py-2 text-[11px] font-bold rounded-lg transition-colors ${
@@ -490,6 +517,15 @@ const EmailSyncSection: React.FC = () => {
                   >
                     OpenAI (GPT-4o)
                     <span className="block text-[9px] font-normal text-gray-500 mt-0.5">Paid · reliable · best reasoning</span>
+                  </button>
+                  <button
+                    onClick={() => handleProviderChange('openrouter')}
+                    className={`px-3 py-2 text-[11px] font-bold rounded-lg transition-colors ${
+                      provider === 'openrouter' ? 'bg-white text-violet-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    OpenRouter
+                    <span className="block text-[9px] font-normal text-blue-600 mt-0.5">One key, many models</span>
                   </button>
                 </div>
 
@@ -585,6 +621,53 @@ const EmailSyncSection: React.FC = () => {
                         <strong>Stable &amp; Smart:</strong> OpenAI is the industry leader for stability. GPT-4o-mini is
                         extremely cheap and fast, while GPT-4o is the smartest model for complex document layouts.
                         Requires pre-funding your account with min. $5.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {provider === 'openrouter' && (
+                  <div className="space-y-1.5">
+                    <div className="flex gap-2">
+                      <input
+                        type={showKey ? 'text' : 'password'}
+                        value={openrouterKey}
+                        onChange={(e) => { setOpenrouterKey(e.target.value); setKeySaved(false); }}
+                        placeholder="sk-or-v1-..."
+                        className="flex-1 px-3 py-2 text-xs border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-gray-50"
+                      />
+                      <button onClick={() => setShowKey((v) => !v)} className="px-3 py-2 text-xs border border-gray-200 rounded-xl text-gray-500 hover:bg-gray-50">
+                        {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                      <button
+                        onClick={handleSaveKey}
+                        disabled={!openrouterKey.trim()}
+                        className={`px-3 py-2 text-xs font-bold rounded-xl transition-colors disabled:opacity-40 ${keySaved ? 'bg-emerald-500 text-white' : 'bg-violet-600 text-white hover:bg-violet-700'}`}
+                      >
+                        {keySaved ? 'Saved' : 'Save'}
+                      </button>
+                    </div>
+                    <a href="https://openrouter.ai/settings/keys" target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] text-violet-600 hover:underline">
+                      Get an OpenRouter API key <ExternalLink className="h-3 w-3" />
+                    </a>
+                    <div className="mt-2">
+                      <label className="block text-[10px] font-black text-gray-500 uppercase mb-1">
+                        OpenRouter Model
+                      </label>
+                      <select
+                        value={openrouterModel}
+                        onChange={(e) => handleOpenrouterModelChange(e.target.value)}
+                        className="w-full px-3 py-2 text-xs border border-gray-200 rounded-xl focus:ring-2 focus:ring-violet-500 outline-none bg-gray-50"
+                      >
+                        {OPENROUTER_MODELS.map((m) => (
+                          <option key={m.value} value={m.value}>{m.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="p-2 bg-sky-50 border border-sky-100 rounded-lg">
+                      <p className="text-[10px] text-sky-800 leading-relaxed">
+                        OpenRouter lets you use one API key for multiple AI models. Use a vision-capable model for scanned invoice images.
                       </p>
                     </div>
                   </div>
@@ -694,21 +777,21 @@ const EmailSyncSection: React.FC = () => {
                       >
                         <RefreshCw className="h-3.5 w-3.5" /> Re-test secrets
                       </button>
-                      {hasClientCreds && (
+                      {hasZohoSecrets && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Client credentials saved
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Zoho secrets saved
                         </span>
                       )}
                     </div>
                   </div>
 
                   {/* ── Phase B: OAuth dance ── */}
-                  <div className={`space-y-3 ${!hasClientCreds ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className={`space-y-3 ${!hasZohoSecrets ? 'opacity-50 pointer-events-none' : ''}`}>
                     <p className="text-[12px] font-black text-gray-700 uppercase tracking-wide">
                       Phase B · Test Zoho mailbox access
                     </p>
 
-                    {!hasClientCreds && (
+                    {!hasZohoSecrets && (
                       <p className="text-[11px] text-gray-500 italic">Complete Phase A first to unlock this step.</p>
                     )}
 
@@ -748,7 +831,7 @@ const EmailSyncSection: React.FC = () => {
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={testImapConnection}
-                        disabled={imapStatus === 'testing' || !hasClientCreds || needsRefresh}
+                        disabled={imapStatus === 'testing' || !hasZohoSecrets}
                         className="flex items-center gap-2 px-4 py-2 bg-violet-600 text-white text-xs font-bold rounded-xl hover:bg-violet-700 disabled:opacity-40 transition-colors"
                       >
                         {imapStatus === 'testing'
@@ -758,7 +841,7 @@ const EmailSyncSection: React.FC = () => {
                       </button>
                       <button
                         onClick={testImapConnection}
-                        disabled={imapStatus === 'testing' || !hasClientCreds || needsRefresh}
+                        disabled={imapStatus === 'testing' || !hasZohoSecrets}
                         className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-200 disabled:opacity-40 transition-colors"
                       >
                         {imapStatus === 'testing'
