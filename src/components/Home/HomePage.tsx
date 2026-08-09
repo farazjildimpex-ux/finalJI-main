@@ -1299,27 +1299,12 @@ const HomePage: React.FC = () => {
               onTouchCancel={handleMobilePanelTouchEnd}
               style={{ touchAction: 'pan-y' }}
             >
-              {[
-                { id: 'recent' as const, panel: renderMobileRecentPanel() },
-                { id: 'journal' as const, panel: renderMobileJournalPanel() },
-                { id: 'email' as const, panel: renderMobileEmailPanel() },
-                { id: 'search' as const, panel: renderMobileSearchPanel() },
-              ].map((item, index) => {
-                const activeIndex = MOBILE_HOME_PANELS.indexOf(mobileHomePanel);
-                const offset = index - activeIndex;
-                return (
-                  <div
-                    key={item.id}
-                    className={`absolute inset-0 min-h-0 transition-transform duration-300 ease-out will-change-transform ${
-                      mobileHomePanel === item.id ? 'pointer-events-auto' : 'pointer-events-none'
-                    }`}
-                    style={{ transform: `translate3d(${offset * 100}%, 0, 0)` }}
-                    aria-hidden={mobileHomePanel !== item.id}
-                  >
-                    {item.panel}
-                  </div>
-                );
-              })}
+              <div key={mobileHomePanel} className="h-full min-h-0 animate-in fade-in duration-150">
+                {mobileHomePanel === 'recent' && renderMobileRecentPanel()}
+                {mobileHomePanel === 'journal' && renderMobileJournalPanel()}
+                {mobileHomePanel === 'email' && renderMobileEmailPanel()}
+                {mobileHomePanel === 'search' && renderMobileSearchPanel()}
+              </div>
             </div>
           </div>
 
