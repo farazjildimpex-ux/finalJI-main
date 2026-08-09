@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft, Pin } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
@@ -32,6 +32,10 @@ const JournalEntryForm: React.FC<{
   initialEntry = null
 }) => {
   const { user } = useAuth();
+  const initialDateKey = format(initialDate, 'yyyy-MM-dd');
+  const draftKey = useMemo(() => (
+    `journal-entry-draft:${initialEntry?.id ?? parentId ?? 'new'}:${initialDateKey}`
+  ), [initialEntry?.id, parentId, initialDateKey]);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [entryDate, setEntryDate] = useState(format(initialDate, 'yyyy-MM-dd'));
@@ -42,6 +46,25 @@ const JournalEntryForm: React.FC<{
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const draft = window.localStorage.getItem(draftKey);
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        setTitle(parsed.title ?? '');
+        setContent(parsed.content ?? '');
+        setEntryDate(parsed.entryDate ?? initialDateKey);
+        setReminderEnabled(Boolean(parsed.reminderEnabled));
+        setReminderDate(parsed.reminderDate ?? '');
+        setReminderTime(parsed.reminderTime ?? '09:00');
+        setFollowUpRequired(Boolean(parsed.followUpRequired));
+        return;
+      } catch {
+        window.localStorage.removeItem(draftKey);
+      }
+    }
+
     if (initialEntry) {
       setTitle(initialEntry.title);
       setContent(initialEntry.content || '');
@@ -53,13 +76,26 @@ const JournalEntryForm: React.FC<{
     } else {
       setTitle('');
       setContent('');
-      setEntryDate(format(initialDate, 'yyyy-MM-dd'));
+      setEntryDate(initialDateKey);
       setReminderEnabled(false);
       setReminderDate('');
       setReminderTime('09:00');
       setFollowUpRequired(false);
     }
-  }, [initialEntry, initialDate]);
+  }, [initialEntry, initialDateKey, draftKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(draftKey, JSON.stringify({
+      title,
+      content,
+      entryDate,
+      reminderEnabled,
+      reminderDate,
+      reminderTime,
+      followUpRequired,
+    }));
+  }, [draftKey, title, content, entryDate, reminderEnabled, reminderDate, reminderTime, followUpRequired]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +139,9 @@ const JournalEntryForm: React.FC<{
       }
 
       onSave(savedEntry);
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(draftKey);
+      }
     } catch (error: any) {
       console.error('Error saving entry:', error);
       dialogService.alert({
@@ -119,13 +158,13 @@ const JournalEntryForm: React.FC<{
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-[200] flex items-end md:items-center justify-center bg-slate-900/45 backdrop-blur-sm animate-in fade-in duration-200 p-0 md:p-4"
     >
       <div
-        className="bg-white shadow-2xl w-full max-w-md flex flex-col max-h-[min(92dvh,720px)] overflow-hidden rounded-[28px] animate-in zoom-in-95 duration-200"
+        className="bg-white shadow-2xl w-full md:max-w-md flex flex-col h-[100dvh] md:h-auto md:max-h-[min(92dvh,720px)] overflow-hidden rounded-none md:rounded-[28px] animate-in zoom-in-95 duration-200"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 shrink-0">
+        <div className="flex items-center justify-between px-4 md:px-5 py-4 border-b border-slate-100 shrink-0">
           <div className="min-w-0">
             <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-500">Journal</p>
             <h2 className="mt-0.5 text-lg font-bold text-slate-900 tracking-tight truncate">
@@ -143,7 +182,7 @@ const JournalEntryForm: React.FC<{
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-5 py-4 space-y-3">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-4 md:px-5 py-4 space-y-3 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] md:pb-4">
             {/* Date + Title */}
             <div className="rounded-2xl border border-slate-100 bg-slate-50/60 overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100 bg-white">
@@ -301,7 +340,7 @@ const JournalEntryForm: React.FC<{
           </div>
 
           {/* Footer */}
-          <div className="px-5 py-4 border-t border-slate-100 bg-white flex gap-2 shrink-0">
+          <div className="sticky bottom-0 px-4 md:px-5 py-3 border-t border-slate-100 bg-white/95 backdrop-blur-sm flex gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}

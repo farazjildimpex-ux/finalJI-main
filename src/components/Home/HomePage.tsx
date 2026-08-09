@@ -179,6 +179,11 @@ const HomePage: React.FC = () => {
 
   useEffect(()=>{ fetchData(); }, [fetchData]);
   useEffect(()=>{ if(user) fetchJournalEntries(); }, [user, fetchJournalEntries]);
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setMobileHomePanel('journal');
+    }
+  }, []);
 
   const resetJournalToToday = useCallback(() => {
     const today = new Date();
@@ -1062,7 +1067,7 @@ const HomePage: React.FC = () => {
   );
 
   const renderMobileSearchPanel = () => (
-    <section className="h-full min-h-0 flex flex-col">
+    <section className="h-full min-h-0 flex flex-col overflow-hidden">
       <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-3 shadow-sm">
         <div className="flex items-center gap-2 mb-0">
           <div className="flex-1 relative">
@@ -1108,7 +1113,7 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar pb-4">
         {!searchTerm.trim() ? (
           <div className="p-4" style={{animation:'fadeIn 0.2s ease-out'}}>
             <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
@@ -1241,11 +1246,11 @@ const HomePage: React.FC = () => {
     <>
       {/* ━━━━━━━━━━━━━━━━━━  MOBILE  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div
-        className="md:hidden min-h-screen bg-gray-50 text-gray-900 mobile-smooth-scroll"
+        className="md:hidden min-h-[100dvh] bg-gray-50 text-gray-900 mobile-smooth-scroll"
         style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
-          <div className="flex flex-col min-h-screen">
+          <div className="flex flex-col min-h-[100dvh]">
             <div className="px-4 pt-4 pb-3 shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -1291,13 +1296,13 @@ const HomePage: React.FC = () => {
               style={{ touchAction: 'pan-y' }}
             >
               <div
-                className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform"
+                className="flex h-full min-h-0 w-full transition-transform duration-300 ease-out will-change-transform"
                 style={{ transform: `translate3d(-${MOBILE_HOME_PANELS.indexOf(mobileHomePanel) * 100}%, 0, 0)` }}
               >
-                <div className="w-full shrink-0 h-full">{renderMobileRecentPanel()}</div>
-                <div className="w-full shrink-0 h-full">{renderMobileJournalPanel()}</div>
-                <div className="w-full shrink-0 h-full">{renderMobileEmailPanel()}</div>
-                <div className="w-full shrink-0 h-full">{renderMobileSearchPanel()}</div>
+                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileRecentPanel()}</div>
+                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileJournalPanel()}</div>
+                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileEmailPanel()}</div>
+                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileSearchPanel()}</div>
               </div>
             </div>
           </div>
@@ -1704,7 +1709,7 @@ const HomePage: React.FC = () => {
       {/* ── Search overlay ── */}
       {showSearch && (
         <div
-          className="md:hidden fixed inset-0 z-[200] flex flex-col bg-gray-50"
+          className="md:hidden fixed inset-0 z-[200] flex h-[100dvh] flex-col bg-gray-50"
           style={{
             paddingBottom: 'env(safe-area-inset-bottom,0px)',
             animation: 'fadeIn 0.18s ease-out',
@@ -1758,9 +1763,9 @@ const HomePage: React.FC = () => {
           </div>
 
           {/* Results */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar">
             {!searchTerm.trim() ? (
-              <div className="p-4" style={{animation:'fadeIn 0.2s ease-out'}}>
+              <div className="p-4 pb-6" style={{animation:'fadeIn 0.2s ease-out'}}>
                 <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
                   <div className="px-4 py-3 border-b border-gray-100">
                     <p className="text-[13px] font-bold text-gray-900">Activity by week</p>
@@ -1807,7 +1812,7 @@ const HomePage: React.FC = () => {
                 <p className="text-[12px] text-gray-400">Try a different search term</p>
               </div>
             ) : (
-              <div className="p-4" key={searchTab} style={{animation:'fadeIn 0.15s ease-out'}}>
+              <div className="p-4 pb-6" key={searchTab} style={{animation:'fadeIn 0.15s ease-out'}}>
 
                 {/* JOURNAL TAB */}
                 {searchTab === 'journal' && (
