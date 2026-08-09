@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Plus, Search, X, ChevronRight, AlertCircle,
@@ -179,9 +179,12 @@ const HomePage: React.FC = () => {
 
   useEffect(()=>{ fetchData(); }, [fetchData]);
   useEffect(()=>{ if(user) fetchJournalEntries(); }, [user, fetchJournalEntries]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (window.innerWidth < 768) {
       setMobileHomePanel('journal');
+      setShowSearch(false);
+      setSearchTerm('');
+      setSearchTab('journal');
     }
   }, []);
 
@@ -827,9 +830,10 @@ const HomePage: React.FC = () => {
   }, [journalEntries, fetchJournalEntries]);
 
   const openSearch = () => {
-    setShowSearch(true);
+    setShowSearch(false);
     setSearchTerm('');
     setSearchTab('journal');
+    activateMobilePanel('search');
   };
 
   const renderMobileJournalPanel = () => (
@@ -1295,18 +1299,27 @@ const HomePage: React.FC = () => {
               onTouchCancel={handleMobilePanelTouchEnd}
               style={{ touchAction: 'pan-y' }}
             >
-              <div
-                className="flex h-full min-h-0 transition-transform duration-300 ease-out will-change-transform"
-                style={{
-                  width: `${MOBILE_HOME_PANELS.length * 100}%`,
-                  transform: `translate3d(-${(MOBILE_HOME_PANELS.indexOf(mobileHomePanel) * 100) / MOBILE_HOME_PANELS.length}%, 0, 0)`,
-                }}
-              >
-                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileRecentPanel()}</div>
-                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileJournalPanel()}</div>
-                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileEmailPanel()}</div>
-                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileSearchPanel()}</div>
-              </div>
+              {[
+                { id: 'recent' as const, panel: renderMobileRecentPanel() },
+                { id: 'journal' as const, panel: renderMobileJournalPanel() },
+                { id: 'email' as const, panel: renderMobileEmailPanel() },
+                { id: 'search' as const, panel: renderMobileSearchPanel() },
+              ].map((item, index) => {
+                const activeIndex = MOBILE_HOME_PANELS.indexOf(mobileHomePanel);
+                const offset = index - activeIndex;
+                return (
+                  <div
+                    key={item.id}
+                    className={`absolute inset-0 min-h-0 transition-transform duration-300 ease-out will-change-transform ${
+                      mobileHomePanel === item.id ? 'pointer-events-auto' : 'pointer-events-none'
+                    }`}
+                    style={{ transform: `translate3d(${offset * 100}%, 0, 0)` }}
+                    aria-hidden={mobileHomePanel !== item.id}
+                  >
+                    {item.panel}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
