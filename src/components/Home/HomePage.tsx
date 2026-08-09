@@ -90,6 +90,8 @@ const STATUS_BADGE: Record<string, string> = {
 const OPEN_STATUSES = ['Issued', 'Inspected'];
 const ACTIVITY_PAGE_SIZE = 10;
 const JOURNAL_PAGE_SIZE  = 12;
+type MobileHomePanel = 'recent' | 'journal' | 'email' | 'search';
+const MOBILE_HOME_PANELS: MobileHomePanel[] = ['recent', 'journal', 'email', 'search'];
 
 /* ── component ───────────────────────────────────────────────── */
 const HomePage: React.FC = () => {
@@ -120,6 +122,7 @@ const HomePage: React.FC = () => {
   const [isDesktopFormOpen,     setIsDesktopFormOpen]     = useState(false);
   const [mobileJournalDate,     setMobileJournalDate]     = useState(new Date());
   const [mobileWeekStart,       setMobileWeekStart]       = useState(() => startOfWeekMonday(new Date()));
+  const [mobileHomePanel,      setMobileHomePanel]       = useState<MobileHomePanel>('journal');
   const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
   const [statusPopupOrder,      setStatusPopupOrder]      = useState<Order | null>(null);
   const [followUpReorderMode,   setFollowUpReorderMode]   = useState(false);
@@ -129,6 +132,7 @@ const HomePage: React.FC = () => {
   const [showFollowUpReorderHint, setShowFollowUpReorderHint] = useState(false);
   const [highlightedJournalEntryId, setHighlightedJournalEntryId] = useState<string | null>(null);
   const weekTouchStartX = useRef<number | null>(null);
+  const mobilePanelTouchStart = useRef<{ x: number; y: number; panel: MobileHomePanel } | null>(null);
   const followUpLongPressTimer = useRef<number | null>(null);
   const followUpLongPressTriggered = useRef(false);
   const followUpDragState = useRef<{ id: string; startY: number } | null>(null);
@@ -181,6 +185,7 @@ const HomePage: React.FC = () => {
     setMobileJournalDate(today);
     setMobileWeekStart(startOfWeekMonday(today));
     setMobileOpenEntryId(null);
+    setMobileHomePanel('journal');
   }, []);
 
   useEffect(() => {
@@ -192,6 +197,47 @@ const HomePage: React.FC = () => {
       }
     };
   }, [resetJournalToToday]);
+
+  const activateMobilePanel = useCallback((panel: MobileHomePanel) => {
+    setMobileHomePanel(panel);
+    setMobileOpenEntryId(null);
+    if (panel === 'search') setSearchTab('journal');
+  }, []);
+
+  const handleMobilePanelTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    mobilePanelTouchStart.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      panel: mobileHomePanel,
+    };
+  };
+
+  const handleMobilePanelTouchMove = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!mobilePanelTouchStart.current) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - mobilePanelTouchStart.current.x;
+    const dy = touch.clientY - mobilePanelTouchStart.current.y;
+    if (Math.abs(dx) > 18 && Math.abs(dx) > Math.abs(dy)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleMobilePanelTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    const start = mobilePanelTouchStart.current;
+    mobilePanelTouchStart.current = null;
+    if (!start) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy)) return;
+
+    const currentIndex = MOBILE_HOME_PANELS.indexOf(start.panel);
+    const nextIndex = dx < 0
+      ? Math.min(MOBILE_HOME_PANELS.length - 1, currentIndex + 1)
+      : Math.max(0, currentIndex - 1);
+    activateMobilePanel(MOBILE_HOME_PANELS[nextIndex]);
+  };
 
   // Reset page when filter changes
   useEffect(()=>{ setActivityPage(1); }, [mobileFilter]);
@@ -411,6 +457,7 @@ const HomePage: React.FC = () => {
     setSearchTerm('');
     setMobileJournalDate(entryDate);
     setMobileWeekStart(startOfWeekMonday(entryDate));
+    setMobileHomePanel('journal');
     setMobileOpenEntryId(entry.id);
     setHighlightedJournalEntryId(entry.id);
   };
@@ -780,6 +827,403 @@ const HomePage: React.FC = () => {
     setSearchTab('journal');
   };
 
+  const renderMobileJournalPanel = () => (
+    <section className="h-full min-h-0 flex flex-col">
+      <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
+          <p className="mt-0.5 text-[11px] font-medium text-gray-400">
+            {formatMobileDay(mobileWeekStart)} - {formatMobileDay(addCalendarDays(mobileWeekStart, 6))}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => activateMobilePanel('search')}
+            className="h-8 w-8 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 flex items-center justify-center active:bg-gray-100 transition-colors"
+            aria-label="Search"
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
+            className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5 active:bg-blue-700 transition-colors"
+          >
+            <Plus className="h-3 w-3" /> New
+          </button>
+        </div>
+      </div>
+
+      <div
+        className="px-4 py-2 border-b border-gray-50 bg-white"
+        onTouchStart={(e) => { e.stopPropagation(); weekTouchStartX.current = e.changedTouches[0].clientX; }}
+        onTouchEnd={(e) => { e.stopPropagation(); handleWeekTouchEnd(e); }}
+      >
+        <div className="grid grid-cols-7 gap-1">
+          {Array.from({ length: 7 }, (_, offset) => {
+            const date = addCalendarDays(mobileWeekStart, offset);
+            const isSelected = toDateKey(date) === mobileJournalDateKey;
+            return (
+              <button
+                key={offset}
+                onClick={() => setMobileJournalDate(date)}
+                className={`h-11 rounded-lg text-center transition-colors ${
+                  isSelected
+                    ? 'text-blue-600'
+                    : 'text-gray-500 active:bg-gray-50'
+                }`}
+              >
+                <span className="block text-[10px] font-semibold uppercase leading-none">
+                  {date.toLocaleDateString('en-GB', { weekday: 'short' })}
+                </span>
+                <span className="block mt-1 text-[13px] font-bold leading-none">
+                  {date.getDate()}
+                </span>
+                {isSelected && <span className="mx-auto mt-1 block h-0.5 w-5 rounded-full bg-blue-600" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className={`flex-1 px-4 pt-2 space-y-1 overflow-y-auto overflow-x-hidden momentum-scroll min-h-0 overscroll-contain no-scrollbar ${followUpReorderMode ? 'pb-28' : 'pb-2'}`}>
+        {renderDueItems(mobileJournalDueItems)}
+
+        {journalLoading ? (
+          <div className="h-20 rounded-xl bg-gray-50 flex items-center justify-center">
+            <div className="h-5 w-5 rounded-full border-2 border-gray-200 border-t-gray-400 animate-spin" />
+          </div>
+        ) : mobileJournalEntries.length === 0 ? (
+          <button onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }} className="w-full rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-4 text-left active:bg-gray-100">
+            <p className="text-[13px] font-semibold text-gray-700">No journal entries</p>
+            <p className="mt-1 text-[11px] leading-5 text-gray-400">Add a note for this day.</p>
+          </button>
+        ) : (
+          <>
+            {followUpReorderMode ? (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-blue-600 px-0.5">
+                  Drag follow-ups to reorder, then tap Save
+                </p>
+                {followUpReorderList.map((entry, index) => renderFollowUpReorderCard(entry, index))}
+              </div>
+            ) : (
+              activeFollowUps.length > 0 && (
+                <div className="space-y-2">
+                  <div
+                    className={`overflow-hidden transition-all duration-700 ease-in-out ${
+                      showFollowUpReorderHint && activeFollowUps.length >= 2
+                        ? 'max-h-10 opacity-100 mb-1'
+                        : 'max-h-0 opacity-0 mb-0'
+                    }`}
+                  >
+                    <p className="text-[10px] text-gray-400 px-0.5 leading-5">
+                      Hold a follow-up to reorder
+                    </p>
+                  </div>
+                  {activeFollowUps.map(entry => renderJournalEntryCard(entry, false, true))}
+                </div>
+              )
+            )}
+            {datedMobileJournalEntries.length > 0 && (
+              <div className={`space-y-2 ${activeFollowUps.length > 0 || followUpReorderMode ? 'mt-2' : ''}`}>
+                {datedMobileJournalEntries.map(entry => renderJournalEntryCard(entry))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </section>
+  );
+
+  const renderMobileRecentPanel = () => (
+    <section className="h-full min-h-0 flex flex-col">
+      <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
+        <div>
+          <h2 className="text-[15px] font-bold text-gray-900">Recents</h2>
+          <p className="mt-0.5 text-[11px] text-gray-400">{activityList.length} items shown</p>
+        </div>
+        <button
+          onClick={() => activateMobilePanel('search')}
+          className="text-[12px] font-bold text-blue-600"
+        >
+          Search
+        </button>
+      </div>
+
+      <div className="px-3 py-2.5 border-b border-gray-100 overflow-x-auto no-scrollbar bg-white">
+        <div className="flex gap-1.5 min-w-max">
+          {FILTERS.map(f => (
+            <button
+              key={f.value}
+              onClick={() => setMobileFilter(f.value)}
+              className={`h-7 px-3 rounded-full text-[11px] font-semibold border transition-colors ${mobileFilter === f.value ? f.on : f.off}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar px-0">
+        {error && (
+          <div className="m-3 p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-red-700 text-[12px]">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="flex-1">{error}</span>
+            <button onClick={fetchData} className="font-black underline">Retry</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="py-10 flex justify-center">
+            <div className="h-5 w-5 rounded-full border-2 border-slate-200 border-b-slate-950 animate-spin" />
+          </div>
+        ) : mobileQueuePreview.length === 0 ? (
+          <div className="py-10 text-center">
+            <p className="text-[13px] font-bold text-slate-400">No records found</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100 bg-white">
+            {mobileQueuePreview.map(order => {
+              const tc = TYPE_ICON[order.type] || { Icon: FileText, bg: 'bg-slate-50', iconCls: 'text-slate-500' };
+              const Icon = tc.Icon;
+              const badge = STATUS_BADGE[(order.status || 'issued').toLowerCase()] || 'text-slate-600 bg-slate-50 border border-slate-200';
+              return (
+                <div key={`${order.type}-${order.id}`} onClick={() => goToOrder(order)} className="w-full px-4 py-3.5 flex items-center gap-3 active:bg-slate-50 cursor-pointer">
+                  <div className={`h-10 w-10 rounded-2xl ${tc.bg} flex items-center justify-center shrink-0`}>
+                    <Icon className={`h-4 w-4 ${tc.iconCls}`} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-semibold text-gray-900 truncate">{order.contractNumber}</p>
+                    <p className="mt-0.5 text-[11px] text-gray-500 truncate">{order.supplierName}</p>
+                    {[order.article, order.color].filter(Boolean).length > 0 && (
+                      <p className="mt-0.5 text-[10px] text-gray-400 truncate">
+                        {[order.article, order.color].filter(Boolean).join(' · ')}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setStatusPopupOrder(order); }}
+                    className={`px-2 py-1 rounded-full text-[10px] font-semibold shrink-0 ${badge}`}
+                  >
+                    {order.status || 'Issued'}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {activityTotal > 1 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
+            <p className="text-[11px] font-medium text-gray-400">
+              {(activityPage - 1) * ACTIVITY_PAGE_SIZE + 1}-{Math.min(activityPage * ACTIVITY_PAGE_SIZE, activityList.length)} of {activityList.length}
+            </p>
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: Math.min(activityTotal, 5) }, (_, idx) => idx + 1).map(page => (
+                <button
+                  key={page}
+                  onClick={() => setActivityPage(page)}
+                  className={`h-7 w-7 rounded-lg text-[11px] font-bold ${
+                    activityPage === page ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 border border-gray-200'
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+
+  const renderMobileEmailPanel = () => (
+    <section className="h-full min-h-0 flex flex-col">
+      <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100 bg-white/95 backdrop-blur-sm">
+        <div>
+          <h2 className="text-[15px] font-bold text-gray-900">Email</h2>
+          <p className="mt-0.5 text-[11px] text-gray-400">Quick preview of important mail</p>
+        </div>
+        <button
+          onClick={() => navigate('/app/email')}
+          className="text-[12px] font-bold text-blue-600"
+        >
+          Open
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar px-4 pt-3 pb-4">
+        <EmailPreviewSection
+          compact
+          onOpenPage={() => navigate('/app/email')}
+        />
+      </div>
+    </section>
+  );
+
+  const renderMobileSearchPanel = () => (
+    <section className="h-full min-h-0 flex flex-col">
+      <div className="bg-white border-b border-gray-100 px-4 pt-4 pb-3 shadow-sm">
+        <div className="flex items-center gap-2 mb-0">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+            <input
+              autoFocus
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search journals, contracts, suppliers…"
+              className="w-full h-11 pl-9 pr-10 bg-gray-50 border border-gray-200 rounded-xl text-[14px] text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center active:bg-gray-400"
+              >
+                <X className="h-3 w-3 text-white" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => activateMobilePanel('journal')}
+            className="shrink-0 h-11 px-2 text-[13px] font-semibold text-gray-500 active:text-gray-700"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-xl bg-gray-100 p-1">
+          <button
+            onClick={() => setSearchTab('journal')}
+            className={`h-8 rounded-lg text-[12px] font-semibold transition-colors ${searchTab==='journal' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+          >
+            Journal
+          </button>
+          <button
+            onClick={() => setSearchTab('records')}
+            className={`h-8 rounded-lg text-[12px] font-semibold transition-colors ${searchTab==='records' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
+          >
+            Recents
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto overflow-x-hidden momentum-scroll overscroll-contain no-scrollbar">
+        {!searchTerm.trim() ? (
+          <div className="p-4" style={{animation:'fadeIn 0.2s ease-out'}}>
+            <div className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="text-[13px] font-bold text-gray-900">Activity by week</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Recent contracts, letters and payments</p>
+              </div>
+              {weeklySearchActivity.map((group) => (
+                <div key={group.label} className="border-b border-gray-100 last:border-b-0">
+                  <div className="px-4 py-2 bg-gray-50">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400">{group.label}</p>
+                  </div>
+                  {group.items.length === 0 ? (
+                    <div className="px-4 py-4">
+                      <p className="text-[12px] text-gray-400">No activity</p>
+                    </div>
+                  ) : (
+                    group.items.map((order) => {
+                      const tc = TYPE_ICON[order.type] || { Icon: FileText, bg:'bg-gray-50', iconCls:'text-gray-500' };
+                      const Icon = tc.Icon;
+                      return (
+                        <button
+                          key={`weekly-${group.label}-${order.type}-${order.id}`}
+                          onClick={() => { goToOrder(order); activateMobilePanel('recent'); }}
+                          className="w-full px-4 py-3 flex items-center gap-3 text-left active:bg-gray-50 border-t border-gray-50 first:border-t-0"
+                        >
+                          <div className={`h-8 w-8 rounded-lg ${tc.bg} flex items-center justify-center shrink-0`}>
+                            <Icon className={`h-4 w-4 ${tc.iconCls}`} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold text-gray-900 truncate">{order.contractNumber}</p>
+                            <p className="text-[10px] text-gray-400 truncate">{order.supplierName}</p>
+                          </div>
+                          <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : searchTab === 'journal' ? (
+          searchJournalResults.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center" style={{animation:'fadeIn 0.15s ease-out'}}>
+              <p className="text-[13px] text-gray-400">No matching journal entries</p>
+            </div>
+          ) : (
+            <div className="p-4" style={{animation:'fadeIn 0.15s ease-out'}}>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {searchJournalResults.map((entry, idx) => (
+                  <button
+                    key={`sj-${entry.id}`}
+                    type="button"
+                    onClick={() => openJournalFromSearch(entry)}
+                    className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 ${idx > 0 ? 'border-t border-gray-50' : ''}`}
+                  >
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-indigo-50">
+                      <FileText className="h-4 w-4 text-indigo-500" strokeWidth={1.75} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[12px] font-bold text-gray-900 truncate">{entry.title}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {new Date(entry.entry_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                      {entry.content && (
+                        <p className="text-[10px] text-gray-400 truncate mt-0.5">{entry.content}</p>
+                      )}
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
+        ) : (
+          searchOrderResults.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center" style={{animation:'fadeIn 0.15s ease-out'}}>
+              <p className="text-[13px] text-gray-400">No matching contracts, letters or payments</p>
+            </div>
+          ) : (
+            <div className="p-4" style={{animation:'fadeIn 0.15s ease-out'}}>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                {searchOrderResults.map((order, idx) => {
+                  const tc   = TYPE_ICON[order.type] || { Icon: FileText, bg:'bg-gray-50', iconCls:'text-gray-500' };
+                  const Icon = tc.Icon;
+                  const sk   = (order.status||'issued').toLowerCase();
+                  const badge = STATUS_BADGE[sk] || 'text-gray-600 bg-gray-50 border border-gray-200';
+                  const line1 = [order.article, order.color].filter(Boolean).join(' · ') || order.contractNumber;
+                  return (
+                    <button
+                      key={`sr-${order.type}-${order.id}`}
+                      onClick={() => { goToOrder(order); activateMobilePanel('recent'); setSearchTerm(''); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-gray-50 ${idx>0?'border-t border-gray-50':''}`}
+                    >
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${tc.bg}`}>
+                        <Icon className={`h-4 w-4 ${tc.iconCls}`} strokeWidth={1.75} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-bold text-gray-900 truncate">{line1}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{order.supplierName}</p>
+                      </div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${badge}`}>{order.status||'Issued'}</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )
+        )}
+      </div>
+    </section>
+  );
+
   if (!isSupabaseConfigured) {
     return (
       <div className="p-6 flex flex-col items-center justify-center min-h-[60vh] text-center">
@@ -801,7 +1245,64 @@ const HomePage: React.FC = () => {
         style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
-          <div className="px-4 pt-4 pb-2">
+          <div className="flex flex-col min-h-screen">
+            <div className="px-4 pt-4 pb-3 shrink-0">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-gray-400">{formatFullDate()}</p>
+                  <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-normal">{getGreeting()}</h1>
+                </div>
+                <button
+                  onClick={() => activateMobilePanel('search')}
+                  className="h-10 w-10 rounded-xl bg-white border border-gray-200 text-gray-600 flex items-center justify-center active:bg-gray-100 transition-colors shadow-sm"
+                  aria-label="Search"
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-4 gap-1 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
+                {[
+                  { id: 'recent', label: 'Recent' },
+                  { id: 'journal', label: 'Journal' },
+                  { id: 'email', label: 'Email' },
+                  { id: 'search', label: 'Search' },
+                ].map((item) => {
+                  const active = mobileHomePanel === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => activateMobilePanel(item.id as MobileHomePanel)}
+                      className={`h-8 rounded-lg text-[11px] font-semibold transition-colors ${active ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 active:bg-gray-50'}`}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div
+              className="relative flex-1 min-h-0 overflow-hidden"
+              onTouchStart={handleMobilePanelTouchStart}
+              onTouchMove={handleMobilePanelTouchMove}
+              onTouchEnd={handleMobilePanelTouchEnd}
+              onTouchCancel={handleMobilePanelTouchEnd}
+              style={{ touchAction: 'pan-y' }}
+            >
+              <div
+                className="flex h-full w-full transition-transform duration-300 ease-out will-change-transform"
+                style={{ transform: `translate3d(-${MOBILE_HOME_PANELS.indexOf(mobileHomePanel) * 100}%, 0, 0)` }}
+              >
+                <div className="w-full shrink-0 h-full">{renderMobileRecentPanel()}</div>
+                <div className="w-full shrink-0 h-full">{renderMobileJournalPanel()}</div>
+                <div className="w-full shrink-0 h-full">{renderMobileEmailPanel()}</div>
+                <div className="w-full shrink-0 h-full">{renderMobileSearchPanel()}</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden px-4 pt-4 pb-2">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-gray-400">{formatFullDate()}</p>
@@ -920,7 +1421,7 @@ const HomePage: React.FC = () => {
               </div>
             </section>
 
-            <section className="mt-4">
+            <section className="hidden mt-4">
               <div className="rounded-2xl bg-white overflow-hidden shadow-sm border border-gray-100">
                 <div className="px-4 py-3.5 flex items-center justify-between border-b border-slate-100">
                   <div>
