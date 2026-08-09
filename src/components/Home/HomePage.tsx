@@ -1296,13 +1296,16 @@ const HomePage: React.FC = () => {
               style={{ touchAction: 'pan-y' }}
             >
               <div
-                className="flex h-full min-h-0 w-full transition-transform duration-300 ease-out will-change-transform"
-                style={{ transform: `translate3d(-${MOBILE_HOME_PANELS.indexOf(mobileHomePanel) * 100}%, 0, 0)` }}
+                className="flex h-full min-h-0 transition-transform duration-300 ease-out will-change-transform"
+                style={{
+                  width: `${MOBILE_HOME_PANELS.length * 100}%`,
+                  transform: `translate3d(-${(MOBILE_HOME_PANELS.indexOf(mobileHomePanel) * 100) / MOBILE_HOME_PANELS.length}%, 0, 0)`,
+                }}
               >
-                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileRecentPanel()}</div>
-                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileJournalPanel()}</div>
-                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileEmailPanel()}</div>
-                <div className="w-full shrink-0 min-h-0 h-full">{renderMobileSearchPanel()}</div>
+                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileRecentPanel()}</div>
+                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileJournalPanel()}</div>
+                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileEmailPanel()}</div>
+                <div className="shrink-0 min-h-0 h-full" style={{ width: `${100 / MOBILE_HOME_PANELS.length}%` }}>{renderMobileSearchPanel()}</div>
               </div>
             </div>
           </div>
