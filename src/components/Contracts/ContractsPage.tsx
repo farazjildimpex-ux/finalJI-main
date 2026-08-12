@@ -8,6 +8,7 @@ import EmailLogSection from '../Email/EmailLogSection';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import type { Contract } from '../../types';
 import { supabase } from '../../lib/supabaseClient';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 const ContractsPage: React.FC = () => {
   const location = useLocation();
@@ -61,7 +62,13 @@ const ContractsPage: React.FC = () => {
   return (
     <div className="min-h-full bg-gray-50/60">
       <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
-        <div className="mb-2 flex items-start justify-between gap-3">
+        <MobilePageHeader
+          eyebrow="Contracts"
+          title={selectedContract ? selectedContract.contract_no : 'New Contract'}
+          subtitle={selectedContract ? `Contract · ${selectedContract.buyer_name || '—'}` : 'Create a new leather trade contract'}
+        />
+
+        <div className="mb-2 hidden items-start justify-between gap-3 md:flex">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">Contracts</p>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">

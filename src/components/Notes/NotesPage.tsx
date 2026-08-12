@@ -1,11 +1,18 @@
 import React from 'react';
 import { Clipboard } from 'lucide-react';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 const NotesPage: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
+      <MobilePageHeader
+        eyebrow="Notes"
+        title="Notes"
+        subtitle="Keep track of important information"
+      />
+
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-8 hidden md:block">
         <div className="flex items-center">
           <Clipboard className="h-8 w-8 text-blue-600 mr-2" />
           <h1 className="text-2xl font-bold text-gray-900">Notes</h1>

@@ -42,10 +42,13 @@ const Layout: React.FC = () => {
         <main
           ref={scrollContainerRef}
           className={`flex-1 overflow-x-hidden bg-gray-50/50 min-h-0 max-md:mobile-smooth-scroll ${
-            isHomePage ? 'md:overflow-hidden overflow-y-auto' : 'overflow-y-auto'
+            isHomePage ? 'overflow-hidden md:overflow-hidden' : 'overflow-y-auto'
           }`}
         >
-          <div className={`min-h-full pb-24 md:pb-0 ${isHomePage ? 'md:h-full' : ''}`}>
+          <div
+            key={location.pathname}
+            className={`min-h-full page-fade-in ${isHomePage ? 'pb-0 md:h-full' : 'pb-24 md:pb-0'}`}
+          >
             <Outlet />
           </div>
         </main>

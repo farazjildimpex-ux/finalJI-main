@@ -6,6 +6,7 @@ import CommunicateButton from '../Email/CommunicateButton';
 import EmailLogSection from '../Email/EmailLogSection';
 import { generateDebitNotePDF } from '../../utils/debitNotePdfGenerator';
 import type { DebitNote } from '../../types';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 const DebitNotePage: React.FC = () => {
   const { id } = useParams();
@@ -43,7 +44,13 @@ const DebitNotePage: React.FC = () => {
   return (
     <div className="min-h-full bg-gray-50/60">
       <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
-        <div className="mb-2 flex items-start justify-between gap-3">
+        <MobilePageHeader
+          eyebrow="Payments"
+          title={debitNote ? debitNote.debit_note_no : 'New Payment'}
+          subtitle={debitNote ? `Debit Note · ${debitNote.supplier_name || '—'}` : 'Create a new payment / debit note'}
+        />
+
+        <div className="mb-2 hidden items-start justify-between gap-3 md:flex">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-emerald-500 mb-1">Payments</p>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">

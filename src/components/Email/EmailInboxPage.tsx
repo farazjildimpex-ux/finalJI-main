@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import type { EmailData } from '../../lib/emailSync';
 import { fetchZohoEmails } from '../../lib/emailSync';
 import { getEmailSnippet, sortZohoEmails } from '../../lib/zohoMail';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 type Filter = 'important' | 'all' | 'attachments';
 
@@ -55,7 +56,24 @@ const EmailInboxPage: React.FC = () => {
   return (
     <div className="min-h-full bg-slate-50/80">
       <div className="mx-auto max-w-7xl px-4 py-4 md:py-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <MobilePageHeader
+          eyebrow="Zoho Mail"
+          title="Email"
+          subtitle="Important mail, attachments and recent inbox activity."
+          action={(
+            <button
+              type="button"
+              onClick={() => loadEmails(true)}
+              className="inline-flex items-center justify-center rounded-2xl bg-slate-950 p-2.5 text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60 md:hidden"
+              disabled={refreshing}
+              aria-label="Refresh mail"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+          )}
+        />
+
+        <div className="mb-4 hidden items-center justify-between gap-3 md:flex">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Zoho Mail</p>
             <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Email</h1>

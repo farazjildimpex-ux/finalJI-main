@@ -14,6 +14,7 @@ import EmailSyncSection from './EmailSyncSection';
 import EmailScanHistory from './EmailScanHistory';
 import GmailSendSection from './GmailSendSection';
 import NotificationSetupGuide from './NotificationSetupGuide';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -124,8 +125,13 @@ const SettingsPage: React.FC = () => {
   return (
     <div className="min-h-full bg-gray-50/60">
       <div className="px-4 py-6 max-w-3xl mx-auto space-y-5 page-fade-in">
+        <MobilePageHeader
+          eyebrow="Settings"
+          title="Settings"
+          subtitle="Mail, notifications & data"
+        />
 
-        <div>
+        <div className="hidden md:block">
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Settings</h1>
           <p className="text-xs text-slate-500 mt-0.5">Mail, notifications &amp; data</p>
         </div>

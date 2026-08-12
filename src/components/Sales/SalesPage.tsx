@@ -9,6 +9,7 @@ import CallLogModal from './CallLogModal';
 import EmailComposeModal from './EmailComposeModal';
 import BulkEmailModal from './BulkEmailModal';
 import LWGScraperModal from './LWGScraperModal';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -394,7 +395,22 @@ const SalesPage: React.FC = () => {
 
         {/* ── Page header ── */}
         <div className="space-y-3">
-          <div className="flex items-start justify-between gap-3">
+          <MobilePageHeader
+            eyebrow="CRM Pipeline"
+            title="Lead IQ"
+            subtitle={loading ? 'Loadingâ€¦' : `${leads.length} prospect${leads.length !== 1 ? 's' : ''}`}
+            action={(
+              <button
+                onClick={() => setIsAddOpen(true)}
+                className="inline-flex items-center justify-center rounded-2xl bg-blue-600 px-3 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-blue-700 transition md:hidden"
+                aria-label="Add lead"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          />
+
+          <div className="hidden items-start justify-between gap-3 md:flex">
             <div className="min-w-0">
               <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">CRM Pipeline</p>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Lead IQ</h1>
@@ -403,7 +419,7 @@ const SalesPage: React.FC = () => {
               </p>
             </div>
             {/* Desktop buttons — shown only on sm+ */}
-            <div className="hidden sm:flex items-center gap-2 shrink-0">
+            <div className="hidden md:flex items-center gap-2 shrink-0">
               <button
                 onClick={() => setIsBulkEmailOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-2xl text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition shadow-sm"
@@ -426,7 +442,7 @@ const SalesPage: React.FC = () => {
           </div>
 
           {/* Mobile buttons — stacked for better accessibility on narrow screens */}
-          <div className="grid grid-cols-2 gap-2 sm:hidden">
+          <div className="grid grid-cols-2 gap-2 md:hidden">
             <button
               onClick={() => setIsAddOpen(true)}
               className="col-span-2 flex items-center justify-center gap-1.5 py-3 text-sm font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition shadow-md"

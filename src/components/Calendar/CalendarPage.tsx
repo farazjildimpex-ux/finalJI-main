@@ -6,6 +6,7 @@ import {
   addMonths, addDays, subMonths, eachDayOfInterval, isSameMonth, isToday, parseISO,
 } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 type EventType = 'journal' | 'reminder' | 'contract' | 'sample' | 'invoice' | 'lead_follow_up';
 
@@ -465,15 +466,16 @@ const CalendarPage: React.FC = () => {
   return (
     <>
     <div className="md:hidden min-h-full bg-gray-50 px-4 pt-4 pb-24 page-fade-in">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-medium text-gray-400">Calendar</p>
-          <h1 className="mt-1 text-[22px] font-bold text-gray-900">{format(selectedParsed, 'd MMM yyyy')}</h1>
-        </div>
-        <button onClick={goToday} className="h-9 px-3 rounded-lg bg-white border border-gray-200 text-[12px] font-bold text-blue-600 shadow-sm">
-          Today
-        </button>
-      </div>
+      <MobilePageHeader
+        eyebrow="Calendar"
+        title={format(selectedParsed, 'd MMM yyyy')}
+        subtitle={mobileCalendarMode === 'week' ? 'Week view' : 'Month view'}
+        action={(
+          <button onClick={goToday} className="h-9 px-3 rounded-2xl bg-slate-950 text-[12px] font-bold text-white shadow-sm">
+            Today
+          </button>
+        )}
+      />
 
       <div className="mt-4 rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden">
         <div className="px-4 py-3 flex items-center justify-between border-b border-gray-100">

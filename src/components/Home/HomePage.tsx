@@ -10,6 +10,7 @@ import JournalWidget from './JournalWidget';
 import EmailPreviewSection from '../Email/EmailPreviewSection';
 import JournalEntryForm from '../Journal/JournalEntryForm';
 import JournalEntryPopup from '../Journal/JournalEntryPopup';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 import PullToRefresh from '../UI/PullToRefresh';
 import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import type { Order, JournalEntry, Invoice } from '../../types';
@@ -1250,27 +1251,19 @@ const HomePage: React.FC = () => {
     <>
       {/* ━━━━━━━━━━━━━━━━━━  MOBILE  ━━━━━━━━━━━━━━━━━━━━━━━━━ */}
       <div
-        className="md:hidden min-h-[100dvh] bg-gray-50 text-gray-900 mobile-smooth-scroll"
-        style={{ paddingBottom: 'calc(70px + env(safe-area-inset-bottom, 0px))' }}
+        className="md:hidden h-[100dvh] overflow-hidden bg-gray-50 text-gray-900 mobile-smooth-scroll"
+        style={{ paddingBottom: 'calc(82px + env(safe-area-inset-bottom, 0px))' }}
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
-          <div className="flex flex-col min-h-[100dvh]">
+          <div className="flex h-full min-h-0 flex-col mobile-page-enter">
             <div className="px-4 pt-4 pb-3 shrink-0">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-medium text-gray-400">{formatFullDate()}</p>
-                  <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-normal">{getGreeting()}</h1>
-                </div>
-                <button
-                  onClick={() => activateMobilePanel('search')}
-                  className="h-10 w-10 rounded-xl bg-white border border-gray-200 text-gray-600 flex items-center justify-center active:bg-gray-100 transition-colors shadow-sm"
-                  aria-label="Search"
-                >
-                  <Search className="h-4 w-4" />
-                </button>
-              </div>
+              <MobilePageHeader
+                eyebrow={formatFullDate()}
+                title={getGreeting()}
+                subtitle="Recent activity, journal, email and search."
+              />
 
-              <div className="mt-3 grid grid-cols-4 gap-1 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
+              <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
                 {[
                   { id: 'recent', label: 'Recent' },
                   { id: 'journal', label: 'Journal' },
@@ -1299,7 +1292,7 @@ const HomePage: React.FC = () => {
               onTouchCancel={handleMobilePanelTouchEnd}
               style={{ touchAction: 'pan-y' }}
             >
-              <div key={mobileHomePanel} className="h-full min-h-0 animate-in fade-in duration-150">
+              <div key={mobileHomePanel} className="h-full min-h-0 mobile-panel-enter">
                 {mobileHomePanel === 'recent' && renderMobileRecentPanel()}
                 {mobileHomePanel === 'journal' && renderMobileJournalPanel()}
                 {mobileHomePanel === 'email' && renderMobileEmailPanel()}

@@ -7,6 +7,7 @@ import EmailLogSection from '../Email/EmailLogSection';
 import { generateSamplePDF } from '../../utils/samplePdfGenerator';
 import { loadCompanyLetterheadImages } from '../../utils/pdfLayoutConfig';
 import type { Sample, Company } from '../../types';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 
 const SampleBookPage: React.FC = () => {
   const { id } = useParams();
@@ -44,7 +45,13 @@ const SampleBookPage: React.FC = () => {
   return (
     <div className="min-h-full bg-gray-50/60">
       <div className="px-4 py-6 max-w-5xl mx-auto space-y-4">
-        <div className="mb-2 flex items-start justify-between gap-3">
+        <MobilePageHeader
+          eyebrow="Sample Letters"
+          title={sample ? sample.sample_number : 'New Letter'}
+          subtitle={sample ? `Letter · ${sample.supplier_name || '—'}` : 'Create a new sample / cover letter'}
+        />
+
+        <div className="mb-2 hidden items-start justify-between gap-3 md:flex">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-violet-500 mb-1">Sample Letters</p>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">
