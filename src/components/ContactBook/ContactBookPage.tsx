@@ -3,6 +3,7 @@ import { Plus, Search, Mail, Phone, MapPin, Users } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 import AddContactModal from './AddContactModal';
 import ContactDetailsModal from './ContactDetailsModal';
+import MobilePageHeader from '../Layout/MobilePageHeader';
 import type { Contact } from '../../types';
 
 function getInitials(name: string) {
@@ -66,7 +67,15 @@ const ContactBookPage: React.FC = () => {
       <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
 
         {/* ── Page header ── */}
-        <div className="flex items-start justify-between gap-3 mb-2">
+        <div className="md:hidden">
+          <MobilePageHeader
+            eyebrow="Directory"
+            title="Contacts"
+            subtitle={loading ? 'Loading...' : `${contacts.length} business contact${contacts.length !== 1 ? 's' : ''}`}
+          />
+        </div>
+
+        <div className="hidden md:flex items-start justify-between gap-3 mb-2">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-widest text-blue-500 mb-1">Directory</p>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Contacts</h1>

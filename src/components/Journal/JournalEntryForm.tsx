@@ -305,6 +305,9 @@ const JournalEntryForm: React.FC<{
               <label className={labelClass}>
                 <AlignLeft className="h-3 w-3" /> Notes
               </label>
+              <p className="mt-1 text-[10px] font-medium text-slate-400">
+                Type <span className="font-semibold text-slate-600">@</span> to tag a contract, letter, or payment.
+              </p>
               <textarea
                 ref={textareaRef}
                 value={content}

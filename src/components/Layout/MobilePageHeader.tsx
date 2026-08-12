@@ -15,7 +15,7 @@ const MobilePageHeader: React.FC<MobilePageHeaderProps> = ({ eyebrow, title, sub
           {eyebrow}
         </p>
       )}
-      <h1 className="mt-1 text-[22px] font-semibold leading-tight tracking-normal text-slate-950 truncate">
+      <h1 className="mt-1 text-[22px] font-bold leading-tight tracking-normal text-slate-950 truncate">
         {title}
       </h1>
       {subtitle && (

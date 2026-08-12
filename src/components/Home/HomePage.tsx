@@ -57,6 +57,11 @@ function formatMobileDay(date: Date) {
   });
 }
 
+function formatWeekRange(start: Date) {
+  const end = addCalendarDays(start, 6);
+  return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} - ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
+}
+
 /* ── filter config ───────────────────────────────────────────── */
 const FILTERS = [
   { label: 'All',       value: 'all',        on: 'bg-gray-800 text-white border-gray-800',       off: 'bg-white text-gray-600 border-gray-200'       },
@@ -132,7 +137,9 @@ const HomePage: React.FC = () => {
   const [savingFollowUpOrder,   setSavingFollowUpOrder]   = useState(false);
   const [showFollowUpReorderHint, setShowFollowUpReorderHint] = useState(false);
   const [highlightedJournalEntryId, setHighlightedJournalEntryId] = useState<string | null>(null);
+  const [showWeekPicker, setShowWeekPicker] = useState(false);
   const weekTouchStartX = useRef<number | null>(null);
+  const daySwipeStart = useRef<{ x: number; y: number } | null>(null);
   const mobilePanelTouchStart = useRef<{ x: number; y: number; panel: MobileHomePanel } | null>(null);
   const followUpLongPressTimer = useRef<number | null>(null);
   const followUpLongPressTriggered = useRef(false);
@@ -392,6 +399,41 @@ const HomePage: React.FC = () => {
       setMobileWeekStart(d => addCalendarDays(d, delta < 0 ? 7 : -7));
     }
     weekTouchStartX.current = null;
+  };
+
+  const openWeekPicker = useCallback(() => {
+    setShowWeekPicker(true);
+  }, []);
+
+  const closeWeekPicker = useCallback(() => {
+    setShowWeekPicker(false);
+  }, []);
+
+  const jumpToWeek = useCallback((weekStart: Date) => {
+    setMobileWeekStart(weekStart);
+    setMobileJournalDate(weekStart);
+    setShowWeekPicker(false);
+  }, []);
+
+  const handleDaySwipeStart = (e: React.TouchEvent<HTMLDivElement>) => {
+    const touch = e.touches[0];
+    daySwipeStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleDaySwipeEnd = (e: React.TouchEvent<HTMLDivElement>) => {
+    if (!daySwipeStart.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - daySwipeStart.current.x;
+    const dy = Math.abs(touch.clientY - daySwipeStart.current.y);
+    daySwipeStart.current = null;
+    if (Math.abs(dx) < 40 || Math.abs(dx) < dy) return;
+
+    const direction = dx < 0 ? 1 : -1;
+    setMobileJournalDate((current) => {
+      const next = addCalendarDays(current, direction);
+      setMobileWeekStart(startOfWeekMonday(next));
+      return next;
+    });
   };
 
   const handleMobileDeleteEntry = async (entry: JournalEntry) => {
@@ -840,12 +882,16 @@ const HomePage: React.FC = () => {
   const renderMobileJournalPanel = () => (
     <section className="h-full min-h-0 flex flex-col">
       <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
-        <div className="min-w-0">
+        <button
+          type="button"
+          onClick={openWeekPicker}
+          className="min-w-0 text-left active:opacity-80"
+        >
           <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
           <p className="mt-0.5 text-[11px] font-medium text-gray-400">
-            {formatMobileDay(mobileWeekStart)} - {formatMobileDay(addCalendarDays(mobileWeekStart, 6))}
+            {formatWeekRange(mobileWeekStart)}
           </p>
-        </div>
+        </button>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
@@ -858,15 +904,21 @@ const HomePage: React.FC = () => {
 
       <div
         className="px-4 py-2 border-b border-gray-50 bg-white"
+        onClick={openWeekPicker}
         onTouchStart={(e) => { e.stopPropagation(); weekTouchStartX.current = e.changedTouches[0].clientX; }}
         onTouchEnd={(e) => { e.stopPropagation(); handleWeekTouchEnd(e); }}
       >
-        <div className="grid grid-cols-7 gap-1">
+        <div
+          className="grid grid-cols-7 gap-1"
+          onTouchStart={handleDaySwipeStart}
+          onTouchEnd={handleDaySwipeEnd}
+        >
           {Array.from({ length: 7 }, (_, offset) => {
             const date = addCalendarDays(mobileWeekStart, offset);
             const isSelected = toDateKey(date) === mobileJournalDateKey;
             return (
               <button
+                type="button"
                 key={offset}
                 onClick={() => setMobileJournalDate(date)}
                 className={`h-11 rounded-lg text-center transition-colors ${
@@ -1344,8 +1396,12 @@ const HomePage: React.FC = () => {
                     const isSelected = toDateKey(date) === mobileJournalDateKey;
                     return (
                       <button
+                        type="button"
                         key={offset}
-                        onClick={() => setMobileJournalDate(date)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setMobileJournalDate(date);
+                        }}
                         className={`h-11 rounded-lg text-center transition-colors ${
                           isSelected
                             ? 'text-blue-600'
@@ -2083,6 +2139,59 @@ const HomePage: React.FC = () => {
       {selectedEntryForPopup&&(
         <JournalEntryPopup entry={selectedEntryForPopup} allEntries={journalEntries}
           onClose={()=>setSelectedEntryForPopup(null)} onUpdate={fetchJournalEntries} />
+      )}
+
+      {showWeekPicker && (
+        <div className="fixed inset-0 z-[210] flex items-end md:items-center justify-center bg-slate-900/40 backdrop-blur-sm px-0 md:p-4">
+          <div className="w-full md:max-w-sm rounded-t-[28px] md:rounded-[28px] bg-white shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200">
+            <div className="px-4 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-500">Journal week</p>
+                <h3 className="mt-1 text-[16px] font-bold text-slate-900">Jump to a week</h3>
+              </div>
+              <button
+                type="button"
+                onClick={closeWeekPicker}
+                className="h-9 w-9 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center active:bg-slate-200"
+                aria-label="Close week picker"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[60dvh] overflow-y-auto no-scrollbar p-3 space-y-2">
+              {Array.from({ length: 7 }, (_, offset) => {
+                const weekStart = addCalendarDays(startOfWeekMonday(mobileWeekStart), (offset - 3) * 7);
+                const weekEnd = addCalendarDays(weekStart, 6);
+                const isCurrent = toDateKey(weekStart) === toDateKey(mobileWeekStart);
+                return (
+                  <button
+                    key={toDateKey(weekStart)}
+                    type="button"
+                    onClick={() => jumpToWeek(weekStart)}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors active:scale-[0.99] ${
+                      isCurrent
+                        ? 'border-blue-200 bg-blue-50/70'
+                        : 'border-slate-100 bg-white hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-bold text-slate-900">
+                          Week of {weekStart.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {weekStart.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} - {weekEnd.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                      {isCurrent && <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600">Current</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {statusPopupOrder && (
