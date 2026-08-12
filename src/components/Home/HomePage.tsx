@@ -310,6 +310,26 @@ const HomePage: React.FC = () => {
 
   const mobileJournalDateKey = useMemo(() => toDateKey(mobileJournalDate), [mobileJournalDate]);
 
+  const mobileWeekOptions = useMemo(() => {
+    const todayWeekStart = startOfWeekMonday(new Date());
+    const dates = journalEntries
+      .map(entry => new Date(entry.entry_date))
+      .filter(date => !Number.isNaN(date.getTime()));
+
+    if (dates.length === 0) return [todayWeekStart];
+
+    const earliest = dates.reduce((min, date) => (date < min ? date : min), dates[0]);
+    const latest = dates.reduce((max, date) => (date > max ? date : max), dates[0]);
+    const firstWeek = startOfWeekMonday(earliest < todayWeekStart ? earliest : todayWeekStart);
+    const lastWeek = startOfWeekMonday(latest > todayWeekStart ? latest : todayWeekStart);
+
+    const weeks: Date[] = [];
+    for (let cursor = new Date(firstWeek); cursor.getTime() <= lastWeek.getTime(); cursor = addCalendarDays(cursor, 7)) {
+      weeks.push(new Date(cursor));
+    }
+    return weeks;
+  }, [journalEntries]);
+
   const mobileJournalDueItems = useMemo(
     () => buildJournalDueItems(orders, mobileJournalDateKey, invoiceDeliveries),
     [orders, mobileJournalDateKey, invoiceDeliveries],
@@ -904,7 +924,6 @@ const HomePage: React.FC = () => {
 
       <div
         className="px-4 py-2 border-b border-gray-50 bg-white"
-        onClick={openWeekPicker}
         onTouchStart={(e) => { e.stopPropagation(); weekTouchStartX.current = e.changedTouches[0].clientX; }}
         onTouchEnd={(e) => { e.stopPropagation(); handleWeekTouchEnd(e); }}
       >
@@ -920,7 +939,10 @@ const HomePage: React.FC = () => {
               <button
                 type="button"
                 key={offset}
-                onClick={() => setMobileJournalDate(date)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setMobileJournalDate(date);
+                }}
                 className={`h-11 rounded-lg text-center transition-colors ${
                   isSelected
                     ? 'text-blue-600'
@@ -2159,9 +2181,8 @@ const HomePage: React.FC = () => {
               </button>
             </div>
 
-            <div className="max-h-[60dvh] overflow-y-auto no-scrollbar p-3 space-y-2">
-              {Array.from({ length: 7 }, (_, offset) => {
-                const weekStart = addCalendarDays(startOfWeekMonday(mobileWeekStart), (offset - 3) * 7);
+            <div className="max-h-[72dvh] overflow-y-auto no-scrollbar p-3 space-y-2">
+              {mobileWeekOptions.map((weekStart) => {
                 const weekEnd = addCalendarDays(weekStart, 6);
                 const isCurrent = toDateKey(weekStart) === toDateKey(mobileWeekStart);
                 return (
