@@ -848,13 +848,6 @@ const HomePage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => activateMobilePanel('search')}
-            className="h-8 w-8 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 flex items-center justify-center active:bg-gray-100 transition-colors"
-            aria-label="Search"
-          >
-            <Search className="h-4 w-4" />
-          </button>
-          <button
             onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
             className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5 active:bg-blue-700 transition-colors"
           >
@@ -1066,6 +1059,7 @@ const HomePage: React.FC = () => {
         <EmailPreviewSection
           compact
           onOpenPage={() => navigate('/app/email')}
+          showHeader={false}
         />
       </div>
     </section>

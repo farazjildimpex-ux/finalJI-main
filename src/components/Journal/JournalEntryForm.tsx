@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft, Pin } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { X, Bell, BellOff, Calendar, Clock, Tag, AlignLeft, Pin, Trash2, AtSign, FileText, Landmark } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '../../lib/supabaseClient';
 import { useAuth } from '../../hooks/useAuth';
@@ -16,6 +16,12 @@ const REMINDER_PRESETS: { label: string; days: number }[] = [
   { label: '2 weeks', days: 14 },
   { label: '3 weeks', days: 21 },
   { label: '4 weeks', days: 28 },
+];
+
+const NOTE_REFERENCES = [
+  { label: 'Contract', value: '@contract', helper: 'Link contract details' },
+  { label: 'Letter', value: '@letter', helper: 'Link letter details' },
+  { label: 'Payment', value: '@payment', helper: 'Link payment details' },
 ];
 
 const JournalEntryForm: React.FC<{
@@ -36,6 +42,7 @@ const JournalEntryForm: React.FC<{
   const draftKey = useMemo(() => (
     `journal-entry-draft:${initialEntry?.id ?? parentId ?? 'new'}:${initialDateKey}`
   ), [initialEntry?.id, parentId, initialDateKey]);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [entryDate, setEntryDate] = useState(format(initialDate, 'yyyy-MM-dd'));
@@ -44,6 +51,35 @@ const JournalEntryForm: React.FC<{
   const [reminderTime, setReminderTime] = useState('09:00');
   const [followUpRequired, setFollowUpRequired] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [referenceMenu, setReferenceMenu] = useState<{ start: number; end: number; query: string } | null>(null);
+
+  const applyInitialState = useCallback(() => {
+    if (initialEntry) {
+      setTitle(initialEntry.title);
+      setContent(initialEntry.content || '');
+      setEntryDate(format(new Date(initialEntry.entry_date), 'yyyy-MM-dd'));
+      setReminderEnabled(initialEntry.reminder_enabled || false);
+      setReminderDate(initialEntry.reminder_date || '');
+      setReminderTime(initialEntry.reminder_time || '09:00');
+      setFollowUpRequired(Boolean(initialEntry.follow_up_required && !initialEntry.follow_up_completed_at));
+      setReferenceMenu(null);
+      return;
+    }
+
+    setTitle('');
+    setContent('');
+    setEntryDate(initialDateKey);
+    setReminderEnabled(false);
+    setReminderDate('');
+    setReminderTime('09:00');
+    setFollowUpRequired(false);
+    setReferenceMenu(null);
+  }, [initialEntry, initialDateKey]);
+
+  const clearDraft = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(draftKey);
+  }, [draftKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -59,30 +95,15 @@ const JournalEntryForm: React.FC<{
         setReminderDate(parsed.reminderDate ?? '');
         setReminderTime(parsed.reminderTime ?? '09:00');
         setFollowUpRequired(Boolean(parsed.followUpRequired));
+        setReferenceMenu(null);
         return;
       } catch {
         window.localStorage.removeItem(draftKey);
       }
     }
 
-    if (initialEntry) {
-      setTitle(initialEntry.title);
-      setContent(initialEntry.content || '');
-      setEntryDate(format(new Date(initialEntry.entry_date), 'yyyy-MM-dd'));
-      setReminderEnabled(initialEntry.reminder_enabled || false);
-      setReminderDate(initialEntry.reminder_date || '');
-      setReminderTime(initialEntry.reminder_time || '09:00');
-      setFollowUpRequired(Boolean(initialEntry.follow_up_required && !initialEntry.follow_up_completed_at));
-    } else {
-      setTitle('');
-      setContent('');
-      setEntryDate(initialDateKey);
-      setReminderEnabled(false);
-      setReminderDate('');
-      setReminderTime('09:00');
-      setFollowUpRequired(false);
-    }
-  }, [initialEntry, initialDateKey, draftKey]);
+    applyInitialState();
+  }, [applyInitialState, draftKey]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -96,6 +117,65 @@ const JournalEntryForm: React.FC<{
       followUpRequired,
     }));
   }, [draftKey, title, content, entryDate, reminderEnabled, reminderDate, reminderTime, followUpRequired]);
+
+  const updateReferenceMenu = (value: string, cursor: number) => {
+    const textBeforeCursor = value.slice(0, cursor);
+    const match = textBeforeCursor.match(/(?:^|\s)@([a-zA-Z]*)$/);
+    if (!match) {
+      setReferenceMenu(null);
+      return;
+    }
+
+    const atIndex = textBeforeCursor.lastIndexOf('@');
+    if (atIndex < 0) {
+      setReferenceMenu(null);
+      return;
+    }
+
+    setReferenceMenu({
+      start: atIndex,
+      end: cursor,
+      query: match[1].toLowerCase(),
+    });
+  };
+
+  const handleContentChange = (value: string, cursor: number) => {
+    setContent(value);
+    updateReferenceMenu(value, cursor);
+  };
+
+  const insertReferenceToken = (token: string) => {
+    if (!referenceMenu) return;
+    const nextValue = `${content.slice(0, referenceMenu.start)}${token} ${content.slice(referenceMenu.end).replace(/^\s+/, ' ')}`.replace(/[ ]{2,}/g, ' ');
+    setContent(nextValue);
+    setReferenceMenu(null);
+    window.setTimeout(() => {
+      const nextCursor = referenceMenu.start + token.length + 1;
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(nextCursor, nextCursor);
+    }, 0);
+  };
+
+  const handleDiscard = async () => {
+    const ok = await dialogService.confirm({
+      title: initialEntry ? 'Reset changes?' : 'Discard draft?',
+      message: initialEntry
+        ? 'This will restore the saved entry content.'
+        : 'This will clear everything you typed and close the form.',
+      confirmLabel: initialEntry ? 'Reset' : 'Discard',
+      cancelLabel: 'Keep editing',
+      tone: 'warning',
+    });
+    if (!ok) return;
+
+    clearDraft();
+    setReferenceMenu(null);
+    if (initialEntry) {
+      applyInitialState();
+    } else {
+      onClose();
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,14 +251,24 @@ const JournalEntryForm: React.FC<{
               {initialEntry ? 'Edit Entry' : parentId ? 'Add to Thread' : 'New Entry'}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="shrink-0 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={handleDiscard}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-50 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {initialEntry ? 'Reset' : 'Clear'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -211,17 +301,52 @@ const JournalEntryForm: React.FC<{
             </div>
 
             {/* Notes */}
-            <div className="rounded-2xl border border-slate-100 bg-white px-4 py-3">
+            <div className="relative rounded-2xl border border-slate-100 bg-white px-4 py-3">
               <label className={labelClass}>
                 <AlignLeft className="h-3 w-3" /> Notes
               </label>
               <textarea
+                ref={textareaRef}
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => handleContentChange(e.target.value, e.currentTarget.selectionStart ?? e.target.value.length)}
+                onSelect={(e) => updateReferenceMenu(e.currentTarget.value, e.currentTarget.selectionStart ?? e.currentTarget.value.length)}
                 placeholder="Add details, context, or next steps…"
                 rows={5}
                 className="mt-2 w-full resize-none bg-transparent text-sm leading-6 text-slate-700 placeholder-slate-300 focus:outline-none"
               />
+
+              {referenceMenu && (
+                <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-2 shadow-sm">
+                  <div className="flex items-center gap-2 px-2 pb-2">
+                    <AtSign className="h-3.5 w-3.5 text-blue-600" />
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Add a reference</p>
+                  </div>
+                  <div className="grid gap-1">
+                    {NOTE_REFERENCES.filter(item => item.label.toLowerCase().includes(referenceMenu.query) || item.value.includes(referenceMenu.query)).map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onPointerDown={(event) => {
+                          event.preventDefault();
+                          insertReferenceToken(item.value);
+                        }}
+                        className="w-full flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2 text-left border border-slate-100 hover:border-blue-100 hover:bg-blue-50/40 transition-colors"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="h-7 w-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                            {item.label === 'Contract' ? <FileText className="h-3.5 w-3.5" /> : item.label === 'Payment' ? <Landmark className="h-3.5 w-3.5" /> : <AtSign className="h-3.5 w-3.5" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[12px] font-semibold text-slate-900">{item.label}</p>
+                            <p className="text-[10px] text-slate-400">{item.helper}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-400">{item.value}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Follow-up */}

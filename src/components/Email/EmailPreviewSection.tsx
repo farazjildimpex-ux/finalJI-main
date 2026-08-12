@@ -9,11 +9,12 @@ interface EmailPreviewSectionProps {
   compact?: boolean;
   className?: string;
   onOpenPage?: () => void;
+  showHeader?: boolean;
 }
 
 const SWIPE_THRESHOLD = 52;
 
-const EmailPreviewSection: React.FC<EmailPreviewSectionProps> = ({ compact = false, className = '', onOpenPage }) => {
+const EmailPreviewSection: React.FC<EmailPreviewSectionProps> = ({ compact = false, className = '', onOpenPage, showHeader = true }) => {
   const navigate = useNavigate();
   const [emails, setEmails] = useState<EmailData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,27 +74,29 @@ const EmailPreviewSection: React.FC<EmailPreviewSectionProps> = ({ compact = fal
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
     >
-      <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-              <Mail className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-[15px] font-bold text-slate-950 leading-tight">Email</h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">{importantCount} important in Zoho</p>
+      {showHeader && (
+        <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-slate-100">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <Mail className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-[15px] font-bold text-slate-950 leading-tight">Email</h2>
+                <p className="text-[11px] text-slate-400 mt-0.5">{importantCount} important in Zoho</p>
+              </div>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={openPage}
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-slate-950 px-3 py-2 text-[11px] font-bold text-white active:scale-95 transition-transform"
+          >
+            <Inbox className="h-3.5 w-3.5" />
+            Open
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={openPage}
-          className="inline-flex items-center gap-1.5 rounded-2xl bg-slate-950 px-3 py-2 text-[11px] font-bold text-white active:scale-95 transition-transform"
-        >
-          <Inbox className="h-3.5 w-3.5" />
-          Open
-        </button>
-      </div>
+      )}
 
       <div className={compact ? 'px-3 py-2.5' : 'px-4 py-3'}>
         {loading ? (
