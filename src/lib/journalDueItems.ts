@@ -64,6 +64,13 @@ export function extractDateFromSchedule(schedule: string[] | null | undefined): 
   return null;
 }
 
+const OPEN_ORDER_STATUSES = new Set(['Issued', 'Inspected', 'Open']);
+
+function isOrderOpen(order: Order): boolean {
+  const status = (order.status || '').trim();
+  return !status || OPEN_ORDER_STATUSES.has(status) || (!['Completed', 'Cancelled'].includes(status));
+}
+
 export function buildJournalDueItems(
   orders: Order[],
   dateKey: string,
@@ -72,6 +79,8 @@ export function buildJournalDueItems(
   const items: JournalDueItem[] = [];
 
   for (const order of orders) {
+    if (!isOrderOpen(order)) continue;
+
     if (order.type === 'contract') {
       const date = order.contractData?.delivery_date || extractDateFromSchedule(order.contractData?.delivery_schedule);
       if (date === dateKey) {

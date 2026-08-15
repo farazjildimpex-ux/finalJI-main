@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
   <title id="title">JI</title>
-  <rect width="180" height="180" rx="36" fill="#1d4ed8"/>
+  <rect width="180" height="180" rx="36" fill="#0b0b0b"/>
   <text
     x="90"
-    y="98"
+    y="96"
     text-anchor="middle"
     dominant-baseline="middle"
     font-family="Arial, 'Segoe UI', sans-serif"
-    font-weight="800"
-    font-size="96"
-    letter-spacing="-5"
+    font-weight="900"
+    font-size="100"
+    letter-spacing="-8"
     fill="#ffffff"
   >JI</text>
 </svg>

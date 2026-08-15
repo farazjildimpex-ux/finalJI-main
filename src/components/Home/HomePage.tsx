@@ -760,9 +760,9 @@ const HomePage: React.FC = () => {
                       if (item.route) navigate(item.route);
                       setMobileOpenDueId(null);
                     }}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-700 bg-gray-50"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-100"
                   >
-                    <ChevronRight className="h-3 w-3 text-gray-700" />
+                    <ChevronRight className="h-3 w-3 text-blue-700" />
                     <span>Open</span>
                   </button>
                   <button
