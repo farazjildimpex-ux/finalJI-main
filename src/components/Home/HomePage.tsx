@@ -137,6 +137,7 @@ const HomePage: React.FC = () => {
   const [mobileHomePanel,      setMobileHomePanel]       = useState<MobileHomePanel>('journal');
   const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
   const [mobileOpenDueId,       setMobileOpenDueId]       = useState<string | null>(null);
+  const [removingDueIds, setRemovingDueIds] = useState<string[]>([]);
   const [statusPopupOrder,      setStatusPopupOrder]      = useState<Order | null>(null);
   const [followUpReorderMode,   setFollowUpReorderMode]   = useState(false);
   const [followUpReorderList,   setFollowUpReorderList]   = useState<JournalEntry[]>([]);
@@ -717,8 +718,9 @@ const HomePage: React.FC = () => {
           const theme = DUE_THEME[item.type] || DUE_THEME.contract;
           const Icon = theme.Icon;
           const isOpen = mobileOpenDueId === item.id;
+          const isRemoving = removingDueIds.includes(item.id);
           return (
-            <div key={item.id} className={`w-full rounded-xl border ${theme.wrap} overflow-hidden`}>
+            <div key={item.id} className={`w-full rounded-xl border ${theme.wrap} overflow-hidden transition-all duration-300 ${isRemoving ? 'opacity-0 max-h-0 scale-95' : ''}`}>
               <button
                 type="button"
                               onClick={() => { setMobileOpenEntryId(null); setMobileOpenDueId(id => id === item.id ? null : item.id); }}
@@ -776,9 +778,14 @@ const HomePage: React.FC = () => {
                       }
                       try {
                         await updateOrderStatus(order, 'Completed');
-                        await fetchData();
-                        dialogService.success('Marked completed.');
+                        // animate removal locally, then refresh data
+                        setRemovingDueIds(prev => [...prev, item.id]);
                         setMobileOpenDueId(null);
+                        setTimeout(async () => {
+                          try { await fetchData(); } catch (e) { /* ignore */ }
+                          setRemovingDueIds(prev => prev.filter(id => id !== item.id));
+                          dialogService.success('Marked completed.');
+                        }, 300);
                       } catch (err: any) {
                         await dialogService.alert({ title: 'Failed', message: err?.message || 'Please try again.', tone: 'danger' });
                       }
