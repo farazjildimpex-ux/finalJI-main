@@ -1456,7 +1456,7 @@ const HomePage: React.FC = () => {
                 subtitle="Recent activity, journal, email and search."
               />
 
-              <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white border border-gray-100 p-1 shadow-sm">
+              <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1 shadow-sm">
                 {[
                   { id: 'recent', label: 'Recent' },
                   { id: 'journal', label: 'Journal' },

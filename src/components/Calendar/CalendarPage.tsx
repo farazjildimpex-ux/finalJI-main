@@ -123,7 +123,7 @@ const CalendarPage: React.FC = () => {
   const [expandedId, setExpandedId]     = useState<string | null>(null);
   const [details, setDetails]           = useState<Record<string, EventDetail>>({});
   const [contractQueryError, setContractQueryError] = useState<string | null>(null);
-  const [mobileCalendarMode, setMobileCalendarMode] = useState<'week' | 'month'>('week');
+  const [mobileCalendarMode, setMobileCalendarMode] = useState<'week' | 'month'>('month');
 
   const calendarDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(viewDate));

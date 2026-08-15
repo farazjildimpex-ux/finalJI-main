@@ -720,16 +720,15 @@ export default function ContractForm({ initialContract }: ContractFormProps) {
         </div>
         {formData.selection?.map((_, index) => (
           <div key={index} className="mb-1.5">
-            <div className="md:hidden space-y-1.5 border border-gray-200 rounded-xl p-3 bg-gray-50/50 mb-1">
-              <div className="grid grid-cols-2 gap-1.5">
+            <div className="md:hidden space-y-2 border border-gray-200 rounded-xl p-3 bg-gray-50/50 mb-1">
+              <div className="space-y-2">
                 <input type="text" placeholder="Selection" value={formData.selection?.[index] || ''} onChange={(e) => handleArrayFieldChange('selection', index, e.target.value)} className={inputClassName} />
                 <input type="text" placeholder="Color" value={formData.color?.[index] || ''} onChange={(e) => handleArrayFieldChange('color', index, e.target.value)} className={inputClassName} />
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
                 <input type="text" placeholder="Swatch" value={formData.swatch?.[index] || ''} onChange={(e) => handleArrayFieldChange('swatch', index, e.target.value)} className={inputClassName} />
                 <input type="text" placeholder="Qty" value={formData.quantity?.[index] || ''} onChange={(e) => handleArrayFieldChange('quantity', index, e.target.value)} className={inputClassName} />
                 <input type="text" placeholder="Price" value={formData.price?.[index] || ''} onChange={(e) => handleArrayFieldChange('price', index, e.target.value)} className={inputClassName} />
               </div>
+
               {index > 0 && (
                 <button type="button" onClick={() => { removeArrayField('selection', index); removeArrayField('color', index); removeArrayField('swatch', index); removeArrayField('quantity', index); removeArrayField('price', index); }} className="inline-flex items-center text-[11px] font-medium text-red-600 hover:text-red-800">
                   <Trash2 className="h-3 w-3 mr-1" /> Remove Row
