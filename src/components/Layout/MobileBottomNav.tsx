@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   Home, Users, MoreHorizontal, Zap, Bookmark, CalendarDays, Settings,
@@ -31,6 +31,7 @@ const CONTROL_CENTER_ITEMS = [
 const MobileBottomNav: React.FC = () => {
   const location = useLocation();
   const [showMore, setShowMore] = useState(false);
+  const startXRef = useRef<number | null>(null);
 
   const handlePrimaryNav = (tabName: string) => {
     setShowMore(false);
@@ -53,6 +54,16 @@ const MobileBottomNav: React.FC = () => {
           border: '1px solid rgba(226,232,240,0.95)',
           borderRadius: 24,
           boxShadow: '0 12px 34px rgba(15,23,42,0.16)',
+        }}
+        onTouchStart={(e) => { const t = e.touches[0]; (startXRef.current as any) = t.clientX; }}
+        onTouchEnd={(e) => {
+          const startX = startXRef.current as number | null;
+          startXRef.current = null;
+          if (startX == null) return;
+          const dx = e.changedTouches[0].clientX - startX;
+          if (Math.abs(dx) < 48) return;
+          const direction = dx < 0 ? 1 : -1;
+          window.dispatchEvent(new CustomEvent('home-journal-swipe', { detail: { direction } }));
         }}
       >
         <div className="flex items-stretch px-1.5" style={{ height: 58 }}>

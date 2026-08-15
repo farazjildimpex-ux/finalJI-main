@@ -115,6 +115,12 @@ const HomePage: React.FC = () => {
   const [desktopSearch, setDesktopSearch] = useState('');
   const [desktopJournalPage, setDesktopJournalPage] = useState(1);
 
+  // Search pagination (mobile)
+  const [searchOrderPage, setSearchOrderPage] = useState(1);
+  const [searchJournalPage, setSearchJournalPage] = useState(1);
+  const SEARCH_ORDER_PAGE_SIZE = 20;
+  const SEARCH_JOURNAL_PAGE_SIZE = 12;
+
   const [orders,          setOrders]         = useState<Order[]>([]);
   const [invoiceDeliveries, setInvoiceDeliveries] = useState<Invoice[]>([]);
   const [journalEntries,  setJournalEntries] = useState<JournalEntry[]>([]);
@@ -130,6 +136,7 @@ const HomePage: React.FC = () => {
   const [mobileWeekStart,       setMobileWeekStart]       = useState(() => startOfWeekMonday(new Date()));
   const [mobileHomePanel,      setMobileHomePanel]       = useState<MobileHomePanel>('journal');
   const [mobileOpenEntryId,     setMobileOpenEntryId]     = useState<string | null>(null);
+  const [mobileOpenDueId,       setMobileOpenDueId]       = useState<string | null>(null);
   const [statusPopupOrder,      setStatusPopupOrder]      = useState<Order | null>(null);
   const [followUpReorderMode,   setFollowUpReorderMode]   = useState(false);
   const [followUpReorderList,   setFollowUpReorderList]   = useState<JournalEntry[]>([]);
@@ -206,8 +213,20 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     window.addEventListener('home-journal-reset', resetJournalToToday);
+    const handleSwipe = (ev: any) => {
+      const dir = ev?.detail?.direction || 0;
+      if (!dir) return;
+      setMobileJournalDate((curr) => {
+        const next = addCalendarDays(curr, dir);
+        setMobileWeekStart(startOfWeekMonday(next));
+        return next;
+      });
+    };
+    window.addEventListener('home-journal-swipe', handleSwipe as any);
+
     return () => {
       window.removeEventListener('home-journal-reset', resetJournalToToday);
+      window.removeEventListener('home-journal-swipe', handleSwipe as any);
       if (followUpLongPressTimer.current != null) {
         window.clearTimeout(followUpLongPressTimer.current);
       }
@@ -257,6 +276,9 @@ const HomePage: React.FC = () => {
 
   // Reset page when filter changes
   useEffect(()=>{ setActivityPage(1); }, [mobileFilter]);
+
+  // Reset search pages when search term changes
+  useEffect(() => { setSearchOrderPage(1); setSearchJournalPage(1); }, [searchTerm]);
   useEffect(() => {
     setDesktopJournalPage(1);
     setMobileOpenEntryId(null);
@@ -296,17 +318,27 @@ const HomePage: React.FC = () => {
     return list;
   }, [orders, desktopFilter, desktopSearch]);
 
-  const searchOrderResults = useMemo(()=>{
+  const searchOrderAll = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    const s=searchTerm.toLowerCase();
-    return orders.filter(o=>o.contractNumber.toLowerCase().includes(s)||o.supplierName.toLowerCase().includes(s)||o.article.toLowerCase().includes(s)).slice(0,20);
+    const s = searchTerm.toLowerCase();
+    return orders.filter(o => o.contractNumber.toLowerCase().includes(s) || o.supplierName.toLowerCase().includes(s) || o.article.toLowerCase().includes(s));
   }, [orders, searchTerm]);
+  const searchOrderTotalPages = Math.max(1, Math.ceil(searchOrderAll.length / SEARCH_ORDER_PAGE_SIZE));
+  const searchOrderResults = useMemo(() => {
+    const start = (searchOrderPage - 1) * SEARCH_ORDER_PAGE_SIZE;
+    return searchOrderAll.slice(start, start + SEARCH_ORDER_PAGE_SIZE);
+  }, [searchOrderAll, searchOrderPage]);
 
-  const searchJournalResults = useMemo(()=>{
+  const searchJournalAll = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    const s=searchTerm.toLowerCase();
-    return journalEntries.filter(e=>e.title.toLowerCase().includes(s)||(e.content&&e.content.toLowerCase().includes(s))).slice(0,12);
+    const s = searchTerm.toLowerCase();
+    return journalEntries.filter(e => e.title.toLowerCase().includes(s) || (e.content && e.content.toLowerCase().includes(s)));
   }, [journalEntries, searchTerm]);
+  const searchJournalTotalPages = Math.max(1, Math.ceil(searchJournalAll.length / SEARCH_JOURNAL_PAGE_SIZE));
+  const searchJournalResults = useMemo(() => {
+    const start = (searchJournalPage - 1) * SEARCH_JOURNAL_PAGE_SIZE;
+    return searchJournalAll.slice(start, start + SEARCH_JOURNAL_PAGE_SIZE);
+  }, [searchJournalAll, searchJournalPage]);
 
   const mobileJournalDateKey = useMemo(() => toDateKey(mobileJournalDate), [mobileJournalDate]);
 
@@ -330,10 +362,14 @@ const HomePage: React.FC = () => {
     return weeks;
   }, [journalEntries]);
 
-  const mobileJournalDueItems = useMemo(
-    () => buildJournalDueItems(orders, mobileJournalDateKey, invoiceDeliveries),
-    [orders, mobileJournalDateKey, invoiceDeliveries],
-  );
+  const mobileJournalDueItems = useMemo(() => {
+    const weekStart = mobileWeekStart;
+    const keys = Array.from({ length: 7 }, (_, i) => toDateKey(addCalendarDays(weekStart, i)));
+    const items = keys.flatMap(k => buildJournalDueItems(orders, k, invoiceDeliveries));
+    const map = new Map<string, JournalDueItem>();
+    for (const it of items) map.set(it.id, it);
+    return Array.from(map.values());
+  }, [orders, mobileWeekStart, invoiceDeliveries]);
 
   const activeFollowUps = useMemo(
     () => journalEntries
@@ -673,18 +709,19 @@ const HomePage: React.FC = () => {
       <div className="space-y-2">
         <div className="flex items-center gap-2 px-0.5">
           <CalendarClock className="h-3.5 w-3.5 text-blue-600" />
-          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due on this date</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Due this week</p>
         </div>
         {items.map(item => {
           const theme = DUE_THEME[item.type] || DUE_THEME.contract;
           const Icon = theme.Icon;
+          const isOpen = mobileOpenDueId === item.id;
           return (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.route)}
-              className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors active:scale-[0.99] hover:border-blue-200 ${theme.wrap}`}
-            >
-              <div className="flex items-start gap-3">
+            <div key={item.id} className={`w-full rounded-xl border ${theme.wrap} overflow-hidden`}>
+              <button
+                type="button"
+                onClick={() => setMobileOpenDueId(id => id === item.id ? null : item.id)}
+                className="w-full px-3 py-2.5 text-left flex items-start gap-3"
+              >
                 <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${theme.icon}`}>
                   <Icon className="h-4 w-4" />
                 </div>
@@ -697,8 +734,60 @@ const HomePage: React.FC = () => {
                   </div>
                   <p className="mt-0.5 text-[11px] text-slate-500 truncate">{item.subtitle}</p>
                 </div>
+              </button>
+
+              <div className={`transition-all duration-200 ${isOpen ? 'max-h-28 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <div className="flex items-center gap-2 px-3.5 py-2.5 border-t bg-white">
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      // Try to open the linked order if possible
+                      const parts = item.id.split('-');
+                      const kind = parts[0];
+                      const id = parts.slice(1).join('-');
+                      const order = orders.find(o => String(o.id) === id && o.type === kind);
+                      if (order) {
+                        goToOrder(order);
+                        setMobileOpenDueId(null);
+                        return;
+                      }
+                      // Fallback to route
+                      if (item.route) navigate(item.route);
+                      setMobileOpenDueId(null);
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-700 bg-gray-50"
+                  >
+                    Open
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const parts = item.id.split('-');
+                      const kind = parts[0];
+                      const id = parts.slice(1).join('-');
+                      const order = orders.find(o => String(o.id) === id && o.type === kind);
+                      if (!order) {
+                        await dialogService.alert({ title: 'Cannot mark completed', message: 'This item cannot be completed from here.' });
+                        return;
+                      }
+                      try {
+                        await updateOrderStatus(order, 'Completed');
+                        await fetchData();
+                        dialogService.success('Marked completed.');
+                        setMobileOpenDueId(null);
+                      } catch (err: any) {
+                        await dialogService.alert({ title: 'Failed', message: err?.message || 'Please try again.', tone: 'danger' });
+                      }
+                    }}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50"
+                  >
+                    Mark completed
+                  </button>
+                </div>
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -1260,6 +1349,24 @@ const HomePage: React.FC = () => {
                   </button>
                 ))}
               </div>
+              {searchJournalTotalPages > 1 && (
+                <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
+                  <p className="text-[11px] font-medium text-gray-400">
+                    {(searchJournalPage - 1) * SEARCH_JOURNAL_PAGE_SIZE + 1}-{Math.min(searchJournalPage * SEARCH_JOURNAL_PAGE_SIZE, searchJournalAll.length)} of {searchJournalAll.length}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: Math.min(searchJournalTotalPages, 5) }, (_, idx) => idx + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setSearchJournalPage(page)}
+                        className={`h-7 w-7 rounded-lg text-[11px] font-bold ${searchJournalPage === page ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )
         ) : (
@@ -1295,6 +1402,24 @@ const HomePage: React.FC = () => {
                   );
                 })}
               </div>
+              {searchOrderTotalPages > 1 && (
+                <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3 bg-white">
+                  <p className="text-[11px] font-medium text-gray-400">
+                    {(searchOrderPage - 1) * SEARCH_ORDER_PAGE_SIZE + 1}-{Math.min(searchOrderPage * SEARCH_ORDER_PAGE_SIZE, searchOrderAll.length)} of {searchOrderAll.length}
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: Math.min(searchOrderTotalPages, 5) }, (_, idx) => idx + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setSearchOrderPage(page)}
+                        className={`h-7 w-7 rounded-lg text-[11px] font-bold ${searchOrderPage === page ? 'bg-blue-600 text-white' : 'bg-gray-50 text-gray-500 border border-gray-200'}`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )
         )}
