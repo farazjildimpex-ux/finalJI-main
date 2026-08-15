@@ -1,16 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
   <title id="title">JI</title>
-  <rect width="512" height="512" rx="96" fill="#0b0b0b"/>
-  <text
-    x="256"
-    y="274"
-    text-anchor="middle"
-    dominant-baseline="middle"
-    font-family="Arial, 'Segoe UI', sans-serif"
-    font-weight="900"
-    font-size="292"
-    letter-spacing="-20"
-    fill="#ffffff"
-  >JI</text>
+  <rect width="512" height="512" rx="96" fill="#0a0a0a"/>
+  <g fill="none" stroke="#ffffff" stroke-width="28" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M110 118H220"/>
+    <path d="M220 118V310C220 360 188 396 132 396H102"/>
+    <path d="M268 118V372"/>
+    <path d="M228 118H326"/>
+    <path d="M228 372H326"/>
+  </g>
 </svg>
