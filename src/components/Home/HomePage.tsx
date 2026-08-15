@@ -555,8 +555,10 @@ const HomePage: React.FC = () => {
 
   const handleMobileEntryTap = (entry: JournalEntry) => {
     if (followUpReorderMode || followUpLongPressTriggered.current) return;
-    setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
-  };
+      // Close any open due-item actions when opening a journal entry
+      setMobileOpenDueId(null);
+      setMobileOpenEntryId(id => id === entry.id ? null : entry.id);
+    };
 
   const openJournalFromSearch = (entry: JournalEntry) => {
     const entryDate = new Date(entry.entry_date);
@@ -719,7 +721,7 @@ const HomePage: React.FC = () => {
             <div key={item.id} className={`w-full rounded-xl border ${theme.wrap} overflow-hidden`}>
               <button
                 type="button"
-                onClick={() => setMobileOpenDueId(id => id === item.id ? null : item.id)}
+                              onClick={() => { setMobileOpenEntryId(null); setMobileOpenDueId(id => id === item.id ? null : item.id); }}
                 className="w-full px-3 py-2.5 text-left flex items-start gap-3"
               >
                 <div className={`h-8 w-8 rounded-lg border flex items-center justify-center shrink-0 ${theme.icon}`}>
@@ -736,8 +738,8 @@ const HomePage: React.FC = () => {
                 </div>
               </button>
 
-              <div className={`transition-all duration-200 ${isOpen ? 'max-h-28 opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="flex items-center gap-2 px-3.5 py-2.5 border-t bg-white">
+              <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-16 opacity-100' : 'max-h-0 opacity-0'}`}>
+                              <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-t bg-white">
                   <button
                     type="button"
                     onClick={async (e) => {
@@ -756,7 +758,7 @@ const HomePage: React.FC = () => {
                       if (item.route) navigate(item.route);
                       setMobileOpenDueId(null);
                     }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-gray-700 bg-gray-50"
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-700 bg-gray-50"
                   >
                     Open
                   </button>
@@ -781,7 +783,7 @@ const HomePage: React.FC = () => {
                         await dialogService.alert({ title: 'Failed', message: err?.message || 'Please try again.', tone: 'danger' });
                       }
                     }}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-emerald-700 bg-emerald-50"
+                                        className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50"
                   >
                     Mark completed
                   </button>
