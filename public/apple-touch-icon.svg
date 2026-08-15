@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
-  <title id="title">JI</title>
-  <rect width="180" height="180" rx="34" fill="#0a0a0a"/>
-  <g fill="none" stroke="#ffffff" stroke-width="10" stroke-linecap="square" stroke-linejoin="miter">
-    <path d="M38 42H78"/>
-    <path d="M78 42V112C78 128 68 140 48 140H38"/>
-    <path d="M96 42V132"/>
-    <path d="M82 42H120"/>
-    <path d="M82 132H120"/>
-  </g>
+  <title id="title">J</title>
+  <rect width="180" height="180" rx="34" fill="#050505"/>
+  <path d="M63 29H109V49H90V120C90 138 80 150 62 150C50 150 41 145 36 133L52 123C57 129 64 132 72 132C80 132 85 127 85 118V49H63V29Z" fill="#ffffff"/>
 </svg>
