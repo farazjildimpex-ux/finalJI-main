@@ -7,15 +7,16 @@
 // at hashed bundles that disappear on every deploy, which is what caused the
 // installed PWA to launch into a blank screen after each Netlify build.
 
-const APP_VERSION = 'v11-2026-04-30';
+const APP_VERSION = 'v12-2026-08-16';
 const STATIC_CACHE = `jild-static-${APP_VERSION}`;
 const RUNTIME_CACHE = `jild-runtime-${APP_VERSION}`;
 
 const STATIC_ASSETS = [
   '/manifest.json',
   '/favicon.svg',
-  '/icon-192.png',
-  '/icon-512.png',
+  '/ji-leather-192.svg',
+  '/ji-leather-512.svg',
+  '/apple-touch-leather.svg',
 ];
 
 const SKIP_HOSTS = [
@@ -142,8 +143,8 @@ self.addEventListener('push', (event) => {
   const targetUrl = data.data?.url || data.fcmOptions?.link || '/app/home';
   const options = {
     body: data.notification?.body || '',
-    icon: '/icon-192.png',
-    badge: '/icon-192.png',
+    icon: '/ji-leather-192.svg',
+    badge: '/ji-leather-192.svg',
     tag: data.data?.tag || 'jild-notification',
     data: { url: targetUrl, ...data.data },
     requireInteraction: false,
