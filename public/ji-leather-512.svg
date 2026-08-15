@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="title">
-  <title id="title">JI Leather Icon</title>
-  <rect width="100%" height="100%" rx="80" fill="#ffffff"/>
-  <path d="M120 88c20-14 60-22 96-12 30 9 54 6 82 0 24-5 56 8 72 28 18 22 24 48 18 84-6 36-6 74-4 110 2 36-6 72-28 90-22 18-56 30-96 24-40-6-80-3-120 6-42 9-78 6-108-18-30-24-44-56-48-98-4-42 4-82 18-126 14-44 18-60 26-80 8-20 12-28 36-44z" fill="none" stroke="#111827" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M170 160c30-18 64-22 98-16 20 4 44 6 64 18" fill="none" stroke="#111827" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.95"/>
+  <title id="title">JI</title>
+  <rect width="512" height="512" rx="96" fill="#1d4ed8"/>
+  <text
+    x="256"
+    y="278"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="Arial, 'Segoe UI', sans-serif"
+    font-weight="800"
+    font-size="300"
+    letter-spacing="-18"
+    fill="#ffffff"
+  >JI</text>
 </svg>
