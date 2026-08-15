@@ -27,13 +27,13 @@
       "name": "Home",
       "shortName": "Home",
       "url": "/app/home",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+            "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Contracts",
       "shortName": "Contracts",
       "url": "/app/contracts",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+            "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Calendar",

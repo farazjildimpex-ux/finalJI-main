@@ -14,8 +14,8 @@ const RUNTIME_CACHE = `jild-runtime-${APP_VERSION}`;
 const STATIC_ASSETS = [
   '/manifest.json',
   '/favicon.svg',
-  '/ji-leather-192.svg',
-  '/ji-leather-512.svg',
+  '/icon-192.png',
+  '/icon-512.png',
   '/apple-touch-leather.svg',
 ];
 
@@ -143,8 +143,8 @@ self.addEventListener('push', (event) => {
   const targetUrl = data.data?.url || data.fcmOptions?.link || '/app/home';
   const options = {
     body: data.notification?.body || '',
-    icon: '/ji-leather-192.svg',
-    badge: '/ji-leather-192.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: data.data?.tag || 'jild-notification',
     data: { url: targetUrl, ...data.data },
     requireInteraction: false,

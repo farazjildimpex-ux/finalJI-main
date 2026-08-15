@@ -100,7 +100,7 @@ async function sendFCMNotification(
           webpush: {
             notification: {
               icon:               "/icon-192.png",
-              badge:              "/icon-192.png",
+                            badge:              "/icon-192.png",
               requireInteraction: true,
               vibrate:            [200, 100, 200, 100, 200],
               actions: [

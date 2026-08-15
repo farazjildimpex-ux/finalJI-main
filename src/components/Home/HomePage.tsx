@@ -760,9 +760,10 @@ const HomePage: React.FC = () => {
                       if (item.route) navigate(item.route);
                       setMobileOpenDueId(null);
                     }}
-                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-700 bg-gray-50"
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-gray-700 bg-gray-50"
                   >
-                    Open
+                    <ChevronRight className="h-3 w-3 text-gray-700" />
+                    <span>Open</span>
                   </button>
                   <button
                     type="button"
@@ -790,9 +791,10 @@ const HomePage: React.FC = () => {
                         await dialogService.alert({ title: 'Failed', message: err?.message || 'Please try again.', tone: 'danger' });
                       }
                     }}
-                                        className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50"
+                                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[11px] font-semibold text-emerald-700 bg-emerald-50"
                   >
-                    Mark completed
+                    <CheckCircle2 className="h-3 w-3 text-emerald-700" />
+                    <span>Mark completed</span>
                   </button>
                 </div>
               </div>
