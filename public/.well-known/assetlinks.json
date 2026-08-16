@@ -2,7 +2,7 @@
   "relation": ["delegate_permission/common.handle_all_urls"],
   "target": {
     "namespace": "android_app",
-    "package_name": "com.jildimpex.app",
-    "sha256_cert_fingerprints": ["REPLACE_WITH_YOUR_SHA256_FINGERPRINT"]
+    "package_name": "app.vercel.jildimpex.twa",
+    "sha256_cert_fingerprints": ["9A:25:74:A0:8A:CE:D8:B9:D7:10:78:5A:FF:A0:4C:92:CC:3B:EB:A1:52:68:55:8F:54:25:0A:A1:F8:E2:FA:6D"]
   }
 }]
