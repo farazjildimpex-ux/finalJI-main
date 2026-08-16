@@ -130,25 +130,33 @@ const ContactHistoryPage: React.FC = () => {
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 p-4 overflow-auto">
-          <table id="history-export-table" className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-slate-500 border-b"><th className="py-2">Date</th><th>Ref</th><th>Party</th><th>Value</th><th>Notes</th></tr>
-            </thead>
-            <tbody>
-              {(tab === 'contracts' ? filteredContracts : filteredPayments).map((r: any) => (
-                <tr key={r.id} className="border-b last:border-b-0">
-                  <td className="py-2">{(r.contract_date || r.debit_note_date) ? new Date(r.contract_date || r.debit_note_date).toLocaleDateString('en-GB') : ''}</td>
-                  <td>{r.contract_no || r.debit_note_no || r.id}</td>
-                  <td>{r.buyer_name || r.supplier_name || ''}</td>
-                  <td>{r.invoice_value || r.total_amount || r.value || ''}</td>
-                  <td className="truncate max-w-[400px]">{r.description || r.notes || ''}</td>
+          <div id="history-export-table" className="min-w-full">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ref</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
                 </tr>
-              ))}
-              {((tab === 'contracts' ? filteredContracts : filteredPayments).length === 0) && (
-                <tr><td colSpan={5} className="py-6 text-center text-slate-400">No records</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {(tab === 'contracts' ? filteredContracts : filteredPayments).map((r: any) => (
+                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 align-top text-sm text-gray-700">{(r.contract_date || r.debit_note_date) ? new Date(r.contract_date || r.debit_note_date).toLocaleDateString('en-GB') : ''}</td>
+                    <td className="px-6 py-4 align-top text-sm text-gray-700">{r.contract_no || r.debit_note_no || r.id}</td>
+                    <td className="px-6 py-4 align-top text-sm text-gray-700">{r.buyer_name || r.supplier_name || ''}</td>
+                    <td className="px-6 py-4 align-top text-sm text-gray-700 text-right">{r.invoice_value || r.total_amount || r.value || ''}</td>
+                    <td className="px-6 py-4 align-top text-sm text-gray-600 max-w-xl break-words">{r.description || r.notes || ''}</td>
+                  </tr>
+                ))}
+                {((tab === 'contracts' ? filteredContracts : filteredPayments).length === 0) && (
+                  <tr><td colSpan={5} className="py-10 text-center text-slate-400">No records</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
