@@ -103,8 +103,8 @@ const ContactHistoryPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-full bg-gray-50/60">
-      <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in">
+    <div className="min-h-screen bg-gray-50/60 overflow-y-auto">
+      <div className="px-4 py-6 max-w-5xl mx-auto space-y-4 page-fade-in pb-12">
         <MobilePageHeader
           eyebrow="History"
           title={contact ? contact.name : 'Contact History'}
