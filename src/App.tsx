@@ -10,6 +10,7 @@ import Layout from './components/Layout/Layout';
 import HomePage from './components/Home/HomePage';
 import ContractsPage from './components/Contracts/ContractsPage';
 import ContactBookPage from './components/ContactBook/ContactBookPage';
+import ContactHistoryPage from './components/ContactBook/ContactHistoryPage';
 import DebitNotePage from './components/DebitNote/DebitNotePage';
 import SampleBookPage from './components/SampleBook/SampleBookPage';
 import SettingsPage from './components/Settings/SettingsPage';
@@ -44,6 +45,7 @@ function App() {
             <Route path="contracts/:id" element={<ContractsPage />} />
             <Route path="contracts" element={<ContractsPage />} />
             <Route path="contacts" element={<ContactBookPage />} />
+            <Route path="contacts/:id/history" element={<ContactHistoryPage />} />
             <Route path="samples" element={<SampleBookPage />} />
             <Route path="samples/:id" element={<SampleBookPage />} />
             <Route path="approvals" element={<ApprovalsPage />} />

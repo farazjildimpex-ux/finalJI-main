@@ -370,12 +370,22 @@ const ContactDetailsModal: React.FC<ContactDetailsModalProps> = ({
               </button>
             </>
           ) : (
-            <button
-              onClick={onClose}
-              className="w-full px-6 py-3 text-sm font-bold text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
-            >
-              Close
-            </button>
+            <>
+              <div className="flex-1">
+                <button
+                  onClick={() => { window.location.href = `/app/contacts/${contact.id}/history`; }}
+                  className="w-full px-6 py-3 mb-2 text-sm font-bold text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 transition-all active:scale-95"
+                >
+                  View History
+                </button>
+              </div>
+              <button
+                onClick={onClose}
+                className="w-full px-6 py-3 text-sm font-bold text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all active:scale-95"
+              >
+                Close
+              </button>
+            </>
           )}
         </div>
       </div>
