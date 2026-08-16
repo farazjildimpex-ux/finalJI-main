@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="96" fill="#050505"/>
-  <path d="M182 80H308V138H254V332C254 382 224 414 178 414C146 414 123 402 108 376L156 349C165 361 178 368 192 368C208 368 218 359 218 343V138H182V80Z" fill="#ffffff"/>
+  <image href="/j-reference.png" x="64" y="80" width="384" height="336" preserveAspectRatio="xMidYMid meet"/>
 </svg>

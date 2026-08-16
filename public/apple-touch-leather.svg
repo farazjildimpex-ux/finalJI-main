@@ -1,6 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-labelledby="title">
-  <title id="title">J</title>
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
   <rect width="180" height="180" rx="34" fill="#050505"/>
-  <path d="M63 29H109V49H90V120C90 138 80 150 62 150C50 150 41 145 36 133L52 123C57 129 64 132 72 132C80 132 85 127 85 118V49H63V29Z" fill="#ffffff"/>
+  <image href="/j-reference.png" x="20" y="22" width="140" height="122" preserveAspectRatio="xMidYMid meet"/>
 </svg>
