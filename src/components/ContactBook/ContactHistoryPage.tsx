@@ -117,14 +117,14 @@ const ContactHistoryPage: React.FC = () => {
             <button onClick={() => setTab('payments')} className={`px-4 py-2 rounded-2xl ${tab==='payments'? 'bg-blue-600 text-white':'bg-white border'}`}>Payments</button>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:ml-auto sm:flex-wrap">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:ml-auto sm:flex-wrap w-full">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               <label className="text-xs text-slate-500 whitespace-nowrap">From</label>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full sm:w-auto px-2 py-1.5 border border-slate-200 rounded-lg bg-white text-sm" />
+              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white text-sm" />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               <label className="text-xs text-slate-500 whitespace-nowrap">To</label>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full sm:w-auto px-2 py-1.5 border border-slate-200 rounded-lg bg-white text-sm" />
+              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="w-full px-2 py-1.5 border border-slate-200 rounded-lg bg-white text-sm" />
             </div>
             <button onClick={() => { setFromDate(''); setToDate(''); }} className="text-sm text-slate-500 hover:underline self-start sm:self-auto">Clear</button>
           </div>
