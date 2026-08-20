@@ -68,11 +68,11 @@ export async function promptInstall(): Promise<boolean> {
 }
 
 export function checkServiceWorkerSupport(): boolean {
-  return 'serviceWorker' in navigator && 'caches' in window;
+  return typeof navigator !== 'undefined' && 'serviceWorker' in navigator && 'caches' in window;
 }
 
 export async function unregisterServiceWorker(): Promise<void> {
-  if (!('serviceWorker' in navigator)) return;
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
 
   const registrations = await navigator.serviceWorker.getRegistrations();
   for (const registration of registrations) {
@@ -86,11 +86,56 @@ export function isOnline(): boolean {
 }
 
 export function addOnlineListener(callback: (isOnline: boolean) => void): () => void {
-  window.addEventListener('online', () => callback(true));
-  window.addEventListener('offline', () => callback(false));
+  const onlineHandler = () => callback(true);
+  const offlineHandler = () => callback(false);
+  window.addEventListener('online', onlineHandler);
+  window.addEventListener('offline', offlineHandler);
 
   return () => {
-    window.removeEventListener('online', () => callback(true));
-    window.removeEventListener('offline', () => callback(false));
+    window.removeEventListener('online', onlineHandler);
+    window.removeEventListener('offline', offlineHandler);
   };
+}
+
+// ── New helpers for notifications & SW registration ──
+export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) {
+    console.warn('PWA: serviceWorker not supported');
+    return null;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.register('/sw.js');
+    console.log('PWA: Service worker registered', registration);
+    return registration;
+  } catch (err) {
+    console.error('PWA: Service worker registration failed', err);
+    return null;
+  }
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermission> {
+  if (typeof Notification === 'undefined') return 'default';
+  try {
+    const result = await Notification.requestPermission();
+    console.log('PWA: Notification permission', result);
+    return result;
+  } catch (err) {
+    console.error('PWA: requestNotificationPermission failed', err);
+    return 'default';
+  }
+}
+
+export function getNotificationStatus(): { permission: NotificationPermission; granted: boolean } {
+  if (typeof Notification === 'undefined') return { permission: 'default', granted: false };
+  return { permission: Notification.permission, granted: Notification.permission === 'granted' };
+}
+
+export function isTWAorStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true ||
+    document.referrer.includes('android-app://')
+  );
 }
