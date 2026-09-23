@@ -138,9 +138,7 @@ const EmailInboxPage: React.FC = () => {
 
         {/* Render based on active tab */}
         {activeTab === 'email' && (
-          <div className="min-h-full bg-slate-50/80">
-            <div className="mx-auto max-w-7xl px-4 py-4 md:py-6">
-
+          <>
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {([
             ['important', 'Important'],
@@ -294,13 +292,14 @@ const EmailInboxPage: React.FC = () => {
             )}
           </section>
         </div>
+        </>
       )}
 
       {/* Templates Tab */}
       {activeTab === 'templates' && (
-        <div className="min-h-full">
+        <>
           <EmailTemplatesPage embedded={true} />
-        </div>
+        </>
       )}
       </div>
     </div>
