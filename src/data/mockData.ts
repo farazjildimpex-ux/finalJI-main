@@ -8,7 +8,7 @@ export const navigationItems: NavigationItem[] = [
     mobile: true,
   },
   {
-    name: 'Email',
+    name: 'Email & Templates',
     path: '/app/email',
     icon: 'mail',
     mobile: true,
@@ -23,12 +23,6 @@ export const navigationItems: NavigationItem[] = [
     name: 'Lead IQ',
     path: '/app/sales',
     icon: 'zap',
-    mobile: true,
-  },
-  {
-    name: 'Email Templates',
-    path: '/app/email-templates',
-    icon: 'mail',
     mobile: true,
   },
   {

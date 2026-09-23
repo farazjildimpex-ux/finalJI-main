@@ -5,8 +5,10 @@ import type { EmailData } from '../../lib/emailSync';
 import { fetchZohoEmails } from '../../lib/emailSync';
 import { getEmailSnippet, sortZohoEmails } from '../../lib/zohoMail';
 import MobilePageHeader from '../Layout/MobilePageHeader';
+import EmailTemplatesPage from '../EmailTemplates/EmailTemplatesPage';
 
 type Filter = 'important' | 'all' | 'attachments';
+type Tab = 'email' | 'templates';
 
 const EmailInboxPage: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +18,7 @@ const EmailInboxPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('important');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('email');
 
   const loadEmails = async (showSpinner = false) => {
     try {
@@ -75,9 +78,14 @@ const EmailInboxPage: React.FC = () => {
 
         <div className="mb-4 hidden items-center justify-between gap-3 md:flex">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Zoho Mail</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Email</h1>
-            <p className="mt-1 text-sm text-slate-500">Important mail, attachments and recent inbox activity.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Email & Templates</p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">{activeTab === 'email' ? 'Email' : 'Templates'}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              {activeTab === 'email' 
+                ? 'Important mail, attachments and recent inbox activity.'
+                : 'Manage and browse email templates'
+              }
+            </p>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -88,17 +96,50 @@ const EmailInboxPage: React.FC = () => {
               <ArrowLeft className="h-4 w-4" />
               Home
             </button>
+            {activeTab === 'email' && (
+              <button
+                type="button"
+                onClick={() => loadEmails(true)}
+                className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="mb-4 border-b border-slate-200">
+          <div className="flex gap-0">
             <button
-              type="button"
-              onClick={() => loadEmails(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
-              disabled={refreshing}
+              onClick={() => setActiveTab('email')}
+              className={`px-4 py-3 font-semibold text-sm border-b-2 transition ${
+                activeTab === 'email'
+                  ? 'border-slate-950 text-slate-950'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
             >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
+              Email
+            </button>
+            <button
+              onClick={() => setActiveTab('templates')}
+              className={`px-4 py-3 font-semibold text-sm border-b-2 transition ${
+                activeTab === 'templates'
+                  ? 'border-slate-950 text-slate-950'
+                  : 'border-transparent text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              Templates
             </button>
           </div>
         </div>
+
+        {/* Render based on active tab */}
+        {activeTab === 'email' && (
+          <div className="min-h-full bg-slate-50/80">
+            <div className="mx-auto max-w-7xl px-4 py-4 md:py-6">
 
         <div className="mb-4 flex flex-wrap items-center gap-2">
           {([
@@ -253,6 +294,14 @@ const EmailInboxPage: React.FC = () => {
             )}
           </section>
         </div>
+      )}
+
+      {/* Templates Tab */}
+      {activeTab === 'templates' && (
+        <div className="min-h-full">
+          <EmailTemplatesPage embedded={true} />
+        </div>
+      )}
       </div>
     </div>
   );

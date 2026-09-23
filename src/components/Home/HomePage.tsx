@@ -2241,8 +2241,6 @@ const HomePage: React.FC = () => {
 
           {/* RIGHT: Recent Activity */}
           <div className="flex-1 flex flex-col min-h-0 overflow-hidden gap-3">
-            <EmailPreviewSection onOpenPage={() => navigate('/app/email')} className="shrink-0" />
-
             <section className="rounded-2xl bg-white border border-gray-100 shadow-sm overflow-hidden flex flex-col min-h-0 flex-1">
               <div className="px-4 py-3 border-b border-gray-100 shrink-0">
                 <div className="flex items-start justify-between gap-3 mb-2.5">

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -21,8 +21,9 @@
 
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    @apply text-gray-800 antialiased bg-white;
+    @apply text-slate-700 antialiased bg-slate-50;
     font-size: 13px;
+    font-weight: 400;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -42,7 +43,7 @@
   /* Prevent browser dark-mode from overriding input backgrounds */
   input, textarea, select {
     background-color: #ffffff;
-    color: #111827;
+    color: #1e293b;
     color-scheme: light;
   }
 
@@ -51,14 +52,14 @@
     a,
     [role="button"] {
       transition-property: color, background-color, border-color, box-shadow, transform, opacity;
-      transition-duration: 160ms;
+      transition-duration: 140ms;
       transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     button:active,
     a:active,
     [role="button"]:active {
-      transform: translateY(1px) scale(0.99);
+      transform: translateY(0.5px) scale(0.99);
     }
   }
 }

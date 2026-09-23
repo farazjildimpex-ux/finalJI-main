@@ -28,10 +28,10 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
   };
 
   return (
-    <div className="bg-white h-full w-44 flex flex-col border-r border-gray-100 overflow-hidden">
+    <div className="bg-slate-50 h-full w-44 flex flex-col border-r border-slate-200 overflow-hidden">
 
       {/* Nav items */}
-      <nav className="flex-1 pt-3 pb-2 flex flex-col overflow-y-auto no-scrollbar">
+      <nav className="flex-1 pt-4 pb-2 flex flex-col overflow-y-auto no-scrollbar">
         {navigationItems.map((item) => {
           // @ts-ignore
           const Icon = LucideIcons[item.icon.charAt(0).toUpperCase() + item.icon.slice(1)];
@@ -42,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
             <div key={item.name} className="relative flex items-center w-full">
               {/* Left accent stripe */}
               {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-6 bg-blue-600 rounded-r-full z-10" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-slate-900 rounded-r" />
               )}
               <Link
                 to={item.path}
@@ -51,20 +51,20 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
                     window.dispatchEvent(new Event('home-journal-reset'));
                   }
                 }}
-                className={`flex items-center gap-2.5 w-full py-2.5 px-3 transition-all duration-150
+                className={`flex items-center gap-3 w-full py-2.5 px-3 transition-all duration-150 ml-0.5
                   ${isActive
-                    ? 'text-blue-600 bg-blue-50'
-                    : 'text-gray-800 hover:bg-gray-50 hover:text-gray-900'
+                    ? 'text-slate-900 bg-slate-100'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
                   }`}
               >
                 {Icon && (
                   <Icon
-                    className={`shrink-0 ${isActive ? 'text-blue-600' : 'text-gray-500'}`}
-                    style={{ width: 15, height: 15 }}
-                    strokeWidth={isActive ? 2.5 : 1.75}
+                    className={`shrink-0 ${isActive ? 'text-slate-900' : 'text-slate-400'}`}
+                    style={{ width: 16, height: 16 }}
+                    strokeWidth={isActive ? 2 : 1.5}
                   />
                 )}
-                <span className={`text-[12px] font-semibold whitespace-nowrap truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+                <span className={`text-[12px] font-medium whitespace-nowrap truncate ${isActive ? 'text-slate-900 font-semibold' : 'text-slate-600'}`}>
                   {item.name}
                 </span>
               </Link>
@@ -74,7 +74,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
       </nav>
 
       {/* Bottom actions */}
-      <div className="py-2 flex flex-col border-t border-gray-100 shrink-0">
+      <div className="py-2 flex flex-col border-t border-slate-200 shrink-0">
         {[
           { label: 'Companies', icon: Building2, onClick: onManageCompanies, danger: false },
           { label: 'Change Password', icon: Key, onClick: onChangePassword, danger: false },
@@ -86,13 +86,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onManageCompanies, onChangePassword }
               key={a.label}
               onClick={a.onClick}
               disabled={loggingOut && a.label.includes('Logging')}
-              className={`flex items-center gap-2.5 py-2.5 px-3 w-full transition-all duration-150 disabled:opacity-40
+              className={`flex items-center gap-3 py-2.5 px-3 w-full transition-all duration-150 disabled:opacity-40
                 ${a.danger
-                  ? 'text-gray-500 hover:text-red-500 hover:bg-red-50'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  ? 'text-slate-500 hover:text-red-600 hover:bg-red-50'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
             >
-              <Icon style={{ width: 14, height: 14, flexShrink: 0 }} strokeWidth={1.75} />
+              <Icon style={{ width: 15, height: 15, flexShrink: 0 }} strokeWidth={1.5} />
               <span className="text-[12px] font-medium truncate">{a.label}</span>
             </button>
           );

@@ -28,7 +28,7 @@ const CONTEXT_COLORS: Record<string, string> = {
 };
 
 /* ── Page ── */
-const EmailTemplatesPage: React.FC = () => {
+const EmailTemplatesPage: React.FC<{ embedded?: boolean }> = ({ embedded = false }) => {
   const { user } = useAuth();
   const [templates, setTemplates]             = useState<EmailTemplate[]>([]);
   const [loading, setLoading]                 = useState(true);
