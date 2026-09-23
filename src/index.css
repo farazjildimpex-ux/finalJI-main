@@ -178,8 +178,6 @@
     }
   }
 
-  /* Mobile zoom removed as it breaks scrolling calculations */
-
   @keyframes fadeIn {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
@@ -220,18 +218,36 @@
   }
 
   @keyframes journalHighlightPulse {
-    0%, 100% { box-shadow: 0 0 0 2px rgb(59 130 246); }
-    50% { box-shadow: 0 0 0 5px rgb(147 197 253); }
+    0%, 100% { box-shadow: 0 0 0 2px rgb(15 23 42); }
+    50% { box-shadow: 0 0 0 5px rgb(30 41 59); }
   }
 
   .journal-entry-highlight {
     animation: journalHighlightPulse 1.1s ease-in-out 2;
   }
+
+  /* Minimalist button styles */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 font-semibold text-white shadow-sm transition hover:bg-slate-800 active:scale-95 disabled:opacity-50;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 active:scale-95 disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-100 active:bg-slate-200;
+  }
+
+  /* Minimalist card style */
+  .card-minimal {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -243,3 +259,4 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
