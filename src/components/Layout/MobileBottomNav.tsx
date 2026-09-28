@@ -48,7 +48,7 @@ const MobileBottomNav: React.FC = () => {
   return (
     <>
       <nav
-        className="md:hidden fixed left-4 right-4 z-50 bg-white/95 backdrop-blur-xl"
+        className="md:hidden fixed left-4 right-4 z-50 bg-[#182536]/95 backdrop-blur-xl"
         style={{
           bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
           border: '1px solid rgba(226,232,240,0.95)',

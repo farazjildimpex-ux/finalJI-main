@@ -832,10 +832,10 @@ const HomePage: React.FC = () => {
       <div
         id={`journal-entry-${entry.id}`}
         key={entry.id}
-        className={`rounded-xl border overflow-hidden transition-all duration-300 ${
+        className={`rounded-[22px] border overflow-hidden transition-all duration-300 shadow-[0_6px_18px_rgba(15,23,42,0.05)] ${
           isHighlighted
-            ? 'border-blue-400 ring-2 ring-blue-500 journal-entry-highlight bg-blue-50/40'
-            : `border-gray-100 ${isFollowUp ? 'bg-white' : 'bg-gray-50'}`
+            ? 'border-sky-400 ring-2 ring-sky-500 journal-entry-highlight bg-sky-50/40'
+            : `border-slate-200/80 ${isFollowUp ? 'bg-white' : 'bg-white'}`
         }`}
       >
         <button
@@ -1000,35 +1000,25 @@ const HomePage: React.FC = () => {
   };
 
   const renderMobileJournalPanel = () => (
-    <section className="h-full min-h-0 flex flex-col">
-      <div className="px-4 py-3 flex items-center justify-between gap-3 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
-        <button
-          type="button"
-          onClick={openWeekPicker}
-          className="min-w-0 text-left active:opacity-80"
-        >
-          <h2 className="text-[15px] font-bold text-gray-900 leading-tight">Journal</h2>
-          <p className="mt-0.5 text-[11px] font-medium text-gray-400">
-            {formatWeekRange(mobileWeekStart)}
-          </p>
+    <section className="h-full min-h-0 flex flex-col bg-[#f5f7fb]">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200/70 bg-white px-5 py-4">
+        <button type="button" onClick={openWeekPicker} className="min-w-0 text-left active:opacity-80">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-600">Your notes</p>
+          <h2 className="mt-1 text-[20px] font-black tracking-[-0.03em] text-slate-900">Journal</h2>
+          <p className="mt-1 text-[11px] font-medium text-slate-400">{formatWeekRange(mobileWeekStart)} · swipe to browse</p>
         </button>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }}
-            className="h-8 px-3 rounded-lg bg-blue-600 text-white text-[11px] font-bold flex items-center gap-1.5 active:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-3 w-3" /> New
-          </button>
-        </div>
+        <button onClick={() => { setEditingEntry(null); setIsMobileFormOpen(true); }} className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-sky-500 text-white shadow-[0_8px_18px_rgba(14,165,233,0.28)] active:scale-95" aria-label="New journal entry">
+          <Plus className="size-5" />
+        </button>
       </div>
 
       <div
-        className="px-4 py-2 border-b border-gray-50 bg-white"
+        className="border-b border-slate-200/70 bg-white px-4 py-3"
         onTouchStart={(e) => { e.stopPropagation(); weekTouchStartX.current = e.changedTouches[0].clientX; }}
         onTouchEnd={(e) => { e.stopPropagation(); handleWeekTouchEnd(e); }}
       >
         <div
-          className="grid grid-cols-7 gap-1"
+          className="grid grid-cols-7 gap-1 rounded-2xl bg-slate-50 p-1"
           onTouchStart={handleDaySwipeStart}
           onTouchEnd={handleDaySwipeEnd}
         >
@@ -1460,30 +1450,26 @@ const HomePage: React.FC = () => {
       >
         <PullToRefresh onRefresh={handlePullRefresh}>
           <div className="flex h-full min-h-0 flex-col mobile-page-enter">
-            <div className="px-4 pt-4 pb-3 shrink-0">
-              <MobilePageHeader
-                eyebrow={formatFullDate()}
-                title={getGreeting()}
-                subtitle="Recent activity, journal, email and search."
-              />
-
-              <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white p-1 shadow-sm">
+            <div className="shrink-0 overflow-hidden bg-[#182536] px-5 pb-5 pt-[calc(1rem+env(safe-area-inset-top,0px))] text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-sky-300">JILD IMPEX · Workspace</p>
+                  <h1 className="mt-2 text-[26px] font-black leading-none tracking-[-0.04em]">{getGreeting()}</h1>
+                  <p className="mt-2 text-[12px] font-medium text-slate-300">{formatFullDate()}</p>
+                </div>
+                <button type="button" onClick={openSearch} aria-label="Search journal" className="mt-1 flex size-10 items-center justify-center rounded-2xl bg-white/10 text-sky-100 ring-1 ring-white/10 active:scale-95">
+                  <Search className="size-4" />
+                </button>
+              </div>
+              <div className="mt-5 flex gap-2 overflow-x-auto no-scrollbar">
                 {[
-                  { id: 'recent', label: 'Recent' },
                   { id: 'journal', label: 'Journal' },
-                  { id: 'email', label: 'Email' },
-                  { id: 'search', label: 'Search' },
+                  { id: 'recent', label: 'Activity' },
+                  { id: 'email', label: 'Inbox' },
+                  { id: 'search', label: 'Find' },
                 ].map((item) => {
                   const active = mobileHomePanel === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => activateMobilePanel(item.id as MobileHomePanel)}
-                      className={`h-8 rounded-lg text-[11px] font-semibold transition-colors ${active ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 active:bg-gray-50'}`}
-                    >
-                      {item.label}
-                    </button>
-                  );
+                  return <button key={item.id} onClick={() => activateMobilePanel(item.id as MobileHomePanel)} className={`shrink-0 rounded-full px-4 py-2 text-[11px] font-bold transition ${active ? 'bg-sky-300 text-[#182536]' : 'bg-white/10 text-slate-300 active:bg-white/20'}`}>{item.label}</button>;
                 })}
               </div>
             </div>
