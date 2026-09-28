@@ -48,7 +48,7 @@ const MobileBottomNav: React.FC = () => {
   return (
     <>
       <nav
-        className="md:hidden fixed left-4 right-4 z-50 bg-[#182536]/95 backdrop-blur-xl"
+        className="md:hidden fixed left-3 right-3 z-50 bg-[#fffaf1]/95 backdrop-blur-xl"
         style={{
           bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
           border: '1px solid rgba(226,232,240,0.95)',
@@ -81,13 +81,13 @@ const MobileBottomNav: React.FC = () => {
             const inner = (
               <div className="flex flex-col items-center justify-center gap-0.5 w-full h-full">
                 <Icon
-                  style={{ width: 20, height: 20, color: isActive ? '#2563FF' : '#9CA3AF' }}
+                  style={{ width: 20, height: 20, color: isActive ? '#e76f51' : '#71807b' }}
                   strokeWidth={isActive ? 2.5 : 1.75}
                 />
                 <span style={{
                   fontSize: 10,
                   fontWeight: 600,
-                  color: isActive ? '#2563FF' : '#9CA3AF',
+                  color: isActive ? '#e76f51' : '#71807b',
                   fontFamily: 'Inter, sans-serif',
                 }}>
                   {tab.name}
@@ -113,7 +113,7 @@ const MobileBottomNav: React.FC = () => {
         <>
           <div
             className="md:hidden fixed inset-0 z-[60]"
-            style={{ background: 'rgba(15,23,42,0.45)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
+            style={{ background: 'rgba(24,59,59,0.38)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
             onClick={() => setShowMore(false)}
           />
 
@@ -127,7 +127,7 @@ const MobileBottomNav: React.FC = () => {
             <div
               className="rounded-[28px] overflow-hidden"
               style={{
-                background: 'rgba(255,255,255,0.82)',
+                background: 'rgba(255,250,241,0.92)',
                 backdropFilter: 'blur(40px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(40px) saturate(180%)',
                 border: '1px solid rgba(255,255,255,0.6)',
